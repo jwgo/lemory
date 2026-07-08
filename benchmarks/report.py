@@ -110,6 +110,46 @@ def main() -> None:
                     ["lemory", "vector", "bm25", "mem0"]) + extra
         )
 
+    for name, title, note in (
+        ("maple", "메이플스토리 (나무위키-style, Korean)",
+         "Real game entities/terminology; relations wired by code, QA gold by construction."),
+        ("law", "전세사기 관계법령 (Korean legal)",
+         "Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers code-verified to appear in gold notes."),
+    ):
+        f = WORK / f"results_retrieval_{name}.json"
+        if f.exists():
+            res = json.loads(f.read_text())
+            rows = [{"system": s, **m} for s, m in res.items()]
+            sections.append(
+                f"## Korean corpus: {title}\n\n{note}\n\n"
+                + table(rows, [
+                    ("full_support@8", "Full-support@8"),
+                    ("recall@1", "Recall@1"),
+                    ("recall@5", "Recall@5"),
+                    ("mrr@10", "MRR@10"),
+                ], ["lemory", "lemory-nograph", "vector", "bm25"])
+            )
+
+    sb_file = WORK / "results_secondbrain.json"
+    if sb_file.exists():
+        d = json.loads(sb_file.read_text())
+        p = d["planted"]
+        sections.append(
+            "## Second-brain scale (948 mixed KR/EN notes, LLM-free)\n\n"
+            "Diverse realistic vault (people, projects, daily logs, meetings, tastes,\n"
+            "clippings) with 50 planted facts; deterministic local embedder, so this\n"
+            "verifies ingest/sync/graph/lexical retrieval at scale (semantic quality\n"
+            "is covered by the corpora above on real embeddings).\n\n"
+            f"| Metric | value |\n|---|---|\n"
+            f"| Notes / chunks / links | {d['docs']} / {d['chunks']} / {d['links']} |\n"
+            f"| Full index | {d['full_index_s']:.1f} s |\n"
+            f"| Incremental sync (1 edit) | {d['incremental_sync_s']:.2f} s |\n"
+            f"| Planted-fact hit@1 (hybrid) | {p['hybrid']['hit@1']:.2f} |\n"
+            f"| Planted-fact hit@1 (BM25) | {p['bm25']['hit@1']:.2f} |\n"
+            f"| Planted-fact hit@5 (hybrid) | {p['hybrid']['hit@5']:.2f} |\n"
+            f"| Search latency (hybrid) | {p['hybrid']['ms_per_query']:.1f} ms |\n"
+        )
+
     perf_file = WORK / "results_perf.json"
     if perf_file.exists():
         perf = json.loads(perf_file.read_text())

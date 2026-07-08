@@ -17,10 +17,17 @@ the precondition for a correct multi-hop answer.
 
 | System | Full-support@8 (2-hop) | Full-support@8 (all) | Recall@1 | MRR@10 | ms/query* |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 2.255 |
-| Lemory w/o graph (ablation) | 0.381 | 0.544 | 1.000 | 1.000 | 1.154 |
-| Vector-only (naive RAG) | 0.381 | 0.544 | 0.965 | 0.982 | 0.376 |
-| BM25 (lexical) | 0.429 | 0.579 | 0.825 | 0.912 | 0.771 |
+| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 1.970 |
+| Lemory w/o graph (ablation) | 0.381 | 0.544 | 1.000 | 1.000 | 1.274 |
+| Vector-only (naive RAG) | 0.381 | 0.544 | 0.965 | 0.982 | 0.392 |
+| BM25 (lexical) | 0.429 | 0.579 | 0.825 | 0.912 | 0.768 |
+
+## 3. End-to-end QA (same Gemini generator, only retrieval differs)
+
+40 LemoryBench questions; token-F1 / containment-EM vs gold answers.
+
+| System | F1 | EM (contain) | F1 (2-hop) | F1 (1-hop) | n |
+|---|---|---|---|---|---|
 
 ## 4. External system: mem0 (OSS)
 
@@ -34,6 +41,24 @@ answer string appears in the top-8 retrieved texts (LemoryBench, 57 q).
 | Vector-only (naive RAG) | 0.561 |
 | BM25 (lexical) | 0.667 |
 
+## Second-brain scale (948 mixed KR/EN notes, LLM-free)
+
+Diverse realistic vault (people, projects, daily logs, meetings, tastes,
+clippings) with 50 planted facts; deterministic local embedder, so this
+verifies ingest/sync/graph/lexical retrieval at scale (semantic quality
+is covered by the corpora above on real embeddings).
+
+| Metric | value |
+|---|---|
+| Notes / chunks / links | 948 / 1428 / 1176 |
+| Full index | 4.7 s |
+| Incremental sync (1 edit) | 0.08 s |
+| Planted-fact hit@1 (hybrid) | 1.00 |
+| Planted-fact hit@1 (BM25) | 0.92 |
+| Planted-fact hit@5 (hybrid) | 1.00 |
+| Search latency (hybrid) | 3.6 ms |
+
+
 ## 5. Local retrieval latency at scale (`perf_local.py`)
 
 Synthetic Zipfian corpus, 50 queries, exact cosine + SQLite FTS5.
@@ -41,9 +66,9 @@ Synthetic Zipfian corpus, 50 queries, exact cosine + SQLite FTS5.
 
 | Index size | hybrid+graph | hybrid | vector | bm25 |
 |---|---|---|---|---|
-| 2,000 chunks | 7.3 ms | 4.6 ms | 0.56 ms | 3.7 ms |
-| 10,000 chunks | 19.0 ms | 16.4 ms | 1.12 ms | 15.5 ms |
-| 50,000 chunks | 80.1 ms | 74.1 ms | 6.05 ms | 69.0 ms |
+| 2,000 chunks | 6.6 ms | 4.4 ms | 0.82 ms | 3.6 ms |
+| 10,000 chunks | 18.7 ms | 15.4 ms | 1.22 ms | 13.8 ms |
+| 50,000 chunks | 78.8 ms | 77.1 ms | 5.48 ms | 69.4 ms |
 
 \* ms/query is local compute only (vector/BM25/graph math), measured on the
 benchmark machine; the query embedding round-trip (~100–300 ms, identical for
