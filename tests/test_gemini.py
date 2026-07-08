@@ -92,7 +92,7 @@ def test_embed_batches_and_normalizes():
         n = len(body["requests"])
         seen_batches.append(n)
         return httpx.Response(200, json={"embeddings": [{"values": [3.0] + [0.0] * 767}] * n})
-    c = make_client(handler)
+    c = make_client(handler, embed_batch=96)
     out = c.embed(["a"] * 100)  # forces two batches (96 + 4)
     assert out.shape == (100, 768)
     assert seen_batches == [96, 4]

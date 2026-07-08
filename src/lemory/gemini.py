@@ -73,6 +73,7 @@ class GeminiClient:
         embed_model: str = "gemini-embedding-001",
         embed_dim: int = 768,
         embed_rpm: int = 90,
+        embed_batch: int = 64,
         max_output_tokens: int = 2048,
         timeout: float = 120.0,
     ):
@@ -81,6 +82,7 @@ class GeminiClient:
         self.llm_fallback_model = llm_fallback_model
         self.embed_model = embed_model
         self.embed_dim = embed_dim
+        self.embed_batch = max(1, min(embed_batch, 96))  # API limit is 100/batch
         self.max_output_tokens = max_output_tokens
         self._llm_limiter = RateLimiter(llm_rpm)
         self._embed_limiter = RateLimiter(embed_rpm)
@@ -177,7 +179,7 @@ class GeminiClient:
     def embed(self, texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> np.ndarray:
         """Embed texts (batched). Returns L2-normalized float32 array [n, dim]."""
         out = np.zeros((len(texts), self.embed_dim), dtype=np.float32)
-        B = 96  # API limit is 100 per batch
+        B = self.embed_batch
         for i in range(0, len(texts), B):
             batch = texts[i : i + B]
             payload = {

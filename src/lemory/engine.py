@@ -46,6 +46,7 @@ class Engine:
                     embed_model=self.cfg.embed_model,
                     embed_dim=self.cfg.embed_dim,
                     embed_rpm=self.cfg.embed_rpm,
+                    embed_batch=self.cfg.embed_batch,
                     max_output_tokens=self.cfg.llm_max_output_tokens,
                 )
         return self._llm
