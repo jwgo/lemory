@@ -86,7 +86,7 @@ def hybrid_search(
     # --- title boost: a chunk from a note whose title matches query terms is
     # more likely the canonical source (Obsidian notes are entity-titled).
     q_tokens = _tokens(query)
-    if q_tokens and cfg.title_boost > 0:
+    if mode == "hybrid" and q_tokens and cfg.title_boost > 0:
         for cid, meta in chunk_meta.items():
             t_tokens = _tokens(meta.title)
             if t_tokens and t_tokens <= q_tokens:
@@ -99,14 +99,16 @@ def hybrid_search(
 
     ranked = sorted(fused.items(), key=lambda x: -x[1])
 
-    # per-doc cap keeps the context diverse (supermemory-style)
+    # per-doc cap keeps the context diverse (supermemory-style); baselines
+    # ('vector'/'bm25' modes) stay pure rankings for honest comparison
+    cap = cfg.per_doc_cap if mode == "hybrid" else 10**9
     hits: list[ChunkHit] = []
     per_doc: dict[int, int] = {}
     for cid, score in ranked:
         meta = chunk_meta.get(cid)
         if meta is None:
             continue
-        if per_doc.get(meta.doc_id, 0) >= cfg.per_doc_cap:
+        if per_doc.get(meta.doc_id, 0) >= cap:
             continue
         per_doc[meta.doc_id] = per_doc.get(meta.doc_id, 0) + 1
         meta.score = score

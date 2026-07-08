@@ -1,0 +1,671 @@
+[
+  {
+    "q": "Where does the author of \"Chronicles of the Subterranean Cities\" work?",
+    "answers": [
+      "Quantum Loom"
+    ],
+    "gold_notes": [
+      "Chronicles of the Subterranean Cities",
+      "Maya Singh"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "What is Ethan Cross's favorite tool?",
+    "answers": [
+      "NetGuardian Monitor"
+    ],
+    "gold_notes": [
+      "Ethan Cross"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "In which city is the company running Project Chronos headquartered?",
+    "answers": [
+      "Tallinn"
+    ],
+    "gold_notes": [
+      "Project Chronos",
+      "Chronos Systems"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Oracle?",
+    "answers": [
+      "Historical reenactment of ancient battles"
+    ],
+    "gold_notes": [
+      "Project Oracle",
+      "Lena Petrova"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "What programming language is the tool used by Project Atlas written in?",
+    "answers": [
+      "Rust"
+    ],
+    "gold_notes": [
+      "Project Atlas",
+      "NeuroLink OS"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "What is the hometown of the person who wrote \"Echoes of the Ember Star\"?",
+    "answers": [
+      "Denver"
+    ],
+    "gold_notes": [
+      "Echoes of the Ember Star",
+      "Ethan Cross"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Chimera?",
+    "answers": [
+      "Composing experimental electronic music"
+    ],
+    "gold_notes": [
+      "Project Chimera",
+      "Maya Singh"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "What was decided at Q2 R&D Summit Tokyo?",
+    "answers": [
+      "Approved funding for the 'Project Chimera' prototype phase."
+    ],
+    "gold_notes": [
+      "Q2 R&D Summit Tokyo"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "What programming language is the tool used by Project Solstice written in?",
+    "answers": [
+      "Bash"
+    ],
+    "gold_notes": [
+      "Project Solstice",
+      "ChronoVault Backup"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "What programming language is the tool used by Project Oracle written in?",
+    "answers": [
+      "Python"
+    ],
+    "gold_notes": [
+      "Project Oracle",
+      "CodeWeaver Studio"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "Where does the author of \"Synthetics and Sentience\" work?",
+    "answers": [
+      "Veridian Robotics"
+    ],
+    "gold_notes": [
+      "Synthetics and Sentience",
+      "Chloe Zhao"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "What is Zane Kincaid's favorite tool?",
+    "answers": [
+      "CodeQuill IDE"
+    ],
+    "gold_notes": [
+      "Zane Kincaid"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "What was decided at Operations Efficiency Meeting Singapore?",
+    "answers": [
+      "Streamlined the global supply chain by consolidating distribution hubs."
+    ],
+    "gold_notes": [
+      "Operations Efficiency Meeting Singapore"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Sentinel?",
+    "answers": [
+      "Practicing traditional Chinese calligraphy"
+    ],
+    "gold_notes": [
+      "Project Sentinel",
+      "Chloe Zhao"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "When was Synthetica Soundworks founded?",
+    "answers": [
+      "1989"
+    ],
+    "gold_notes": [
+      "Synthetica Soundworks"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "In which city is the company running Project Solstice headquartered?",
+    "answers": [
+      "Porto"
+    ],
+    "gold_notes": [
+      "Project Solstice",
+      "Spectra Innovations"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What is Anya Sharma's favorite tool?",
+    "answers": [
+      "CanvasFlow Prototyper"
+    ],
+    "gold_notes": [
+      "Anya Sharma"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "In which city is the company running Project Oracle headquartered?",
+    "answers": [
+      "Lisbon"
+    ],
+    "gold_notes": [
+      "Project Oracle",
+      "Neuralink Solutions"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Solstice?",
+    "answers": [
+      "Designing and 3D printing miniature rockets"
+    ],
+    "gold_notes": [
+      "Project Solstice",
+      "Darius Reed"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "In which city is the company running Project Atlas headquartered?",
+    "answers": [
+      "Reykjavík"
+    ],
+    "gold_notes": [
+      "Project Atlas",
+      "Veridian Robotics"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Chronos?",
+    "answers": [
+      "Competitive powerlifting"
+    ],
+    "gold_notes": [
+      "Project Chronos",
+      "Liam O'Connell"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "What is the hometown of the person who wrote \"Whispers from the Void-Net\"?",
+    "answers": [
+      "Paris"
+    ],
+    "gold_notes": [
+      "Whispers from the Void-Net",
+      "Seraphina Dubois"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "What programming language is the tool used by Project Chronos written in?",
+    "answers": [
+      "JavaScript"
+    ],
+    "gold_notes": [
+      "Project Chronos",
+      "DataSculpt Pro"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "What programming language is the tool used by Project Sentinel written in?",
+    "answers": [
+      "Go"
+    ],
+    "gold_notes": [
+      "Project Sentinel",
+      "AetherNet Monitor"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "In which city is the company running Project Chimera headquartered?",
+    "answers": [
+      "Porto"
+    ],
+    "gold_notes": [
+      "Project Chimera",
+      "Spectra Innovations"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "Where does the author of \"Whispers from the Void-Net\" work?",
+    "answers": [
+      "Chronos Systems"
+    ],
+    "gold_notes": [
+      "Whispers from the Void-Net",
+      "Seraphina Dubois"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "What is Seraphina Dubois's favorite tool?",
+    "answers": [
+      "Circuit Weaver Workbench"
+    ],
+    "gold_notes": [
+      "Seraphina Dubois"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "Where does the author of \"The Quantum Labyrinth\" work?",
+    "answers": [
+      "Chronos Systems"
+    ],
+    "gold_notes": [
+      "The Quantum Labyrinth",
+      "Anya Sharma"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "In which city is the company running Project Lumina headquartered?",
+    "answers": [
+      "Reykjavík"
+    ],
+    "gold_notes": [
+      "Project Lumina",
+      "Veridian Robotics"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What programming language is the tool used by Project Chimera written in?",
+    "answers": [
+      "Python"
+    ],
+    "gold_notes": [
+      "Project Chimera",
+      "CodeWeaver Studio"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "In which city is the company running Project Nightingale headquartered?",
+    "answers": [
+      "Osaka"
+    ],
+    "gold_notes": [
+      "Project Nightingale",
+      "Luminar Data"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What is the hometown of the person who wrote \"Chronicles of the Subterranean Cities\"?",
+    "answers": [
+      "Bengaluru"
+    ],
+    "gold_notes": [
+      "Chronicles of the Subterranean Cities",
+      "Maya Singh"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "When was Chronos Systems founded?",
+    "answers": [
+      "1994"
+    ],
+    "gold_notes": [
+      "Chronos Systems"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "What programming language is the tool used by Project Nightingale written in?",
+    "answers": [
+      "JavaScript"
+    ],
+    "gold_notes": [
+      "Project Nightingale",
+      "DataSculpt Pro"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "What was decided at Project Nightingale Alpha Review?",
+    "answers": [
+      "Recommended a focus group trial for the AI's emotional range."
+    ],
+    "gold_notes": [
+      "Project Nightingale Alpha Review"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "When was Spectra Innovations founded?",
+    "answers": [
+      "1993"
+    ],
+    "gold_notes": [
+      "Spectra Innovations"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "In which city is the company running Project Sentinel headquartered?",
+    "answers": [
+      "Tallinn"
+    ],
+    "gold_notes": [
+      "Project Sentinel",
+      "Chronos Systems"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What is Elara Vance's favorite tool?",
+    "answers": [
+      "ArchiForge 3D Modeler"
+    ],
+    "gold_notes": [
+      "Elara Vance"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "Where does the author of \"The Algorithmic Heartbeat\" work?",
+    "answers": [
+      "Aether Dynamics"
+    ],
+    "gold_notes": [
+      "The Algorithmic Heartbeat",
+      "Kaelen Thorne"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "What is Marcus Finch's favorite tool?",
+    "answers": [
+      "LogiTrack Dashboard"
+    ],
+    "gold_notes": [
+      "Marcus Finch"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "In which city is the company running Project Maelstrom headquartered?",
+    "answers": [
+      "Lisbon"
+    ],
+    "gold_notes": [
+      "Project Maelstrom",
+      "Neuralink Solutions"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What is the hometown of the person who wrote \"The Quantum Labyrinth\"?",
+    "answers": [
+      "Mumbai"
+    ],
+    "gold_notes": [
+      "The Quantum Labyrinth",
+      "Anya Sharma"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "Where does the author of \"Echoes of the Ember Star\" work?",
+    "answers": [
+      "Spectra Innovations"
+    ],
+    "gold_notes": [
+      "Echoes of the Ember Star",
+      "Ethan Cross"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "What programming language is the tool used by Project Zenith written in?",
+    "answers": [
+      "Rust"
+    ],
+    "gold_notes": [
+      "Project Zenith",
+      "NeuroLink OS"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "What was decided at Cybersecurity Workshop Berlin?",
+    "answers": [
+      "Implemented mandatory bi-annual security audits across all divisions."
+    ],
+    "gold_notes": [
+      "Cybersecurity Workshop Berlin"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Zenith?",
+    "answers": [
+      "Maintaining a personal server farm for retro games"
+    ],
+    "gold_notes": [
+      "Project Zenith",
+      "Ethan Cross"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Lumina?",
+    "answers": [
+      "Restoring vintage synthesizers"
+    ],
+    "gold_notes": [
+      "Project Lumina",
+      "Seraphina Dubois"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "What programming language is the tool used by Project Maelstrom written in?",
+    "answers": [
+      "Go"
+    ],
+    "gold_notes": [
+      "Project Maelstrom",
+      "AetherNet Monitor"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Maelstrom?",
+    "answers": [
+      "Competitive urban orienteering"
+    ],
+    "gold_notes": [
+      "Project Maelstrom",
+      "Kaelen Thorne"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Nightingale?",
+    "answers": [
+      "Building custom mechanical keyboards"
+    ],
+    "gold_notes": [
+      "Project Nightingale",
+      "Zane Kincaid"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "In which city is the company running Project Zenith headquartered?",
+    "answers": [
+      "Reykjavík"
+    ],
+    "gold_notes": [
+      "Project Zenith",
+      "Veridian Robotics"
+    ],
+    "hops": 2,
+    "type": "project→company"
+  },
+  {
+    "q": "What programming language is the tool used by Project Lumina written in?",
+    "answers": [
+      "C++"
+    ],
+    "gold_notes": [
+      "Project Lumina",
+      "SynthForge Engine"
+    ],
+    "hops": 2,
+    "type": "project→tool"
+  },
+  {
+    "q": "What is the hobby of the person who leads Project Atlas?",
+    "answers": [
+      "Collecting rare botanical specimens"
+    ],
+    "gold_notes": [
+      "Project Atlas",
+      "Anya Sharma"
+    ],
+    "hops": 2,
+    "type": "project→lead"
+  },
+  {
+    "q": "When was Neuralink Solutions founded?",
+    "answers": [
+      "2005"
+    ],
+    "gold_notes": [
+      "Neuralink Solutions"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "What is the hometown of the person who wrote \"Synthetics and Sentience\"?",
+    "answers": [
+      "Beijing"
+    ],
+    "gold_notes": [
+      "Synthetics and Sentience",
+      "Chloe Zhao"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  },
+  {
+    "q": "What was decided at Global Sales Conference Dubai?",
+    "answers": [
+      "Launched a new incentive program for Q3 sales targets."
+    ],
+    "gold_notes": [
+      "Global Sales Conference Dubai"
+    ],
+    "hops": 1,
+    "type": "single"
+  },
+  {
+    "q": "What is the hometown of the person who wrote \"The Algorithmic Heartbeat\"?",
+    "answers": [
+      "London"
+    ],
+    "gold_notes": [
+      "The Algorithmic Heartbeat",
+      "Kaelen Thorne"
+    ],
+    "hops": 2,
+    "type": "book→author"
+  }
+]
