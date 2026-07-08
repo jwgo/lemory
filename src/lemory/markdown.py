@@ -30,12 +30,15 @@ def parse_note(raw: str, title: str) -> ParsedNote:
         end = raw.find("\n---", 3)
         if end != -1:
             try:
-                fm = yaml.safe_load(raw[3:end]) or {}
-                if isinstance(fm, dict):
-                    frontmatter = fm
+                fm = yaml.safe_load(raw[3:end])
             except yaml.YAMLError:
-                frontmatter = {}
-            body = raw[end + 4 :].lstrip("\n")
+                fm = None
+            # only treat it as frontmatter if it parses to a mapping —
+            # otherwise it's content (e.g. a leading horizontal rule) and
+            # stripping it would silently drop indexable text
+            if isinstance(fm, dict):
+                frontmatter = fm
+                body = raw[end + 4 :].lstrip("\n")
 
     wikilinks = [m.group(1).strip() for m in WIKILINK_RE.finditer(body)]
 
@@ -103,12 +106,13 @@ def split_sections(body: str) -> list[Section]:
 
 
 def chunk_note(
-    title: str, body: str, chunk_chars: int = 1400, overlap: int = 180, min_chars: int = 120
+    body: str, chunk_chars: int = 1400, overlap: int = 180, min_chars: int = 120
 ) -> list[tuple[str, str]]:
     """Heading-aware chunking. Returns [(heading_breadcrumb, chunk_text)].
 
     Each chunk stays within one section; long sections are split on paragraph
-    boundaries with overlap. Tiny trailing pieces merge into the previous chunk.
+    boundaries with overlap. Tiny trailing pieces merge into the previous
+    chunk. Title context is added later by embed_text_for_chunk, not here.
     """
     chunks: list[tuple[str, str]] = []
     for sec in split_sections(body):

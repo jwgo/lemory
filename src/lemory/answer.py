@@ -30,6 +30,13 @@ class Answer:
         return "\n".join(lines)
 
 
+def build_prompt(context: str, question: str, instruction: str = "ANSWER:") -> str:
+    """The one prompt template for grounded answering — production ask() and
+    the e2e benchmark must share it so benchmark numbers describe the real
+    ask() path."""
+    return f"NOTES:\n{context}\n\nQUESTION: {question}\n\n{instruction}"
+
+
 def build_context(hits: list[ChunkHit], max_chars: int = 14000) -> str:
     parts = []
     used = 0
@@ -49,6 +56,6 @@ def answer(engine: "Engine", question: str, k: int = 8) -> Answer:
     if not hits:
         return Answer(text="I couldn't find anything relevant in the vault.", sources=[])
     context = build_context(hits)
-    prompt = f"NOTES:\n{context}\n\nQUESTION: {question}\n\nANSWER:"
+    prompt = build_prompt(context, question)
     text = engine.llm.generate(prompt, system=SYSTEM, temperature=0.1)
     return Answer(text=text.strip(), sources=hits)

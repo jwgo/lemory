@@ -20,16 +20,10 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import (DATA, WORK, answer_in_text, load_env, make_engine,
-                    prewarm_queries, rank_metrics, save_json)
+from common import (DATA, SYSTEMS, WORK, answer_in_text, full_support_metrics,
+                    load_env, make_engine, prewarm_queries, rank_metrics, save_json)
 
 K_EVAL = 8
-SYSTEMS = {
-    "lemory": dict(mode="hybrid", graph=True),
-    "lemory-nograph": dict(mode="hybrid", graph=False),
-    "vector": dict(mode="vector", graph=False),
-    "bm25": dict(mode="bm25", graph=False),
-}
 
 
 def load_bench(name: str):
@@ -80,12 +74,10 @@ def main() -> None:
         dt = time.time() - t0
         m = rank_metrics(flags_per_q)
         if bench == "multihop":
-            n = len(support)
-            m["full_support@8"] = sum(1 for f, g in support if f >= g) / n
-            m["support_recall@8"] = sum(f / g for f, g in support) / n
+            m.update(full_support_metrics(support, "@8"))
             for hops, arr in by_hops.items():
                 if arr:
-                    m[f"full_support@8_hops{hops}"] = sum(1 for f, g in arr if f >= g) / len(arr)
+                    m[f"full_support@8_hops{hops}"] = full_support_metrics(arr)["full_support"]
         m["ms_per_query"] = 1000 * dt / len(questions)
         results[sysname] = m
         print(f"{sysname:16s} " + " ".join(f"{k}={v:.3f}" for k, v in m.items()))

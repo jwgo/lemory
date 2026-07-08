@@ -89,7 +89,7 @@ class Indexer:
             title = note_title(f)
             note = parse_note(raw, title)
             chunks = chunk_note(
-                title, note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
+                note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
                 self.cfg.min_chunk_chars,
             )
             if not chunks:
@@ -100,11 +100,10 @@ class Indexer:
             vectors, misses = self.engine.embed_documents_cached(embed_texts)
             rep.embedded += misses
 
-            doc_id = self.store.upsert_document(
+            doc_id = self.store.store_note(
                 rel, title, content_hash, f.stat().st_mtime, note.tags,
-                note.frontmatter, time.time(), wikilinks=note.wikilinks,
+                note.frontmatter, time.time(), note.wikilinks, chunks, vectors,
             )
-            self.store.replace_chunks(doc_id, title, chunks, vectors)
             changed_docs.append((doc_id, note.wikilinks))
             rep.chunks += len(chunks)
             if existing:
@@ -122,15 +121,21 @@ class Indexer:
                 if progress:
                     progress(f"removed {doc.path}")
 
-        # graph: rebuild links for changed docs. When the set of note titles
-        # changed (add/remove), links FROM unchanged docs can change too
-        # (their wikilinks/mentions may now resolve), so rebuild everything —
-        # wikilinks are persisted per doc, making a full rebuild always correct.
+        # graph: rebuild links for changed docs. When the set of resolvable
+        # titles changed (add/remove/rename/ALIAS edits), links FROM unchanged
+        # docs can change too — their wikilinks/mentions may now resolve — so
+        # rebuild everything. Wikilinks are persisted per doc, which makes a
+        # full rebuild always correct; the title-set hash detects all cases.
         if rep.changed:
+            title_hash = hashlib.sha256(
+                "\n".join(sorted(self.store.title_map())).encode()
+            ).hexdigest()
+            titles_changed = title_hash != self.store.get_meta("title_set_hash")
             self._rebuild_links(
                 changed_ids=[d for d, _ in changed_docs],
-                full=bool(rep.added or rep.removed or full),
+                full=bool(titles_changed or full),
             )
+            self.store.set_meta("title_set_hash", title_hash)
 
         rep.seconds = time.time() - t0
         self.store.set_meta("last_sync", str(time.time()))
@@ -145,9 +150,7 @@ class Indexer:
         all_wikilinks = self.store.doc_wikilinks()
         rebuild_ids = list(all_wikilinks.keys()) if full else changed_ids
 
-        targets = (
-            self._mention_targets(title_to_id) if self.cfg.mention_links else []
-        )
+        targets = self._cached_mention_targets(title_to_id) if self.cfg.mention_links else []
         for doc_id in rebuild_ids:
             merged: dict[tuple[int, str], float] = {}
             for target in all_wikilinks.get(doc_id, []):
@@ -158,6 +161,16 @@ class Indexer:
                 if (dst, "wiki") not in merged:
                     merged[(dst, "mention")] = w
             self.store.replace_links(doc_id, [(dst, kind, w) for (dst, kind), w in merged.items()])
+
+    def _cached_mention_targets(self, title_to_id: dict[str, int]) -> list[tuple[re.Pattern, int]]:
+        """Compiled mention regexes, cached across syncs until titles change."""
+        key = hash(tuple(sorted(title_to_id.items())))
+        cached = getattr(self, "_mention_cache", None)
+        if cached and cached[0] == key:
+            return cached[1]
+        targets = self._mention_targets(title_to_id)
+        self._mention_cache = (key, targets)
+        return targets
 
     @staticmethod
     def _mention_targets(title_to_id: dict[str, int]) -> list[tuple[re.Pattern, int]]:
@@ -230,13 +243,15 @@ def watch(engine: "Engine", debounce: float = 2.0, on_sync: Optional[Callable] =
 
     vault = engine.cfg.resolved_vault()
     pending = {"dirty": False, "last": 0.0}
+    # react to whatever the include globs cover, not just .md
+    suffixes = {Path(g).suffix for g in engine.cfg.include_globs if Path(g).suffix} or {".md"}
 
     class Handler(FileSystemEventHandler):
         def on_any_event(self, event):
             if event.is_directory:
                 return
             p = str(getattr(event, "dest_path", "") or event.src_path)
-            if not p.endswith(".md"):
+            if Path(p).suffix not in suffixes:
                 return
             if any(part in engine.cfg.exclude_dirs for part in Path(p).parts):
                 return

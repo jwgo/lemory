@@ -32,7 +32,9 @@ def init(vault: Path = typer.Argument(..., help="Path to your Obsidian vault")):
         console.print(f"[red]not a directory:[/red] {vault}")
         raise typer.Exit(1)
     cfg_file = Path.cwd() / "lemory.toml"
-    cfg_file.write_text(f'[lemory]\nvault = "{vault}"\n')
+    # json.dumps produces a valid TOML basic string (escapes backslashes and
+    # quotes) — bare f-string interpolation breaks on Windows paths
+    cfg_file.write_text(f"[lemory]\nvault = {json.dumps(str(vault))}\n")
     console.print(f"[green]wrote[/green] {cfg_file}")
     console.print("Set GEMINI_API_KEY in your environment (free-tier key works), then run: [bold]lemory index[/bold]")
 

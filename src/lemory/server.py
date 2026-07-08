@@ -11,6 +11,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import logging
 import threading
 from contextlib import asynccontextmanager
 
@@ -18,6 +19,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from .engine import Engine
+
+log = logging.getLogger("lemory.server")
 
 
 class AskBody(BaseModel):
@@ -33,19 +36,20 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         engine.index()
-        stop = threading.Event()
-        t = None
         if watch:
             def _watch():
                 from .ingest import watch as _w
                 try:
                     _w(engine)
                 except Exception:
-                    pass
-            t = threading.Thread(target=_watch, daemon=True)
-            t.start()
+                    # a dead watcher means silently-stale search results —
+                    # make the failure loud in the server log
+                    log.exception(
+                        "vault watcher crashed; the index will no longer "
+                        "auto-update (POST /index still works)"
+                    )
+            threading.Thread(target=_watch, daemon=True, name="lemory-watcher").start()
         yield
-        stop.set()
 
     app = FastAPI(title="Lemory", version="0.1.0", lifespan=lifespan)
 

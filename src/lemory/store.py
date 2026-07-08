@@ -91,7 +91,6 @@ class ChunkHit:
     heading: str
     text: str
     score: float
-    source: str = "hybrid"  # which stage produced it (debugging / eval)
 
 
 @dataclass
@@ -158,12 +157,18 @@ class Store:
             tags=json.loads(row["tags"]),
         )
 
-    def upsert_document(
-        self, path: str, title: str, content_hash: str, mtime: float,
-        tags: list[str], frontmatter: dict, indexed_at: float,
-        wikilinks: list[str] | None = None,
+    def _mark_dirty(self) -> None:
+        """Invalidate the matrix cache. Must be called AFTER the write commits;
+        taking the lock orders it against any in-flight _ensure_matrix so the
+        invalidation can never be lost."""
+        with self._matrix_lock:
+            self._dirty = True
+
+    def _upsert_document_tx(
+        self, c: sqlite3.Connection, path: str, title: str, content_hash: str,
+        mtime: float, tags: list[str], frontmatter: dict, indexed_at: float,
+        wikilinks: list[str] | None,
     ) -> int:
-        c = self.conn()
         c.execute(
             """INSERT INTO documents(path,title,content_hash,mtime,tags,frontmatter,wikilinks,indexed_at)
                VALUES(?,?,?,?,?,?,?,?)
@@ -175,29 +180,12 @@ class Store:
              json.dumps(wikilinks or []), indexed_at),
         )
         row = c.execute("SELECT id FROM documents WHERE path=?", (path,)).fetchone()
-        c.commit()
         return int(row["id"])
 
-    def delete_document(self, path: str) -> None:
-        c = self.conn()
-        row = c.execute("SELECT id FROM documents WHERE path=?", (path,)).fetchone()
-        if not row:
-            return
-        doc_id = row["id"]
-        chunk_ids = [r["id"] for r in c.execute("SELECT id FROM chunks WHERE doc_id=?", (doc_id,))]
-        for cid in chunk_ids:
-            c.execute("DELETE FROM chunks_fts WHERE rowid=?", (cid,))
-        c.execute("DELETE FROM documents WHERE id=?", (doc_id,))
-        c.commit()
-        self._dirty = True
-
-    # ---------------------------------------------------------------- chunks
-    def replace_chunks(
-        self, doc_id: int, title: str,
-        chunks: list[tuple[str, str]],  # (heading, text)
-        vectors: Optional[np.ndarray],
+    def _replace_chunks_tx(
+        self, c: sqlite3.Connection, doc_id: int, title: str,
+        chunks: list[tuple[str, str]], vectors: Optional[np.ndarray],
     ) -> list[int]:
-        c = self.conn()
         old = [r["id"] for r in c.execute("SELECT id FROM chunks WHERE doc_id=?", (doc_id,))]
         for cid in old:
             c.execute("DELETE FROM chunks_fts WHERE rowid=?", (cid,))
@@ -215,8 +203,63 @@ class Store:
                 "INSERT INTO chunks_fts(rowid, text, title, heading) VALUES(?,?,?,?)",
                 (cid, text, title, heading),
             )
+        return ids
+
+    def upsert_document(
+        self, path: str, title: str, content_hash: str, mtime: float,
+        tags: list[str], frontmatter: dict, indexed_at: float,
+        wikilinks: list[str] | None = None,
+    ) -> int:
+        c = self.conn()
+        doc_id = self._upsert_document_tx(
+            c, path, title, content_hash, mtime, tags, frontmatter, indexed_at, wikilinks)
         c.commit()
-        self._dirty = True
+        return doc_id
+
+    def store_note(
+        self, path: str, title: str, content_hash: str, mtime: float,
+        tags: list[str], frontmatter: dict, indexed_at: float,
+        wikilinks: list[str] | None,
+        chunks: list[tuple[str, str]], vectors: Optional[np.ndarray],
+    ) -> int:
+        """Atomically write a note's document row AND its chunks in one
+        transaction, so a crash can never leave the hash committed while the
+        chunks are stale (which incremental sync would then skip forever)."""
+        c = self.conn()
+        try:
+            doc_id = self._upsert_document_tx(
+                c, path, title, content_hash, mtime, tags, frontmatter, indexed_at, wikilinks)
+            self._replace_chunks_tx(c, doc_id, title, chunks, vectors)
+            c.commit()
+        except BaseException:
+            c.rollback()
+            raise
+        self._mark_dirty()
+        return doc_id
+
+    def delete_document(self, path: str) -> None:
+        c = self.conn()
+        row = c.execute("SELECT id FROM documents WHERE path=?", (path,)).fetchone()
+        if not row:
+            return
+        doc_id = row["id"]
+        chunk_ids = [r["id"] for r in c.execute("SELECT id FROM chunks WHERE doc_id=?", (doc_id,))]
+        for cid in chunk_ids:
+            c.execute("DELETE FROM chunks_fts WHERE rowid=?", (cid,))
+        c.execute("DELETE FROM documents WHERE id=?", (doc_id,))
+        c.commit()
+        self._mark_dirty()
+
+    # ---------------------------------------------------------------- chunks
+    def replace_chunks(
+        self, doc_id: int, title: str,
+        chunks: list[tuple[str, str]],  # (heading, text)
+        vectors: Optional[np.ndarray],
+    ) -> list[int]:
+        c = self.conn()
+        ids = self._replace_chunks_tx(c, doc_id, title, chunks, vectors)
+        c.commit()
+        self._mark_dirty()
         return ids
 
     def chunk_count(self) -> int:
@@ -360,10 +403,13 @@ class Store:
         c.commit()
 
     # ------------------------------------------------------------ vector index
-    def _ensure_matrix(self) -> tuple[np.ndarray, np.ndarray]:
+    def _ensure_matrix(self) -> tuple[np.ndarray, np.ndarray, dict[int, int]]:
+        """Return an atomic (matrix, chunk_ids, id->row) snapshot. The three
+        parts are captured together under the lock so concurrent rebuilds can
+        never pair a new position map with an old matrix (or vice versa)."""
         with self._matrix_lock:
             if not self._dirty and self._matrix is not None:
-                return self._matrix, self._matrix_chunk_ids
+                return self._matrix, self._matrix_chunk_ids, self._matrix_pos
             rows = self.conn().execute(
                 "SELECT id, vec FROM chunks WHERE vec IS NOT NULL ORDER BY id"
             ).fetchall()
@@ -377,10 +423,10 @@ class Store:
                 self._matrix_chunk_ids = np.array([r["id"] for r in rows], dtype=np.int64)
                 self._matrix_pos = {int(cid): i for i, cid in enumerate(self._matrix_chunk_ids)}
             self._dirty = False
-            return self._matrix, self._matrix_chunk_ids
+            return self._matrix, self._matrix_chunk_ids, self._matrix_pos
 
     def vector_search(self, query_vec: np.ndarray, k: int) -> list[tuple[int, float]]:
-        matrix, ids = self._ensure_matrix()
+        matrix, ids, _pos = self._ensure_matrix()
         if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0]:
             # dim mismatch = embed model/provider changed without `index --full`
             return []
@@ -392,10 +438,9 @@ class Store:
 
     def chunk_sims(self, query_vec: np.ndarray, chunk_ids: list[int]) -> dict[int, float]:
         """Cosine similarity of specific chunks against a query vector."""
-        matrix, _ids = self._ensure_matrix()
-        if matrix.shape[0] == 0 or not chunk_ids:
+        matrix, _ids, pos = self._ensure_matrix()
+        if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0] or not chunk_ids:
             return {}
-        pos = self._matrix_pos
         wanted = [(cid, pos[cid]) for cid in chunk_ids if cid in pos]
         if not wanted:
             return {}

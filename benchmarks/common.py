@@ -20,6 +20,15 @@ BENCH_DIR = Path(__file__).parent
 WORK = BENCH_DIR / "work"
 DATA = BENCH_DIR / "data"
 
+# THE system definitions used by every benchmark table. One source of truth:
+# a row labeled 'lemory' must mean the same configuration in every report.
+SYSTEMS = {
+    "lemory": dict(mode="hybrid", graph=True),
+    "lemory-nograph": dict(mode="hybrid", graph=False),
+    "vector": dict(mode="vector", graph=False),
+    "bm25": dict(mode="bm25", graph=False),
+}
+
 
 # ------------------------------------------------------- SQuAD-style scoring
 def normalize_answer(s: str) -> str:

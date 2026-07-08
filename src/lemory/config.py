@@ -143,15 +143,25 @@ def _load_toml_overrides(start: Path) -> dict[str, Any]:
     return {}
 
 
+def _drop_env_shadowed(toml_values: dict[str, Any]) -> dict[str, Any]:
+    """Init kwargs outrank env vars in pydantic-settings, so a toml value fed
+    as a kwarg would silently beat LEMORY_* env. Enforce the documented
+    precedence (env beats toml) by dropping toml keys that env sets."""
+    return {
+        k: v for k, v in toml_values.items()
+        if os.environ.get(f"LEMORY_{k.upper()}") is None
+    }
+
+
 def load_config(**overrides: Any) -> LemoryConfig:
-    toml_overrides = _load_toml_overrides(Path.cwd())
-    # env beats toml: BaseSettings already applies env, so feed toml values only
-    # for fields that are not set via env/kwargs.
-    merged = {**toml_overrides, **{k: v for k, v in overrides.items() if v is not None}}
+    toml_overrides = _drop_env_shadowed(_load_toml_overrides(Path.cwd()))
+    kwargs = {k: v for k, v in overrides.items() if v is not None}
+    merged = {**toml_overrides, **kwargs}
     cfg = LemoryConfig(**merged)
-    # if vault has its own lemory.toml, honor it for anything still default
+    # if the vault has its own lemory.toml, honor it for anything not already
+    # set by CWD toml / env / kwargs
     if cfg.vault:
-        vault_toml = _load_toml_overrides(cfg.vault.expanduser().resolve())
+        vault_toml = _drop_env_shadowed(_load_toml_overrides(cfg.vault.expanduser().resolve()))
         if vault_toml:
             merged = {**vault_toml, **merged}
             cfg = LemoryConfig(**merged)

@@ -19,23 +19,22 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import DATA, WORK, load_env, make_engine, normalize_answer, save_json
+from common import DATA, SYSTEMS, WORK, answer_in_text, load_env, make_engine, save_json
+
+from lemory.config import LemoryConfig
 
 
 def answer_in_texts(texts: list[str], answers: list[str]) -> bool:
-    blob = normalize_answer(" ".join(texts))
-    return any(normalize_answer(a) in blob for a in answers if normalize_answer(a))
+    return answer_in_text(" ".join(texts), answers)
 
 
 def eval_lemory_side(questions) -> dict:
     eng = make_engine(DATA / "multihop" / "vault", tag="multihop")
     eng.index()
     out = {}
-    for sysname, kw in {
-        "lemory": dict(mode="hybrid", graph=True),
-        "vector": dict(mode="vector", graph=False),
-        "bm25": dict(mode="bm25", graph=False),
-    }.items():
+    for sysname, kw in SYSTEMS.items():
+        if sysname == "lemory-nograph":
+            continue
         hits_ok = []
         for q in questions:
             hits = eng.search(q["q"], k=8, **kw)
@@ -53,16 +52,20 @@ def main() -> None:
 
     from mem0 import Memory
 
+    gemini_key = LemoryConfig().resolved_gemini_key()
+    if not gemini_key:
+        raise SystemExit("mem0 benchmark needs GEMINI_API_KEY (or GOOGLE_API_KEY)")
+
     config = {
         "llm": {
             "provider": "gemini",
-            "config": {"model": "gemini-2.5-flash", "api_key": os.environ["GEMINI_API_KEY"],
+            "config": {"model": "gemini-2.5-flash", "api_key": gemini_key,
                        "temperature": 0.0},
         },
         "embedder": {
             "provider": "gemini",
             "config": {"model": "models/gemini-embedding-001",
-                       "api_key": os.environ["GEMINI_API_KEY"], "embedding_dims": 768},
+                       "api_key": gemini_key, "embedding_dims": 768},
         },
         "vector_store": {
             "provider": "qdrant",

@@ -14,16 +14,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import (DATA, WORK, best_f1, load_env, make_engine, normalize_answer,
-                    prewarm_queries, save_json)
+from common import (DATA, SYSTEMS as ALL_SYSTEMS, WORK, answer_in_text, best_f1,
+                    load_env, make_engine, prewarm_queries, save_json)
 
-from lemory.answer import SYSTEM, build_context
+from lemory.answer import SYSTEM, build_context, build_prompt
 
-SYSTEMS = {
-    "lemory": dict(mode="hybrid", graph=True),
-    "vector": dict(mode="vector", graph=False),
-    "bm25": dict(mode="bm25", graph=False),
-}
+SYSTEMS = {k: v for k, v in ALL_SYSTEMS.items() if k != "lemory-nograph"}
 K = 8
 
 
@@ -49,8 +45,13 @@ def main() -> None:
 
     # question-major order with per-question model alternation: every system
     # answers a given question with the SAME model, so the cross-system
-    # comparison stays generator-fair even when quota forces model rotation
-    models = [eng.cfg.llm_model, eng.cfg.llm_fallback_model]
+    # comparison stays generator-fair even when quota forces model rotation.
+    # Models come from the resolved provider (Gemini rotates with its fallback
+    # to spread daily quota; OpenAI uses its single configured model).
+    if eng.cfg.resolved_provider() == "gemini":
+        models = list(dict.fromkeys([eng.cfg.llm_model, eng.cfg.llm_fallback_model]))
+    else:
+        models = [eng.cfg.active_llm_model()]
     for i, q in enumerate(questions):
         qid = f"{i}:{q['q'][:40]}"
         model = models[i % len(models)]
@@ -60,9 +61,9 @@ def main() -> None:
                 continue
             hits = eng.search(q["q"], k=K, **kw)
             context = build_context(hits)
-            prompt = (
-                f"NOTES:\n{context}\n\nQUESTION: {q['q']}\n\n"
-                "Answer with the shortest exact phrase only (no sentence)."
+            prompt = build_prompt(
+                context, q["q"],
+                instruction="Answer with the shortest exact phrase only (no sentence).",
             )
             try:
                 text = eng.llm.generate(prompt, system=SYSTEM, temperature=0.0,
@@ -87,10 +88,7 @@ def main() -> None:
         if not rows:
             continue
         f1 = sum(best_f1(clean(r["pred"]), r["answers"]) for r in rows) / len(rows)
-        em = sum(
-            any(normalize_answer(a) in normalize_answer(clean(r["pred"])) for a in r["answers"])
-            for r in rows
-        ) / len(rows)
+        em = sum(answer_in_text(clean(r["pred"]), r["answers"]) for r in rows) / len(rows)
         summary[sysname] = {"f1": f1, "contain_em": em, "n": len(rows)}
         for hops in (1, 2):
             sub = [r for r in rows if r.get("hops") == hops]

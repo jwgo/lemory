@@ -202,9 +202,6 @@ class GeminiClient:
         norms[norms == 0] = 1.0
         return out / norms
 
-    def embed_query(self, text: str) -> np.ndarray:
-        return self.embed([text], task_type="RETRIEVAL_QUERY")[0]
-
     def close(self) -> None:
         self._http.close()
 

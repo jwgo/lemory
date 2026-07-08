@@ -13,10 +13,17 @@ def test_frontmatter_tags_wikilinks():
     assert "---" not in note.body
 
 
-def test_bad_frontmatter_does_not_crash():
+def test_bad_frontmatter_does_not_crash_or_drop_content():
     note = parse_note("---\n: bad: [yaml\n---\nbody", "X")
-    assert note.body == "body"
+    assert "body" in note.body  # content must never be silently dropped
     assert note.frontmatter == {}
+
+
+def test_leading_horizontal_rule_is_not_frontmatter():
+    raw = "---\nIntro facts worth indexing\n---\nRest of the note"
+    note = parse_note(raw, "X")
+    assert note.frontmatter == {}
+    assert "Intro facts worth indexing" in note.body
 
 
 def test_render_plain_strips_syntax():
@@ -33,7 +40,7 @@ def test_split_sections_breadcrumbs():
 
 def test_chunk_note_respects_size():
     body = "# S\n" + "\n\n".join(f"Paragraph {i} " + "x" * 120 for i in range(20))
-    chunks = chunk_note("T", body, chunk_chars=400, overlap=50)
+    chunks = chunk_note(body, chunk_chars=400, overlap=50)
     assert len(chunks) > 3
     assert all(len(t) <= 700 for _, t in chunks)
     assert all(h == "S" for h, _ in chunks)
@@ -41,7 +48,7 @@ def test_chunk_note_respects_size():
 
 def test_chunk_note_terminates_with_pathological_overlap():
     body = "word " * 2000  # one giant paragraph
-    chunks = chunk_note("T", body, chunk_chars=200, overlap=500)
+    chunks = chunk_note(body, chunk_chars=200, overlap=500)
     assert len(chunks) > 3
     assert all(t.strip() for _, t in chunks)
 

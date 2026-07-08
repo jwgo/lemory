@@ -1,8 +1,8 @@
-"""Engine: the object that owns config, storage, and the Gemini client."""
+"""Engine: the object that owns config, storage, and the LLM provider client."""
 
 from __future__ import annotations
 
-import logging
+import threading
 from typing import Any, Optional
 
 import numpy as np
@@ -11,15 +11,16 @@ from .config import LemoryConfig, load_config
 from .gemini import GeminiClient
 from .store import ChunkHit, Store
 
-log = logging.getLogger("lemory.engine")
-
 
 class Engine:
-    def __init__(self, cfg: LemoryConfig, llm: Optional[GeminiClient] = None, store: Optional[Store] = None):
+    def __init__(self, cfg: LemoryConfig, llm=None, store: Optional[Store] = None):
         self.cfg = cfg
         self.store = store or Store(cfg.resolved_data_dir() / "lemory.db")
         self._llm = llm
         self._indexer = None
+        # serializes sync runs: the server's watcher thread and POST /index
+        # (or any two callers) must never interleave chunk/link mutations
+        self._index_lock = threading.Lock()
 
     @property
     def llm(self):
@@ -85,12 +86,13 @@ class Engine:
     def index(self, full: bool = False, progress=None):
         from .ingest import Indexer
 
-        if self._indexer is None:
-            self._indexer = Indexer(self)
-        rep = self._indexer.sync(full=full, progress=progress)
-        if self.cfg.enrich_entities:
-            self._indexer.enrich_entities()
-        return rep
+        with self._index_lock:
+            if self._indexer is None:
+                self._indexer = Indexer(self)
+            rep = self._indexer.sync(full=full, progress=progress)
+            if self.cfg.enrich_entities:
+                self._indexer.enrich_entities()
+            return rep
 
     def watch(self, on_sync=None) -> None:
         from .ingest import watch as _watch
@@ -109,14 +111,20 @@ class Engine:
         return answer(self, question, k=k)
 
     def status(self) -> dict[str, Any]:
+        # status is a purely local verb — it must work without any API key
+        try:
+            embed_model = f"{self.cfg.active_embed_model()} ({self.cfg.embed_dim}d)"
+            llm_model = self.cfg.active_llm_model()
+        except RuntimeError:
+            embed_model = llm_model = "unconfigured (no API key)"
         return {
             "vault": str(self.cfg.vault) if self.cfg.vault else None,
             "db": str(self.store.db_path),
             "documents": self.store.doc_count(),
             "chunks": self.store.chunk_count(),
             "links": self.store.link_count(),
-            "embed_model": f"{self.cfg.active_embed_model()} ({self.cfg.embed_dim}d)",
-            "llm_model": self.cfg.active_llm_model(),
+            "embed_model": embed_model,
+            "llm_model": llm_model,
             "last_sync": self.store.get_meta("last_sync"),
         }
 

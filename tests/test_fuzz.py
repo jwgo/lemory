@@ -46,7 +46,7 @@ def test_parse_and_chunk_invariants(seed):
 
     chunk_chars = rng.choice([200, 400, 1400])
     overlap = rng.choice([0, 50, 180])
-    chunks = chunk_note(note.title, note.body, chunk_chars, overlap, min_chars=50)
+    chunks = chunk_note(note.body, chunk_chars, overlap, min_chars=50)
     for heading, text in chunks:
         assert text.strip(), "empty chunk"
         assert len(text) <= chunk_chars * 1.8 + overlap, f"oversized chunk: {len(text)}"

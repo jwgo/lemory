@@ -24,12 +24,21 @@ log = logging.getLogger("lemory.openai")
 BASE = "https://api.openai.com/v1"
 
 
+def _parse_retry_after(value: str | None) -> float | None:
+    """Retry-After may be seconds ('37') or an HTTP-date — only trust seconds."""
+    if not value:
+        return None
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        return None
+
+
 class OpenAIClient:
     def __init__(
         self,
         api_key: str,
         llm_model: str = "gpt-4o-mini",
-        llm_fallback_model: str = "gpt-4o-mini",
         llm_rpm: int = 60,
         embed_model: str = "text-embedding-3-small",
         embed_dim: int = 768,
@@ -41,7 +50,6 @@ class OpenAIClient:
 
         self.api_key = api_key
         self.llm_model = llm_model
-        self.llm_fallback_model = llm_fallback_model
         self.embed_model = embed_model
         self.embed_dim = embed_dim
         self.max_output_tokens = max_output_tokens
@@ -53,24 +61,38 @@ class OpenAIClient:
         )
 
     # ------------------------------------------------------------------ http
-    def _post(self, url: str, payload: dict, limiter, max_tries: int = 6) -> dict:
+    def _post(
+        self, url: str, payload: dict, limiter,
+        max_tries: int = 6, max_rate_limit_tries: int = 20,
+    ) -> dict:
+        """POST with retries. Like the Gemini client, 429s get their own more
+        patient budget — sitting at a rate ceiling is not a real failure."""
         last_err: Exception | None = None
-        for attempt in range(max_tries):
+        attempt = 0
+        rate_limited = 0
+        while attempt < max_tries and rate_limited < max_rate_limit_tries:
             limiter.acquire()
             try:
                 r = self._http.post(url, json=payload)
             except httpx.HTTPError as e:
                 last_err = e
+                attempt += 1
                 time.sleep(min(2**attempt, 20) + random.random())
                 continue
             if r.status_code == 200:
                 return r.json()
             body = r.text[:1000]
-            if r.status_code == 429 or r.status_code >= 500:
-                retry_after = r.headers.get("retry-after")
-                delay = float(retry_after) if retry_after else min(2**attempt * 2, 30)
-                last_err = RuntimeError(f"{r.status_code}: {body[:200]}")
+            if r.status_code == 429:
+                rate_limited += 1
+                delay = _parse_retry_after(r.headers.get("retry-after")) or min(
+                    15 * rate_limited, 60)
+                last_err = RuntimeError(f"429: {body[:200]}")
                 time.sleep(delay + random.random())
+                continue
+            if r.status_code >= 500:
+                attempt += 1
+                last_err = RuntimeError(f"{r.status_code}: {body[:200]}")
+                time.sleep(min(2**attempt * 2, 30) + random.random())
                 continue
             raise RuntimeError(f"OpenAI error {r.status_code}: {body}")
         raise RuntimeError(f"OpenAI request failed after {max_tries} tries: {last_err}")
@@ -123,9 +145,6 @@ class OpenAIClient:
         norms = np.linalg.norm(out, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
         return out / norms
-
-    def embed_query(self, text: str) -> np.ndarray:
-        return self.embed([text], task_type="RETRIEVAL_QUERY")[0]
 
     def close(self) -> None:
         self._http.close()
