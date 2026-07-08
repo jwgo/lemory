@@ -110,6 +110,22 @@ def main() -> None:
                     ["lemory", "vector", "bm25", "mem0"]) + extra
         )
 
+    perf_file = WORK / "results_perf.json"
+    if perf_file.exists():
+        perf = json.loads(perf_file.read_text())
+        lines = ["| Index size | hybrid+graph | hybrid | vector | bm25 |", "|---|---|---|---|---|"]
+        for n, r in perf.items():
+            lines.append(
+                f"| {int(n):,} chunks | {r['hybrid+graph']:.1f} ms | {r['hybrid']:.1f} ms "
+                f"| {r['vector']:.2f} ms | {r['bm25']:.1f} ms |"
+            )
+        sections.append(
+            "## 5. Local retrieval latency at scale (`perf_local.py`)\n\n"
+            "Synthetic Zipfian corpus, 50 queries, exact cosine + SQLite FTS5.\n"
+            "50k chunks ≈ an 8,000-note vault — well past typical personal vaults.\n\n"
+            + "\n".join(lines)
+        )
+
     body = "\n\n".join(sections)
     OUT.write_text(HEADER + body + FOOTER)
     print(f"wrote {OUT}")
