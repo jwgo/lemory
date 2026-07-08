@@ -89,14 +89,17 @@ class GeminiClient:
         )
 
     # ------------------------------------------------------------------ http
-    def _post(self, url: str, payload: dict, limiter: RateLimiter, max_tries: int = 6) -> dict:
+    def _post(
+        self, url: str, payload: dict, limiter: RateLimiter,
+        max_tries: int = 6, max_rate_limit_tries: int = 20,
+    ) -> dict:
         """POST with retries. Rate limits (429) get their own, more patient
         budget: they are transient per-minute windows, not real failures —
         free-tier keys can sit at the TPM ceiling for several minutes."""
         last_err: Exception | None = None
         attempt = 0
         rate_limited = 0
-        while attempt < max_tries and rate_limited < 20:
+        while attempt < max_tries and rate_limited < max_rate_limit_tries:
             limiter.acquire()
             try:
                 r = self._http.post(url, json=payload)
@@ -149,11 +152,17 @@ class GeminiClient:
             payload["generationConfig"]["responseMimeType"] = "application/json"
 
         models = [model] if model else [self.llm_model, self.llm_fallback_model]
+        models = list(dict.fromkeys(models))  # dedupe, keep order
         last: Exception | None = None
-        for m in models:
+        for i, m in enumerate(models):
             url = f"{BASE}/models/{m}:generateContent"
+            has_fallback = i < len(models) - 1
             try:
-                data = self._post(url, payload, self._llm_limiter)
+                data = self._post(
+                    url, payload, self._llm_limiter,
+                    # don't camp on a saturated model when another is available
+                    max_rate_limit_tries=3 if has_fallback else 20,
+                )
                 return _extract_text(data)
             except Exception as e:  # fall through to fallback model
                 last = e

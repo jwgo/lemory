@@ -47,6 +47,32 @@ POST /index                 force reindex
 
 `lemory watch` does the same without HTTP: edit notes in Obsidian, Lemory keeps up.
 
+### Try it in 60 seconds (no vault needed)
+
+A 54-note interlinked demo vault ships in the repo:
+
+```bash
+export GEMINI_API_KEY=...
+lemory index --vault benchmarks/data/multihop/vault
+lemory ask "What is the hobby of the person who leads Project Atlas?" --vault benchmarks/data/multihop/vault
+```
+
+The answer requires two notes (the project note names the lead, the person note
+holds the hobby) — that hop is what Lemory's graph retrieval does and naive RAG misses.
+
+### Use it from Claude (MCP)
+
+```bash
+pip install -e ".[mcp]"
+```
+
+```json
+{"mcpServers": {"lemory": {"command": "lemory", "args": ["mcp", "--vault", "~/Obsidian/MyVault"]}}}
+```
+
+Claude Desktop / Claude Code then get `search_notes`, `ask_notes`, and
+`vault_status` tools over your live vault.
+
 ## How it works
 
 ```
