@@ -7,7 +7,6 @@ an unchanged vault costs zero API calls.
 
 from __future__ import annotations
 
-import fnmatch
 import hashlib
 import logging
 import re
@@ -15,8 +14,6 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional
-
-import numpy as np
 
 from .markdown import chunk_note, embed_text_for_chunk, parse_note, render_plain
 from .store import Store
@@ -105,7 +102,7 @@ class Indexer:
 
             doc_id = self.store.upsert_document(
                 rel, title, content_hash, f.stat().st_mtime, note.tags,
-                note.frontmatter, time.time(),
+                note.frontmatter, time.time(), wikilinks=note.wikilinks,
             )
             self.store.replace_chunks(doc_id, title, chunks, vectors)
             changed_docs.append((doc_id, note.wikilinks))
@@ -125,51 +122,45 @@ class Indexer:
                 if progress:
                     progress(f"removed {doc.path}")
 
-        # graph: rebuild links for changed docs; new titles can also create
-        # mention links FROM old docs, so rebuild all mentions when the doc set changed
+        # graph: rebuild links for changed docs. When the set of note titles
+        # changed (add/remove), links FROM unchanged docs can change too
+        # (their wikilinks/mentions may now resolve), so rebuild everything —
+        # wikilinks are persisted per doc, making a full rebuild always correct.
         if rep.changed:
-            self._rebuild_links(changed_docs, full_mentions=(rep.added or rep.removed or full))
+            self._rebuild_links(
+                changed_ids=[d for d, _ in changed_docs],
+                full=bool(rep.added or rep.removed or full),
+            )
 
         rep.seconds = time.time() - t0
         self.store.set_meta("last_sync", str(time.time()))
         return rep
 
     # ----------------------------------------------------------------- graph
-    def _rebuild_links(self, changed_docs: list[tuple[int, list[str]]], full_mentions: bool) -> None:
+    def _rebuild_links(self, changed_ids: list[int], full: bool) -> None:
+        """Rebuild wiki + mention edges. `full` rebuilds every doc (needed when
+        titles were added/removed); otherwise only the changed docs — safe
+        because wikilinks are persisted per doc in the documents table."""
         title_to_id = self.store.title_map()
-        docs = {d.id: d for d in self.store.all_docs()}
+        all_wikilinks = self.store.doc_wikilinks()
+        rebuild_ids = list(all_wikilinks.keys()) if full else changed_ids
 
-        wikilink_edges: dict[int, dict[int, float]] = {}
-        for doc_id, wl in changed_docs:
-            edges: dict[int, float] = {}
-            for target in wl:
+        targets = (
+            self._mention_targets(title_to_id) if self.cfg.mention_links else []
+        )
+        for doc_id in rebuild_ids:
+            merged: dict[tuple[int, str], float] = {}
+            for target in all_wikilinks.get(doc_id, []):
                 tid = title_to_id.get(target.strip().lower())
                 if tid and tid != doc_id:
-                    edges[tid] = 1.0
-            wikilink_edges[doc_id] = edges
-
-        # unlinked title mentions (Obsidian's "unlinked mentions") — a strong,
-        # zero-cost graph signal: if note A's text mentions note B's title,
-        # they are almost certainly related.
-        mention_edges: dict[int, dict[int, float]] = {}
-        if self.cfg.mention_links:
-            targets = self._mention_targets(title_to_id, docs)
-            scan_ids = list(docs.keys()) if full_mentions else [d for d, _ in changed_docs]
-            for doc_id in scan_ids:
-                mention_edges[doc_id] = self._find_mentions(doc_id, targets)
-
-        all_ids = set(wikilink_edges) | set(mention_edges)
-        for doc_id in all_ids:
-            merged: dict[tuple[int, str], float] = {}
-            for dst, w in wikilink_edges.get(doc_id, {}).items():
-                merged[(dst, "wiki")] = w
-            for dst, w in mention_edges.get(doc_id, {}).items():
+                    merged[(tid, "wiki")] = 1.0
+            for dst, w in self._find_mentions(doc_id, targets).items():
                 if (dst, "wiki") not in merged:
                     merged[(dst, "mention")] = w
             self.store.replace_links(doc_id, [(dst, kind, w) for (dst, kind), w in merged.items()])
 
     @staticmethod
-    def _mention_targets(title_to_id: dict[str, int], docs: dict) -> list[tuple[re.Pattern, int]]:
+    def _mention_targets(title_to_id: dict[str, int]) -> list[tuple[re.Pattern, int]]:
         """Compile regexes for titles worth detecting as unlinked mentions."""
         out = []
         for title_lower, doc_id in title_to_id.items():

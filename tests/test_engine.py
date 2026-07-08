@@ -44,6 +44,38 @@ def test_graph_links_wiki_and_mention(engine):
     assert any(dst == docs["Atlas Notes"] for dst, _, _ in nbrs)
 
 
+def test_unchanged_doc_keeps_wiki_links_after_add(engine, vault):
+    """Regression: adding a note must not wipe wiki edges of unchanged docs."""
+    engine.index()
+    docs = {d.title: d.id for d in engine.store.all_docs()}
+    mercury, dana = docs["Mercury Initiative"], docs["Dana Petrov"]
+
+    def wiki_edges(doc_id):
+        return {(dst, k) for dst, k, _ in engine.store.neighbors([doc_id])[doc_id] if k == "wiki"}
+
+    before = wiki_edges(mercury)
+    assert (dana, "wiki") in before
+
+    (vault / "Unrelated Note.md").write_text("Nothing links here.")
+    rep = engine.index()
+    assert rep.added == 1
+    assert wiki_edges(mercury) == before
+
+
+def test_new_note_resolves_old_dangling_wikilink(engine, vault):
+    """A wikilink to a note that didn't exist yet must resolve once it appears."""
+    (vault / "Pointer.md").write_text("See [[Future Note]] for details.")
+    engine.index()
+    docs = {d.title: d.id for d in engine.store.all_docs()}
+    assert engine.store.neighbors([docs["Pointer"]])[docs["Pointer"]] == []
+
+    (vault / "Future Note.md").write_text("I exist now, about quasars.")
+    engine.index()
+    docs = {d.title: d.id for d in engine.store.all_docs()}
+    nbrs = engine.store.neighbors([docs["Pointer"]])[docs["Pointer"]]
+    assert any(dst == docs["Future Note"] and k == "wiki" for dst, k, _ in nbrs)
+
+
 def test_alias_title_map(engine):
     engine.index()
     tm = engine.store.title_map()

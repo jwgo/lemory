@@ -129,10 +129,13 @@ def chunk_note(
                 buf = f"{buf}\n\n{p}" if buf else p
             # a single paragraph can still exceed the limit: hard-split it
             while len(buf) > chunk_chars * 1.5:
-                cut = buf.rfind(" ", chunk_chars - 200, chunk_chars)
-                cut = cut if cut != -1 else chunk_chars
+                cut = buf.rfind(" ", max(chunk_chars - 200, 1), chunk_chars)
+                cut = cut if cut > 0 else chunk_chars
                 chunks.append((sec.heading, buf[:cut].strip()))
-                buf = buf[max(cut - overlap, 0):]
+                # cap the carried overlap so the loop always makes progress,
+                # even with pathological overlap >= chunk_chars configs
+                back = min(overlap, cut // 2)
+                buf = buf[cut - back:]
         if buf.strip():
             if chunks and chunks[-1][0] == sec.heading and len(buf.strip()) < min_chars:
                 prev_h, prev_t = chunks[-1]

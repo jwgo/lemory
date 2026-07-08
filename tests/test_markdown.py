@@ -39,5 +39,12 @@ def test_chunk_note_respects_size():
     assert all(h == "S" for h, _ in chunks)
 
 
+def test_chunk_note_terminates_with_pathological_overlap():
+    body = "word " * 2000  # one giant paragraph
+    chunks = chunk_note("T", body, chunk_chars=200, overlap=500)
+    assert len(chunks) > 3
+    assert all(t.strip() for _, t in chunks)
+
+
 def test_embed_text_has_breadcrumb():
     assert embed_text_for_chunk("Note", "A > B", "body").startswith("Note > A > B")

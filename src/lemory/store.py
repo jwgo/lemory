@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS documents (
     mtime REAL NOT NULL DEFAULT 0,
     tags TEXT NOT NULL DEFAULT '[]',
     frontmatter TEXT NOT NULL DEFAULT '{}',
+    wikilinks TEXT NOT NULL DEFAULT '[]',
     indexed_at REAL NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_documents_title ON documents(title);
@@ -124,6 +125,10 @@ class Store:
         self._dirty = True
         with self.conn() as c:
             c.executescript(SCHEMA)
+            # migrate pre-wikilinks databases in place
+            cols = {r["name"] for r in c.execute("PRAGMA table_info(documents)")}
+            if "wikilinks" not in cols:
+                c.execute("ALTER TABLE documents ADD COLUMN wikilinks TEXT NOT NULL DEFAULT '[]'")
 
     def conn(self) -> sqlite3.Connection:
         c = getattr(self._local, "conn", None)
@@ -156,16 +161,18 @@ class Store:
     def upsert_document(
         self, path: str, title: str, content_hash: str, mtime: float,
         tags: list[str], frontmatter: dict, indexed_at: float,
+        wikilinks: list[str] | None = None,
     ) -> int:
         c = self.conn()
         c.execute(
-            """INSERT INTO documents(path,title,content_hash,mtime,tags,frontmatter,indexed_at)
-               VALUES(?,?,?,?,?,?,?)
+            """INSERT INTO documents(path,title,content_hash,mtime,tags,frontmatter,wikilinks,indexed_at)
+               VALUES(?,?,?,?,?,?,?,?)
                ON CONFLICT(path) DO UPDATE SET title=excluded.title,
                  content_hash=excluded.content_hash, mtime=excluded.mtime,
                  tags=excluded.tags, frontmatter=excluded.frontmatter,
-                 indexed_at=excluded.indexed_at""",
-            (path, title, content_hash, mtime, json.dumps(tags), json.dumps(frontmatter), indexed_at),
+                 wikilinks=excluded.wikilinks, indexed_at=excluded.indexed_at""",
+            (path, title, content_hash, mtime, json.dumps(tags), json.dumps(frontmatter),
+             json.dumps(wikilinks or []), indexed_at),
         )
         row = c.execute("SELECT id FROM documents WHERE path=?", (path,)).fetchone()
         c.commit()
@@ -282,6 +289,16 @@ class Store:
     def link_count(self) -> int:
         return int(self.conn().execute("SELECT COUNT(*) AS n FROM links").fetchone()["n"])
 
+    def doc_wikilinks(self) -> dict[int, list[str]]:
+        """doc_id -> raw wikilink targets, as stored at index time."""
+        out: dict[int, list[str]] = {}
+        for r in self.conn().execute("SELECT id, wikilinks FROM documents"):
+            try:
+                out[r["id"]] = json.loads(r["wikilinks"])
+            except json.JSONDecodeError:
+                out[r["id"]] = []
+        return out
+
     # -------------------------------------------------------------- entities
     def add_entity_mentions(self, doc_id: int, names: list[str]) -> None:
         c = self.conn()
@@ -364,7 +381,8 @@ class Store:
 
     def vector_search(self, query_vec: np.ndarray, k: int) -> list[tuple[int, float]]:
         matrix, ids = self._ensure_matrix()
-        if matrix.shape[0] == 0:
+        if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0]:
+            # dim mismatch = embed model/provider changed without `index --full`
             return []
         sims = matrix @ query_vec.astype(np.float32)
         k = min(k, len(ids))
