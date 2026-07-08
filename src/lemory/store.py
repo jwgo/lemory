@@ -172,7 +172,7 @@ class Store:
 
     def delete_document(self, path: str) -> None:
         c = self.conn()
-        row = c.execute("SELECT id FROM documents WHERE id IN (SELECT id FROM documents WHERE path=?)", (path,)).fetchone()
+        row = c.execute("SELECT id FROM documents WHERE path=?", (path,)).fetchone()
         if not row:
             return
         doc_id = row["id"]

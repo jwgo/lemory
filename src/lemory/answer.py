@@ -24,12 +24,8 @@ class Answer:
     sources: list[ChunkHit] = field(default_factory=list)
 
     def render_sources(self) -> str:
-        seen = []
         lines = []
         for i, h in enumerate(self.sources, 1):
-            tag = f"{h.title}" + (f" › {h.heading}" if h.heading else "")
-            if tag not in seen:
-                seen.append(tag)
             lines.append(f"[{i}] {h.path}" + (f" › {h.heading}" if h.heading else ""))
         return "\n".join(lines)
 
