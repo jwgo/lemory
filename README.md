@@ -132,13 +132,24 @@ Everything works with defaults; override via `lemory.toml`, env (`LEMORY_*`), or
 ```toml
 [lemory]
 vault = "~/Obsidian/MyVault"
+# provider = "auto"             # auto | gemini | openai (auto picks from available keys)
 # chunk_chars = 1400
 # graph_expansion = true
 # mention_links = true          # unlinked title mentions as graph edges
 # enrich_entities = false       # optional LLM entity extraction (uses quota)
 # llm_model = "gemini-2.5-flash"
+# openai_llm_model = "gpt-4o-mini"
 # embed_dim = 768
 ```
+
+### Providers
+
+Lemory runs on **Gemini** (default; a free-tier key is enough) or **OpenAI** —
+set `GEMINI_API_KEY` or `OPENAI_API_KEY` and `provider = "auto"` does the rest.
+Both providers implement the same interface (LLM, batched embeddings, rate
+limiting, retries). Switching embedding providers changes the vector space, so
+run `lemory index --full` after a switch — the cache is keyed by model, nothing
+mixes silently.
 
 ## Development
 

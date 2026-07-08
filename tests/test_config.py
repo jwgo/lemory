@@ -18,15 +18,42 @@ def test_resolved_vault_requires_vault():
 
 
 def test_resolved_api_key_error(monkeypatch):
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-    with pytest.raises(RuntimeError, match="No Gemini API key"):
+    for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    with pytest.raises(RuntimeError, match="No API key"):
         LemoryConfig().resolved_api_key()
 
 
 def test_api_key_from_env(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "k1")
     assert LemoryConfig().resolved_api_key() == "k1"
+
+
+def test_provider_auto_prefers_gemini(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("OPENAI_API_KEY", "o")
+    cfg = LemoryConfig()
+    assert cfg.resolved_provider() == "gemini"
+    assert cfg.active_embed_model() == cfg.embed_model
+
+
+def test_provider_auto_falls_back_to_openai(monkeypatch):
+    for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "o")
+    cfg = LemoryConfig()
+    assert cfg.resolved_provider() == "openai"
+    assert cfg.resolved_api_key() == "o"
+    assert cfg.active_embed_model() == cfg.openai_embed_model
+    assert cfg.active_llm_model() == cfg.openai_llm_model
+
+
+def test_provider_explicit_override(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("OPENAI_API_KEY", "o")
+    cfg = LemoryConfig(provider="openai")
+    assert cfg.resolved_provider() == "openai"
+    assert cfg.resolved_api_key() == "o"
 
 
 def test_data_dir_defaults_inside_vault(tmp_path):

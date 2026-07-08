@@ -22,24 +22,38 @@ class Engine:
         self._indexer = None
 
     @property
-    def llm(self) -> GeminiClient:
+    def llm(self):
         if self._llm is None:
-            self._llm = GeminiClient(
-                api_key=self.cfg.resolved_api_key(),
-                llm_model=self.cfg.llm_model,
-                llm_fallback_model=self.cfg.llm_fallback_model,
-                llm_rpm=self.cfg.llm_rpm,
-                embed_model=self.cfg.embed_model,
-                embed_dim=self.cfg.embed_dim,
-                embed_rpm=self.cfg.embed_rpm,
-                max_output_tokens=self.cfg.llm_max_output_tokens,
-            )
+            provider = self.cfg.resolved_provider()
+            if provider == "openai":
+                from .openai_client import OpenAIClient
+
+                self._llm = OpenAIClient(
+                    api_key=self.cfg.resolved_openai_key(),
+                    llm_model=self.cfg.openai_llm_model,
+                    llm_rpm=self.cfg.openai_llm_rpm,
+                    embed_model=self.cfg.openai_embed_model,
+                    embed_dim=self.cfg.embed_dim,
+                    embed_rpm=self.cfg.openai_embed_rpm,
+                    max_output_tokens=self.cfg.llm_max_output_tokens,
+                )
+            else:
+                self._llm = GeminiClient(
+                    api_key=self.cfg.resolved_gemini_key(),
+                    llm_model=self.cfg.llm_model,
+                    llm_fallback_model=self.cfg.llm_fallback_model,
+                    llm_rpm=self.cfg.llm_rpm,
+                    embed_model=self.cfg.embed_model,
+                    embed_dim=self.cfg.embed_dim,
+                    embed_rpm=self.cfg.embed_rpm,
+                    max_output_tokens=self.cfg.llm_max_output_tokens,
+                )
         return self._llm
 
     # ------------------------------------------------------------ embeddings
     def embed_documents_cached(self, texts: list[str]) -> tuple[np.ndarray, int]:
         """Embed with content-hash cache. Returns (vectors, api_misses)."""
-        keys = [Store.cache_key(self.cfg.embed_model, self.cfg.embed_dim, "doc", t) for t in texts]
+        keys = [Store.cache_key(self.cfg.active_embed_model(), self.cfg.embed_dim, "doc", t) for t in texts]
         cached = self.store.cache_get_many(keys)
         out = np.zeros((len(texts), self.cfg.embed_dim), dtype=np.float32)
         missing_idx = []
@@ -58,7 +72,7 @@ class Engine:
         return out, len(missing_idx)
 
     def embed_query_cached(self, query: str) -> np.ndarray:
-        key = Store.cache_key(self.cfg.embed_model, self.cfg.embed_dim, "query", query)
+        key = Store.cache_key(self.cfg.active_embed_model(), self.cfg.embed_dim, "query", query)
         cached = self.store.cache_get_many([key])
         if key in cached and cached[key].shape[0] == self.cfg.embed_dim:
             return cached[key]
@@ -100,8 +114,8 @@ class Engine:
             "documents": self.store.doc_count(),
             "chunks": self.store.chunk_count(),
             "links": self.store.link_count(),
-            "embed_model": f"{self.cfg.embed_model} ({self.cfg.embed_dim}d)",
-            "llm_model": self.cfg.llm_model,
+            "embed_model": f"{self.cfg.active_embed_model()} ({self.cfg.embed_dim}d)",
+            "llm_model": self.cfg.active_llm_model(),
             "last_sync": self.store.get_meta("last_sync"),
         }
 

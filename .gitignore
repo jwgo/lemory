@@ -16,6 +16,8 @@ build/
 .lemory/
 *.lemory.db
 
-# benchmark working data (large downloads / generated indexes)
-benchmarks/work/
+# benchmark working data (large downloads / generated indexes),
+# but keep result JSONs so runs survive environment recycling
+benchmarks/work/*
+!benchmarks/work/results_*.json
 benchmarks/data/squad/dev-v2.0.json

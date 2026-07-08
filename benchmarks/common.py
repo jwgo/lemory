@@ -69,7 +69,7 @@ def make_engine(vault: Path, tag: str, **cfg_overrides) -> Engine:
 
 def prewarm_queries(engine: Engine, queries: list[str]) -> None:
     """Batch-embed all benchmark queries into the cache (saves per-query calls)."""
-    keys = [Store.cache_key(engine.cfg.embed_model, engine.cfg.embed_dim, "query", q) for q in queries]
+    keys = [Store.cache_key(engine.cfg.active_embed_model(), engine.cfg.embed_dim, "query", q) for q in queries]
     cached = engine.store.cache_get_many(keys)
     missing = [(k, q) for k, q in zip(keys, queries) if k not in cached]
     if not missing:

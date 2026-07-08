@@ -37,6 +37,9 @@ class LemoryConfig(BaseSettings):
     # --- where state lives (defaults to <vault>/.lemory) ---
     data_dir: Optional[Path] = None
 
+    # --- provider: "auto" picks gemini/openai from whichever key is set ---
+    provider: str = "auto"  # auto | gemini | openai
+
     # --- Gemini ---
     gemini_api_key: str = ""
     llm_model: str = "gemini-2.5-flash"
@@ -47,6 +50,14 @@ class LemoryConfig(BaseSettings):
     embed_dim: int = 768
     embed_batch: int = 64
     embed_rpm: int = 90
+
+    # --- OpenAI (used when provider is "openai", or "auto" with only an
+    # OpenAI key present). Switching embed provider requires `index --full`.
+    openai_api_key: str = ""
+    openai_llm_model: str = "gpt-4o-mini"
+    openai_embed_model: str = "text-embedding-3-small"
+    openai_llm_rpm: int = 60
+    openai_embed_rpm: int = 300
 
     # --- chunking ---
     chunk_chars: int = 1400
@@ -85,15 +96,39 @@ class LemoryConfig(BaseSettings):
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def resolved_api_key(self) -> str:
-        key = self.gemini_api_key or os.environ.get("GEMINI_API_KEY", "") or os.environ.get(
-            "GOOGLE_API_KEY", ""
+    def resolved_gemini_key(self) -> str:
+        return (
+            self.gemini_api_key
+            or os.environ.get("GEMINI_API_KEY", "")
+            or os.environ.get("GOOGLE_API_KEY", "")
         )
+
+    def resolved_openai_key(self) -> str:
+        return self.openai_api_key or os.environ.get("OPENAI_API_KEY", "")
+
+    def resolved_provider(self) -> str:
+        if self.provider in ("gemini", "openai"):
+            return self.provider
+        if self.resolved_gemini_key():
+            return "gemini"
+        if self.resolved_openai_key():
+            return "openai"
+        raise RuntimeError(
+            "No API key found. Set GEMINI_API_KEY (a free-tier key from "
+            "https://aistudio.google.com works) or OPENAI_API_KEY."
+        )
+
+    def active_embed_model(self) -> str:
+        return self.openai_embed_model if self.resolved_provider() == "openai" else self.embed_model
+
+    def active_llm_model(self) -> str:
+        return self.openai_llm_model if self.resolved_provider() == "openai" else self.llm_model
+
+    def resolved_api_key(self) -> str:
+        provider = self.resolved_provider()
+        key = self.resolved_gemini_key() if provider == "gemini" else self.resolved_openai_key()
         if not key:
-            raise RuntimeError(
-                "No Gemini API key found. Set GEMINI_API_KEY (a free-tier key from "
-                "https://aistudio.google.com works)."
-            )
+            raise RuntimeError(f"provider is '{provider}' but no matching API key is set")
         return key
 
 
