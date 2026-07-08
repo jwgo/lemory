@@ -76,15 +76,20 @@ def make_engine(vault: Path, tag: str, **cfg_overrides) -> Engine:
     return Engine(cfg)
 
 
-def prewarm_queries(engine: Engine, queries: list[str]) -> None:
-    """Batch-embed all benchmark queries into the cache (saves per-query calls)."""
+def prewarm_queries(engine: Engine, queries: list[str], group: int = 24) -> None:
+    """Batch-embed all benchmark queries into the cache (saves per-query calls).
+
+    Caches after EVERY group so progress survives quota failures — a rerun
+    resumes from the last cached query instead of restarting from zero.
+    """
     keys = [Store.cache_key(engine.cfg.active_embed_model(), engine.cfg.embed_dim, "query", q) for q in queries]
     cached = engine.store.cache_get_many(keys)
     missing = [(k, q) for k, q in zip(keys, queries) if k not in cached]
-    if not missing:
-        return
-    vecs = engine.llm.embed([q for _, q in missing], task_type="RETRIEVAL_QUERY")
-    engine.store.cache_put_many({k: vecs[i] for i, (k, _) in enumerate(missing)})
+    for i in range(0, len(missing), group):
+        batch = missing[i : i + group]
+        vecs = engine.llm.embed([q for _, q in batch], task_type="RETRIEVAL_QUERY")
+        engine.store.cache_put_many({k: vecs[j] for j, (k, _) in enumerate(batch)})
+        print(f"prewarm {min(i + group, len(missing))}/{len(missing)}", flush=True)
 
 
 # ------------------------------------------------------------------- ranking
