@@ -59,13 +59,13 @@ class Engine:
         return vec
 
     # ----------------------------------------------------------------- verbs
-    def index(self, full: bool = False, progress=None):
+    def index(self, full: bool = False, progress=None, paths: Optional[set] = None):
         from .ingestion import Indexer
 
         with self._index_lock:
             if self._indexer is None:
                 self._indexer = Indexer(self)
-            rep = self._indexer.sync(full=full, progress=progress)
+            rep = self._indexer.sync(full=full, progress=progress, paths=paths)
             if self.cfg.enrich_entities:
                 self._indexer.enrich_entities()
             return rep

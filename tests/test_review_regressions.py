@@ -100,6 +100,39 @@ def test_status_without_any_api_key(tmp_path, monkeypatch):
     eng.close()
 
 
+def test_targeted_sync_edit_add_delete(engine, vault):
+    """paths= mode must handle edit, add, and delete without a full scan."""
+    engine.index()
+
+    p = vault / "Weekly Log.md"
+    p.write_text(p.read_text() + "\n- targeted edit line\n")
+    rep = engine.index(paths={"Weekly Log.md"})
+    assert rep.updated == 1 and rep.added == 0 and rep.removed == 0
+
+    (vault / "Brand New.md").write_text("about targeted syncing of vaults")
+    rep = engine.index(paths={"Brand New.md"})
+    assert rep.added == 1
+    assert engine.search("targeted syncing", k=3, mode="bm25")
+
+    (vault / "Brand New.md").unlink()
+    rep = engine.index(paths={"Brand New.md"})
+    assert rep.removed == 1
+    assert engine.store.get_doc_by_path("Brand New.md") is None
+
+
+def test_targeted_sync_does_not_touch_other_docs(engine, vault):
+    engine.index()
+    before = engine.store.doc_count()
+    # delete a file on disk but only sync a different path: no phantom removal
+    (vault / "Weekly Log.md").unlink()
+    rep = engine.index(paths={"Dana Petrov.md"})
+    assert rep.removed == 0
+    assert engine.store.doc_count() == before
+    # full sync catches up
+    rep = engine.index()
+    assert rep.removed == 1
+
+
 def test_alias_edit_triggers_link_rebuild(engine, vault):
     """Adding an alias to note A must resolve other notes' wikilinks to it."""
     (vault / "Pointer2.md").write_text("References [[K8s Cluster]] often.")

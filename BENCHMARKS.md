@@ -17,10 +17,10 @@ the precondition for a correct multi-hop answer.
 
 | System | Full-support@8 (2-hop) | Full-support@8 (all) | Recall@1 | MRR@10 | ms/query* |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 1.970 |
-| Lemory w/o graph (ablation) | 0.381 | 0.544 | 1.000 | 1.000 | 1.274 |
-| Vector-only (naive RAG) | 0.381 | 0.544 | 0.965 | 0.982 | 0.392 |
-| BM25 (lexical) | 0.429 | 0.579 | 0.825 | 0.912 | 0.768 |
+| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 2.004 |
+| Lemory w/o graph (ablation) | 0.381 | 0.544 | 1.000 | 1.000 | 1.271 |
+| Vector-only (naive RAG) | 0.381 | 0.544 | 0.965 | 0.982 | 0.381 |
+| BM25 (lexical) | 0.429 | 0.579 | 0.825 | 0.912 | 0.813 |
 
 ## 3. End-to-end QA (same Gemini generator, only retrieval differs)
 
@@ -51,7 +51,7 @@ is covered by the corpora above on real embeddings).
 | Metric | value |
 |---|---|
 | Notes / chunks / links | 948 / 1428 / 1176 |
-| Full index | 4.7 s |
+| Full index | 4.5 s |
 | Incremental sync (1 edit) | 0.08 s |
 | Planted-fact hit@1 (hybrid) | 1.00 |
 | Planted-fact hit@1 (BM25) | 0.92 |
@@ -66,9 +66,9 @@ Synthetic Zipfian corpus, 50 queries, exact cosine + SQLite FTS5.
 
 | Index size | hybrid+graph | hybrid | vector | bm25 |
 |---|---|---|---|---|
-| 2,000 chunks | 6.6 ms | 4.4 ms | 0.82 ms | 3.6 ms |
-| 10,000 chunks | 18.7 ms | 15.4 ms | 1.22 ms | 13.8 ms |
-| 50,000 chunks | 78.8 ms | 77.1 ms | 5.48 ms | 69.4 ms |
+| 2,000 chunks | 6.9 ms | 4.4 ms | 0.54 ms | 3.4 ms |
+| 10,000 chunks | 18.7 ms | 16.0 ms | 1.27 ms | 13.7 ms |
+| 50,000 chunks | 79.3 ms | 75.7 ms | 5.54 ms | 68.5 ms |
 
 \* ms/query is local compute only (vector/BM25/graph math), measured on the
 benchmark machine; the query embedding round-trip (~100–300 ms, identical for

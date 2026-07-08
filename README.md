@@ -83,10 +83,11 @@ Obsidian vault ──▶ watcher ──▶ incremental sync (content-hash diff)
                                  └─ note graph: [[wikilinks]] + unlinked title
                                     mentions (+ optional LLM entity extraction)
 
-query ──▶ vector top-k ─┐
-      └─▶ BM25 (FTS5) ──┼─▶ weighted RRF fusion ──▶ 1-hop graph expansion
-                        │        + title boost         (multi-hop recall)
-                        └──────────▶ per-note diversity cap ──▶ hits / ask()
+query ─▶ (optional LLM query expansion) ─▶ vector top-k ─┐
+                                       └─▶ BM25 (FTS5) ──┼─▶ adaptive RRF fusion
+                                                         │      + title boost
+         1-hop graph expansion (multi-hop recall)  ◀─────┘
+         (optional LLM rerank) ─▶ per-note diversity cap ─▶ hits / ask()
 ```
 
 Design choices that matter:
@@ -105,6 +106,15 @@ Design choices that matter:
 - **Free-tier friendly.** Everything runs on one Gemini free-tier key: batched
   embeddings, RPM throttling, 429/503 backoff with server-advised delays, and
   automatic model fallback.
+- **Korean-ready retrieval.** Hangul is indexed as character bigrams alongside
+  whole tokens (CJK-analyzer style), so 조사가 붙은 질의("윤하준**가**")도
+  원형("윤하준")을 찾습니다; the title boost is particle-tolerant, and short
+  keyword queries adaptively weight the lexical leg. On the 948-note mixed
+  KR/EN second-brain benchmark this took planted-fact hit@1 from 56% to 100%.
+- **qmd-style LLM stages (optional).** `--expand` rewrites the query into
+  variants that are searched and fused; `--rerank` blends LLM relevance scores
+  into the ranking — both off by default (each costs one LLM call), degrade
+  gracefully, and are inspired by Tobi Lütke's qmd retrieval pipeline.
 
 ## Benchmarks
 

@@ -2,18 +2,18 @@
   "docs": 948,
   "chunks": 1428,
   "links": 1176,
-  "full_index_s": 4.6792638301849365,
-  "incremental_sync_s": 0.08420062065124512,
+  "full_index_s": 4.515254735946655,
+  "incremental_sync_s": 0.08395218849182129,
   "planted": {
     "hybrid": {
       "hit@1": 1.0,
       "hit@5": 1.0,
-      "ms_per_query": 3.579554557800293
+      "ms_per_query": 3.6110448837280273
     },
     "bm25": {
       "hit@1": 0.92,
       "hit@5": 1.0,
-      "ms_per_query": 0.9589624404907227
+      "ms_per_query": 0.9489107131958008
     }
   },
   "graph_linked_ratio": 1.0

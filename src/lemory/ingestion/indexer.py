@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -64,11 +65,34 @@ class Indexer:
         self.store: Store = engine.store
 
     # ------------------------------------------------------------------ sync
-    def sync(self, full: bool = False, progress: Optional[Callable[[str], None]] = None) -> SyncReport:
+    def sync(
+        self, full: bool = False, progress: Optional[Callable[[str], None]] = None,
+        paths: Optional[set[str]] = None,
+    ) -> SyncReport:
+        """Sync the index with the vault.
+
+        With `paths` (vault-relative), only those files are read/hashed and
+        deletions are checked only among them — the fast path the watcher uses
+        so one edit doesn't rescan a 10k-note vault. Without it, the full
+        vault is scanned (start-up, CLI `lemory index`, safety net).
+        """
         t0 = time.time()
         rep = SyncReport()
         vault = self.cfg.resolved_vault()
-        files = iter_vault_files(vault, self.cfg.include_globs, self.cfg.exclude_dirs)
+        targeted = paths is not None and not full
+        if targeted:
+            files = []
+            for rel in paths:
+                p = vault / rel
+                if p.is_file():
+                    files.append(p)
+                elif self.store.get_doc_by_path(rel):
+                    self.store.delete_document(rel)
+                    rep.removed += 1
+                    if progress:
+                        progress(f"removed {rel}")
+        else:
+            files = iter_vault_files(vault, self.cfg.include_globs, self.cfg.exclude_dirs)
         seen_paths: set[str] = set()
         changed_docs: list[tuple[int, list[str]]] = []  # (doc_id, wikilinks)
 
@@ -113,13 +137,14 @@ class Indexer:
             if progress:
                 progress(f"indexed {rel} ({len(chunks)} chunks)")
 
-        # deletions
-        for doc in self.store.all_docs():
-            if doc.path not in seen_paths:
-                self.store.delete_document(doc.path)
-                rep.removed += 1
-                if progress:
-                    progress(f"removed {doc.path}")
+        # deletions (targeted mode already handled its own removals above)
+        if not targeted:
+            for doc in self.store.all_docs():
+                if doc.path not in seen_paths:
+                    self.store.delete_document(doc.path)
+                    rep.removed += 1
+                    if progress:
+                        progress(f"removed {doc.path}")
 
         # graph: rebuild links for changed docs. When the set of resolvable
         # titles changed (add/remove/rename/ALIAS edits), links FROM unchanged
@@ -242,21 +267,34 @@ def watch(engine: "Engine", debounce: float = 2.0, on_sync: Optional[Callable] =
     from watchdog.observers import Observer
 
     vault = engine.cfg.resolved_vault()
-    pending = {"dirty": False, "last": 0.0}
+    lock = threading.Lock()
+    pending: dict = {"paths": set(), "last": 0.0, "overflow": False}
     # react to whatever the include globs cover, not just .md
     suffixes = {Path(g).suffix for g in engine.cfg.include_globs if Path(g).suffix} or {".md"}
+
+    def note_path(p: str) -> Optional[str]:
+        pp = Path(p)
+        if pp.suffix not in suffixes:
+            return None
+        if any(part in engine.cfg.exclude_dirs for part in pp.parts):
+            return None
+        try:
+            return str(pp.resolve().relative_to(vault))
+        except ValueError:
+            return None
 
     class Handler(FileSystemEventHandler):
         def on_any_event(self, event):
             if event.is_directory:
                 return
-            p = str(getattr(event, "dest_path", "") or event.src_path)
-            if Path(p).suffix not in suffixes:
-                return
-            if any(part in engine.cfg.exclude_dirs for part in Path(p).parts):
-                return
-            pending["dirty"] = True
-            pending["last"] = time.time()
+            with lock:
+                for raw in (getattr(event, "dest_path", "") or "", event.src_path or ""):
+                    rel = note_path(str(raw)) if raw else None
+                    if rel:
+                        pending["paths"].add(rel)
+                        pending["last"] = time.time()
+                if len(pending["paths"]) > 200:
+                    pending["overflow"] = True  # bulk change: cheaper to full-scan
 
     observer = Observer()
     observer.schedule(Handler(), str(vault), recursive=True)
@@ -265,16 +303,24 @@ def watch(engine: "Engine", debounce: float = 2.0, on_sync: Optional[Callable] =
     try:
         while True:
             time.sleep(0.5)
-            if pending["dirty"] and time.time() - pending["last"] >= debounce:
-                pending["dirty"] = False
-                rep = engine.index()
-                if rep.changed:
-                    log.info(
-                        "synced: +%d ~%d -%d (%d chunks, %.1fs)",
-                        rep.added, rep.updated, rep.removed, rep.chunks, rep.seconds,
-                    )
-                if on_sync:
-                    on_sync(rep)
+            with lock:
+                ready = pending["paths"] and time.time() - pending["last"] >= debounce
+                paths = set(pending["paths"]) if ready else None
+                overflow = pending["overflow"]
+                if ready:
+                    pending["paths"].clear()
+                    pending["overflow"] = False
+            if not ready:
+                continue
+            # targeted sync for small edits; full scan for bulk changes
+            rep = engine.index() if overflow else engine.index(paths=paths)
+            if rep.changed:
+                log.info(
+                    "synced: +%d ~%d -%d (%d chunks, %.1fs)",
+                    rep.added, rep.updated, rep.removed, rep.chunks, rep.seconds,
+                )
+            if on_sync:
+                on_sync(rep)
     except KeyboardInterrupt:
         pass
     finally:
