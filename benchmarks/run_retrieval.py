@@ -30,9 +30,9 @@ def load_bench(name: str):
     if name == "squad":
         vault = WORK / "squad_vault"
         questions = json.loads((WORK / "squad_questions.json").read_text())
-    elif name == "multihop":
-        vault = DATA / "multihop" / "vault"
-        questions = json.loads((DATA / "multihop" / "questions.json").read_text())
+    elif name in ("multihop", "maple", "law"):
+        vault = DATA / name / "vault"
+        questions = json.loads((DATA / name / "questions.json").read_text())
     else:
         raise SystemExit(f"unknown bench {name}")
     return vault, questions
@@ -66,14 +66,14 @@ def main() -> None:
             hits = eng.search(q["q"], k=K_EVAL, **kw)
             flags = [is_hit(bench, q, h) for h in hits]
             flags_per_q.append(flags)
-            if bench == "multihop":
+            if bench != "squad":
                 found_titles = {h.title for h in hits if h.title in q["gold_notes"]}
                 pair = (len(found_titles), len(q["gold_notes"]))
                 support.append(pair)
                 by_hops[q["hops"]].append(pair)
         dt = time.time() - t0
         m = rank_metrics(flags_per_q)
-        if bench == "multihop":
+        if bench != "squad":
             m.update(full_support_metrics(support, "@8"))
             for hops, arr in by_hops.items():
                 if arr:
