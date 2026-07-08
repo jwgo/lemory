@@ -1,0 +1,21 @@
+# secrets — never commit API keys
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# lemory runtime data
+.lemory/
+*.lemory.db
+
+# benchmark working data (large downloads / generated indexes)
+benchmarks/work/
+benchmarks/data/squad/dev-v2.0.json
