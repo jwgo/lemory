@@ -119,5 +119,27 @@ def serve(
     uvicorn.run(build_app(eng, watch=watch), host=host, port=port)
 
 
+@app.command()
+def mcp(vault: Optional[Path] = typer.Option(None)):
+    """Run as an MCP server (stdio) for Claude Desktop / Claude Code."""
+    from .mcp_server import run_mcp
+
+    run_mcp(_engine(vault))
+
+
+@app.command()
+def enrich(
+    vault: Optional[Path] = typer.Option(None),
+    max_docs: int = typer.Option(50, help="Notes to enrich in this pass"),
+):
+    """Optional: LLM entity extraction to densify the graph (uses quota)."""
+    from .ingest import Indexer
+
+    eng = _engine(vault)
+    eng.index()
+    n = Indexer(eng).enrich_entities(max_docs=max_docs)
+    console.print(f"[green]enriched[/green] {n} notes, links now: {eng.store.link_count()}")
+
+
 if __name__ == "__main__":
     app()

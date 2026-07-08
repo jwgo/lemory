@@ -106,7 +106,7 @@ class DocRecord:
 def _fts_escape(query: str) -> str:
     """Turn free text into a safe FTS5 OR-query of quoted terms."""
     terms = [t.replace('"', "") for t in query.split()]
-    terms = [t for t in terms if t.strip()]
+    terms = [t for t in terms if t.strip()][:16]  # cap pathological queries
     if not terms:
         return '""'
     return " OR ".join(f'"{t}"' for t in terms)
@@ -120,6 +120,7 @@ class Store:
         self._matrix_lock = threading.Lock()
         self._matrix: Optional[np.ndarray] = None  # [n, dim] float32, L2-normalized
         self._matrix_chunk_ids: Optional[np.ndarray] = None
+        self._matrix_pos: dict[int, int] = {}  # chunk_id -> row
         self._dirty = True
         with self.conn() as c:
             c.executescript(SCHEMA)
@@ -240,6 +241,17 @@ class Store:
         return [r["id"] for r in self.conn().execute(
             "SELECT id FROM chunks WHERE doc_id=? ORDER BY ord", (doc_id,))]
 
+    def doc_chunk_ids_many(self, doc_ids: list[int]) -> dict[int, list[int]]:
+        if not doc_ids:
+            return {}
+        q = ",".join("?" * len(doc_ids))
+        out: dict[int, list[int]] = {d: [] for d in doc_ids}
+        for r in self.conn().execute(
+            f"SELECT id, doc_id FROM chunks WHERE doc_id IN ({q}) ORDER BY ord", doc_ids
+        ):
+            out[r["doc_id"]].append(r["id"])
+        return out
+
     # ----------------------------------------------------------------- links
     def replace_links(self, src_doc: int, edges: list[tuple[int, str, float]]) -> None:
         c = self.conn()
@@ -341,10 +353,12 @@ class Store:
             if not rows:
                 self._matrix = np.zeros((0, 1), dtype=np.float32)
                 self._matrix_chunk_ids = np.zeros((0,), dtype=np.int64)
+                self._matrix_pos = {}
             else:
                 vecs = [np.frombuffer(r["vec"], dtype=np.float32) for r in rows]
                 self._matrix = np.vstack(vecs)
                 self._matrix_chunk_ids = np.array([r["id"] for r in rows], dtype=np.int64)
+                self._matrix_pos = {int(cid): i for i, cid in enumerate(self._matrix_chunk_ids)}
             self._dirty = False
             return self._matrix, self._matrix_chunk_ids
 
@@ -360,10 +374,10 @@ class Store:
 
     def chunk_sims(self, query_vec: np.ndarray, chunk_ids: list[int]) -> dict[int, float]:
         """Cosine similarity of specific chunks against a query vector."""
-        matrix, ids = self._ensure_matrix()
+        matrix, _ids = self._ensure_matrix()
         if matrix.shape[0] == 0 or not chunk_ids:
             return {}
-        pos = {int(cid): i for i, cid in enumerate(ids)}
+        pos = self._matrix_pos
         wanted = [(cid, pos[cid]) for cid in chunk_ids if cid in pos]
         if not wanted:
             return {}

@@ -139,19 +139,20 @@ def _graph_expand(
             doc_best[meta.doc_id] = max(doc_best.get(meta.doc_id, 0.0), s)
     top_docs = sorted(doc_best, key=lambda d: -doc_best[d])[: cfg.graph_top_docs]
 
+    all_nbrs = store.neighbors(top_docs)
     neighbor_gain: dict[int, float] = {}
     for src in top_docs:
-        for dst, kind, w in store.neighbors([src]).get(src, []):
+        for dst, kind, w in all_nbrs.get(src, []):
             gain = cfg.graph_alpha * doc_best[src] * w
             if gain > neighbor_gain.get(dst, 0.0):
                 neighbor_gain[dst] = gain
 
+    chunk_ids_by_doc = store.doc_chunk_ids_many(list(neighbor_gain))
+    all_sims = store.chunk_sims(qv, [c for ids in chunk_ids_by_doc.values() for c in ids])
+
     expanded = []
     for dst, gain in sorted(neighbor_gain.items(), key=lambda x: -x[1]):
-        cand_ids = store.doc_chunk_ids(dst)
-        if not cand_ids:
-            continue
-        sims = store.chunk_sims(qv, cand_ids)
+        sims = {c: all_sims[c] for c in chunk_ids_by_doc.get(dst, []) if c in all_sims}
         if not sims:
             continue
         best_cid = max(sims, key=sims.get)

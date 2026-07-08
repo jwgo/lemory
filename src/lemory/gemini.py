@@ -25,10 +25,16 @@ BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 
 class RateLimiter:
-    """Sliding-window requests-per-minute limiter (thread-safe)."""
+    """Requests-per-minute limiter (thread-safe).
+
+    Enforces both a sliding 60s window AND even spacing between requests —
+    burst-then-wait patterns trip fixed-window server quotas even when the
+    average rate is compliant."""
 
     def __init__(self, rpm: int):
         self.rpm = max(1, rpm)
+        self.min_interval = 60.0 / self.rpm
+        self.burst = max(2, self.rpm // 4)  # small bursts OK, then paced
         self._stamps: deque[float] = deque()
         self._lock = threading.Lock()
 
@@ -38,11 +44,18 @@ class RateLimiter:
                 now = time.monotonic()
                 while self._stamps and now - self._stamps[0] > 60.0:
                     self._stamps.popleft()
-                if len(self._stamps) < self.rpm:
+                spaced_ok = (
+                    len(self._stamps) < self.burst
+                    or (now - self._stamps[-1]) >= self.min_interval
+                )
+                if len(self._stamps) < self.rpm and spaced_ok:
                     self._stamps.append(now)
                     return
-                wait = 60.0 - (now - self._stamps[0]) + 0.05
-            time.sleep(min(wait, 5.0))
+                if not spaced_ok:
+                    wait = self.min_interval - (now - self._stamps[-1]) + 0.01
+                else:
+                    wait = 60.0 - (now - self._stamps[0]) + 0.05
+            time.sleep(min(max(wait, 0.01), 5.0))
 
 
 def _retry_delay_from_429(body: str) -> Optional[float]:
@@ -77,26 +90,34 @@ class GeminiClient:
 
     # ------------------------------------------------------------------ http
     def _post(self, url: str, payload: dict, limiter: RateLimiter, max_tries: int = 6) -> dict:
+        """POST with retries. Rate limits (429) get their own, more patient
+        budget: they are transient per-minute windows, not real failures —
+        free-tier keys can sit at the TPM ceiling for several minutes."""
         last_err: Exception | None = None
-        for attempt in range(max_tries):
+        attempt = 0
+        rate_limited = 0
+        while attempt < max_tries and rate_limited < 20:
             limiter.acquire()
             try:
                 r = self._http.post(url, json=payload)
             except httpx.HTTPError as e:  # network hiccup
                 last_err = e
+                attempt += 1
                 time.sleep(min(2**attempt, 20) + random.random())
                 continue
             if r.status_code == 200:
                 return r.json()
             body = r.text[:2000]
             if r.status_code == 429:
-                delay = _retry_delay_from_429(body) or min(15 * (attempt + 1), 60)
+                rate_limited += 1
+                delay = _retry_delay_from_429(body) or min(15 * rate_limited, 60)
                 log.warning("429 from Gemini, sleeping %.1fs", delay)
                 time.sleep(delay + random.random())
                 last_err = RuntimeError(f"429: {body[:200]}")
                 continue
             if r.status_code in (500, 502, 503, 504):
                 last_err = RuntimeError(f"{r.status_code}: {body[:200]}")
+                attempt += 1
                 time.sleep(min(2**attempt * 2, 30) + random.random())
                 continue
             raise RuntimeError(f"Gemini error {r.status_code}: {body}")
