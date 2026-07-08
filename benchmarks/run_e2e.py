@@ -47,10 +47,15 @@ def main() -> None:
     out_file = WORK / f"results_e2e_{bench}.json"
     state = json.loads(out_file.read_text()) if out_file.exists() else {"preds": {}}
 
-    for sysname, kw in SYSTEMS.items():
-        preds = state["preds"].setdefault(sysname, {})
-        for i, q in enumerate(questions):
-            qid = f"{i}:{q['q'][:40]}"
+    # question-major order with per-question model alternation: every system
+    # answers a given question with the SAME model, so the cross-system
+    # comparison stays generator-fair even when quota forces model rotation
+    models = [eng.cfg.llm_model, eng.cfg.llm_fallback_model]
+    for i, q in enumerate(questions):
+        qid = f"{i}:{q['q'][:40]}"
+        model = models[i % len(models)]
+        for sysname, kw in SYSTEMS.items():
+            preds = state["preds"].setdefault(sysname, {})
             if qid in preds:
                 continue
             hits = eng.search(q["q"], k=K, **kw)
@@ -61,14 +66,14 @@ def main() -> None:
             )
             try:
                 text = eng.llm.generate(prompt, system=SYSTEM, temperature=0.0,
-                                        max_output_tokens=256)
+                                        max_output_tokens=256, model=model)
             except Exception as e:
                 print(f"  gen failed ({e}); stopping this run — rerun to resume")
                 save_json(out_file, state)
                 raise SystemExit(1)
             preds[qid] = {"pred": text.strip(), "answers": q["answers"], "hops": q.get("hops", 1)}
             save_json(out_file, state)
-            print(f"{sysname} {i+1}/{len(questions)}: {text.strip()[:60]}")
+            print(f"q{i+1}/{len(questions)} {sysname} [{model.rsplit('-',1)[-1]}]: {text.strip()[:60]}", flush=True)
 
     # score (strip inline "[n]" citation markers before comparing)
     import re

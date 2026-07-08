@@ -80,13 +80,13 @@ def main() -> None:
         if f.stem in added:
             continue
         text = f.read_text()
-        for attempt in range(4):
+        for attempt in range(12):
             try:
                 m.add(text, user_id="bench", metadata={"note": f.stem})
                 break
             except Exception as e:
-                print(f"add {f.stem} failed ({str(e)[:120]}), retry {attempt+1}")
-                time.sleep(20 * (attempt + 1))
+                print(f"add {f.stem} failed ({str(e)[:120]}), retry {attempt+1}", flush=True)
+                time.sleep(min(45 * (attempt + 1), 150))
         else:
             print(f"giving up on {f.stem}")
         added.add(f.stem)

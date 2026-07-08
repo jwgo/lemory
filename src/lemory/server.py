@@ -49,6 +49,16 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
 
     app = FastAPI(title="Lemory", version="0.1.0", lifespan=lifespan)
 
+    # allow the Obsidian app (and local tools) to call this API directly
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["app://obsidian.md", "http://localhost", "http://127.0.0.1"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @app.get("/status")
     def status():
         return engine.status()
