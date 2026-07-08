@@ -34,6 +34,32 @@ def test_bm25_handles_special_chars(store):
         store.bm25_search(q, 5)  # must not raise
 
 
+def test_hangul_bigrams():
+    from lemory.storage.sqlite_store import hangul_bigrams
+
+    assert hangul_bigrams("윤하준") == ["윤하", "하준"]
+    assert hangul_bigrams("윤하준가 좋아함") == ["윤하", "하준", "준가", "좋아", "아함"]
+    assert hangul_bigrams("english only") == []
+    assert hangul_bigrams("김") == []  # single syllable: no bigram
+
+
+def test_bm25_korean_particle_still_matches(store):
+    """조사가 붙은 질의('윤하준가')도 원형('윤하준')을 담은 노트를 찾아야 한다."""
+    _add_doc(store, "p.md", "윤하준", [("", "윤하준 — 친구. 최애 음식: 김치찜")])
+    _add_doc(store, "q.md", "Marcus", [("", "Marcus — coworker. favorite food: pizza")])
+    hits = store.bm25_search("윤하준가 좋아하는 음식", 5)
+    assert hits
+    top = store.get_chunks([hits[0][0]])[hits[0][0]]
+    assert top.title == "윤하준"
+
+
+def test_bm25_korean_verb_form_matches(store):
+    _add_doc(store, "a.md", "회의록", [("", "결제 마이그레이션 일정을 확정했다")])
+    hits = store.bm25_search("마이그레이션 일정 확정", 5)
+    assert hits
+    assert store.get_chunks([hits[0][0]])[hits[0][0]].title == "회의록"
+
+
 def test_bm25_ranks_relevant_first(store):
     _add_doc(store, "a.md", "A", [("", "cats and dogs live together")])
     _add_doc(store, "b.md", "B", [("", "quantum entanglement of particles")])

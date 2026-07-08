@@ -10,7 +10,18 @@ from lemory.config import LemoryConfig
 from lemory.engine import Engine
 
 DIM = 64
-_WORD = re.compile(r"[a-z0-9]+")
+_WORD = re.compile(r"[a-z0-9]+|[가-힣]+")
+
+
+def _subtokens(text: str) -> list[str]:
+    """Words plus Hangul bigrams, so the fake embedder gives Korean text
+    meaningful subword similarity (mirrors real multilingual embedders)."""
+    toks = []
+    for t in _WORD.findall(text.lower()):
+        toks.append(t)
+        if "가" <= t[0] <= "힣" and len(t) > 1:
+            toks.extend(t[i : i + 2] for i in range(len(t) - 1))
+    return toks
 
 
 def _token_vec(tok: str) -> np.ndarray:
@@ -27,7 +38,7 @@ class FakeGemini:
         self.calls = {"embed": 0, "generate": 0}
 
     def _embed_one(self, text: str) -> np.ndarray:
-        toks = _WORD.findall(text.lower())
+        toks = _subtokens(text)
         if not toks:
             return np.zeros(DIM, dtype=np.float32)
         v = np.sum([_token_vec(t) for t in toks], axis=0)

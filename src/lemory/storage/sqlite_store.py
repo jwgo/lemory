@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import threading
 from dataclasses import dataclass, field
@@ -103,13 +104,43 @@ class DocRecord:
     tags: list[str] = field(default_factory=list)
 
 
+_HANGUL_RUN = re.compile(r"[가-힣]{2,}")
+
+
+def hangul_bigrams(text: str) -> list[str]:
+    """Character bigrams of every Hangul run (CJK-analyzer style).
+
+    Korean is agglutinative — '윤하준가'(name+조사) never token-matches
+    '윤하준' under unicode61. Indexing and querying Hangul as overlapping
+    bigrams ('윤하 하준 준가') restores lexical matching without a
+    morphology dictionary.
+    """
+    grams: list[str] = []
+    for run in _HANGUL_RUN.findall(text):
+        grams.extend(run[i : i + 2] for i in range(len(run) - 1))
+    return grams
+
+
+def fts_index_text(text: str) -> str:
+    """Text as stored in the FTS index: original + Hangul bigrams.
+
+    The FTS table is match-only (display text comes from `chunks`), so
+    appending bigrams is invisible to users.
+    """
+    grams = hangul_bigrams(text)
+    return text if not grams else f"{text}\n{' '.join(grams)}"
+
+
 def _fts_escape(query: str) -> str:
-    """Turn free text into a safe FTS5 OR-query of quoted terms."""
+    """Turn free text into a safe FTS5 OR-query of quoted terms
+    (plus Hangul-bigram terms so 조사-suffixed words still match)."""
     terms = [t.replace('"', "") for t in query.split()]
     terms = [t for t in terms if t.strip()][:16]  # cap pathological queries
-    if not terms:
+    grams = hangul_bigrams(" ".join(terms))[:48]
+    all_terms = terms + grams
+    if not all_terms:
         return '""'
-    return " OR ".join(f'"{t}"' for t in terms)
+    return " OR ".join(f'"{t}"' for t in all_terms)
 
 
 class Store:
@@ -201,7 +232,7 @@ class Store:
             ids.append(cid)
             c.execute(
                 "INSERT INTO chunks_fts(rowid, text, title, heading) VALUES(?,?,?,?)",
-                (cid, text, title, heading),
+                (cid, fts_index_text(text), fts_index_text(title), heading),
             )
         return ids
 

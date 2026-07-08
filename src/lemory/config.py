@@ -70,6 +70,7 @@ class LemoryConfig(BaseSettings):
     rrf_k: int = 60
     w_vector: float = 1.0
     w_bm25: float = 0.8
+    keyword_bm25_boost: float = 1.8  # lexical weight multiplier for short keyword queries
     graph_expansion: bool = True
     graph_top_docs: int = 6
     graph_alpha: float = 0.55  # neighbor score = alpha * src_score * edge_weight * sim

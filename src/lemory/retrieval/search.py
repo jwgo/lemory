@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ..config import LemoryConfig
     from ..engine import Engine
 
-_WORD_RE = re.compile(r"[a-z0-9]+")
+_WORD_RE = re.compile(r"[a-z0-9가-힣]+")
 
 # generic words that shouldn't count as title evidence
 _STOP = {
@@ -29,7 +29,17 @@ _STOP = {
 
 
 def _tokens(s: str) -> set[str]:
-    return {t for t in _WORD_RE.findall(s.lower()) if t not in _STOP and len(t) > 2}
+    return {t for t in _WORD_RE.findall(s.lower()) if t not in _STOP and len(t) > 1}
+
+
+def _covers(title_tokens: set[str], q_tokens: set[str]) -> bool:
+    """Every title token appears in the query — allowing a short trailing
+    suffix on the query side so Korean 조사 ('김지수가') still matches the
+    title token ('김지수')."""
+    return all(
+        any(qt == tt or (qt.startswith(tt) and len(qt) <= len(tt) + 2) for qt in q_tokens)
+        for tt in title_tokens
+    )
 
 
 @dataclass
@@ -76,7 +86,7 @@ def hybrid_search(
             queries.append((variant, 0.6))
 
     qv = None
-    ranked_lists: list[tuple[list[tuple[int, float]], float]] = []
+    tagged_lists: list[tuple[str, list[tuple[int, float]], float]] = []
     vec_hits: list[tuple[int, float]] = []
     bm25_hits: list[tuple[int, float]] = []
     for q_text, weight in queries:
@@ -91,15 +101,23 @@ def hybrid_search(
             b_hits = store.bm25_search(q_text, cfg.k_bm25)
         if q_text == query:
             vec_hits, bm25_hits = v_hits, b_hits
-        ranked_lists.append((v_hits, cfg.w_vector * weight))
-        ranked_lists.append((b_hits, cfg.w_bm25 * weight))
+        tagged_lists.append(("vec", v_hits, cfg.w_vector * weight))
+        tagged_lists.append(("bm25", b_hits, cfg.w_bm25 * weight))
 
     if mode == "vector":
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(vec_hits)}
     elif mode == "bm25":
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(bm25_hits)}
     else:
-        fused = rrf_fuse(ranked_lists, cfg.rrf_k)
+        # adaptive fusion: short keyword-ish queries (a name, a code, a couple
+        # of nouns — no question words) are exact-match lookups where the
+        # lexical leg is the reliable signal; full questions lean semantic.
+        kw_boost = cfg.keyword_bm25_boost if _is_keyword_query(query) else 1.0
+        fused = rrf_fuse(
+            [(hits, w * (kw_boost if kind == "bm25" else 1.0))
+             for kind, hits, w in tagged_lists],
+            cfg.rrf_k,
+        )
 
     if not fused:
         return SearchResult(hits=[])
@@ -112,7 +130,7 @@ def hybrid_search(
     if mode == "hybrid" and q_tokens and cfg.title_boost > 0:
         for cid, meta in chunk_meta.items():
             t_tokens = _tokens(meta.title)
-            if t_tokens and t_tokens <= q_tokens:
+            if t_tokens and _covers(t_tokens, q_tokens):
                 fused[cid] += cfg.title_boost * (len(t_tokens) / max(1, len(q_tokens)))
 
     expanded_docs: list[int] = []
@@ -144,6 +162,23 @@ def hybrid_search(
         if len(hits) >= k:
             break
     return SearchResult(hits=hits, fused=fused, expanded_docs=expanded_docs)
+
+
+_QUESTION_WORDS = {
+    "what", "which", "who", "when", "where", "why", "how", "did", "does", "do",
+    "is", "are", "was", "were",
+    "뭐", "뭔가", "무엇", "누구", "언제", "어디", "어디서", "어떻게", "왜", "몇",
+}
+
+
+def _is_keyword_query(query: str) -> bool:
+    """True for short lookup-style queries (names/codes/nouns, no question
+    words) where exact lexical matching should dominate fusion."""
+    words = query.split()
+    if len(words) > 4:
+        return False
+    ql = query.lower()
+    return not any(w in ql for w in _QUESTION_WORDS)
 
 
 def expand_query(engine: "Engine", query: str, n: int) -> list[str]:
