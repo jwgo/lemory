@@ -77,6 +77,13 @@ class LemoryConfig(BaseSettings):
     per_doc_cap: int = 3
     title_boost: float = 0.12
 
+    # --- optional LLM retrieval stages (qmd-style; each costs LLM calls) ---
+    query_expansion: bool = False   # rewrite the query into variants pre-search
+    expansion_variants: int = 2
+    rerank: bool = False            # LLM-score the top candidates post-fusion
+    rerank_top: int = 12
+    rerank_blend: float = 0.5       # 0=fusion score only, 1=LLM score only
+
     # --- optional LLM graph enrichment (cognify-style) ---
     enrich_entities: bool = False
 

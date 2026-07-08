@@ -77,10 +77,11 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         }
 
     @app.get("/search")
-    def search(q: str, k: int = 8, mode: str = "hybrid"):
+    def search(q: str, k: int = 8, mode: str = "hybrid",
+               expand: bool | None = None, rerank: bool | None = None):
         if not q.strip():
             raise HTTPException(400, "empty query")
-        hits = engine.search(q, k=k, mode=mode)
+        hits = engine.search(q, k=k, mode=mode, expand=expand, rerank=rerank)
         return [
             {
                 "path": h.path, "title": h.title, "heading": h.heading,

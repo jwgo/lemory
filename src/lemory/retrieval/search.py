@@ -57,26 +57,49 @@ def hybrid_search(
     k: int = 8,
     graph: bool | None = None,
     mode: str = "hybrid",  # 'hybrid' | 'vector' | 'bm25'  (modes exist for eval/ablation)
+    expand: bool | None = None,
+    rerank: bool | None = None,
 ) -> SearchResult:
     cfg: "LemoryConfig" = engine.cfg
     store: Store = engine.store
     use_graph = cfg.graph_expansion if graph is None else graph
+    use_expand = (cfg.query_expansion if expand is None else expand) and mode == "hybrid"
+    use_rerank = (cfg.rerank if rerank is None else rerank) and mode == "hybrid"
 
+    # qmd-style query expansion: search each LLM-generated variant too, and
+    # fuse everything — variants recover vocabulary the note uses but the
+    # user's phrasing doesn't. Variants get lower fusion weight than the
+    # original query.
+    queries = [(query, 1.0)]
+    if use_expand:
+        for variant in expand_query(engine, query, cfg.expansion_variants):
+            queries.append((variant, 0.6))
+
+    qv = None
+    ranked_lists: list[tuple[list[tuple[int, float]], float]] = []
     vec_hits: list[tuple[int, float]] = []
     bm25_hits: list[tuple[int, float]] = []
-    qv = None
-    if mode in ("hybrid", "vector"):
-        qv = engine.embed_query_cached(query)
-        vec_hits = store.vector_search(qv, cfg.k_vector)
-    if mode in ("hybrid", "bm25"):
-        bm25_hits = store.bm25_search(query, cfg.k_bm25)
+    for q_text, weight in queries:
+        v_hits: list[tuple[int, float]] = []
+        b_hits: list[tuple[int, float]] = []
+        if mode in ("hybrid", "vector"):
+            v = engine.embed_query_cached(q_text)
+            if q_text == query:
+                qv = v
+            v_hits = store.vector_search(v, cfg.k_vector)
+        if mode in ("hybrid", "bm25"):
+            b_hits = store.bm25_search(q_text, cfg.k_bm25)
+        if q_text == query:
+            vec_hits, bm25_hits = v_hits, b_hits
+        ranked_lists.append((v_hits, cfg.w_vector * weight))
+        ranked_lists.append((b_hits, cfg.w_bm25 * weight))
 
     if mode == "vector":
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(vec_hits)}
     elif mode == "bm25":
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(bm25_hits)}
     else:
-        fused = rrf_fuse([(vec_hits, cfg.w_vector), (bm25_hits, cfg.w_bm25)], cfg.rrf_k)
+        fused = rrf_fuse(ranked_lists, cfg.rrf_k)
 
     if not fused:
         return SearchResult(hits=[])
@@ -97,6 +120,11 @@ def hybrid_search(
         expanded_docs = _graph_expand(engine, fused, chunk_meta, qv)
         chunk_meta = store.get_chunks(fused.keys())
 
+    # qmd-style LLM rerank: score the top candidates for relevance and blend
+    # with the fusion score (costs one LLM call per search)
+    if use_rerank and fused:
+        _llm_rerank(engine, query, fused, chunk_meta)
+
     ranked = sorted(fused.items(), key=lambda x: -x[1])
 
     # per-doc cap keeps the context diverse (supermemory-style); baselines
@@ -116,6 +144,61 @@ def hybrid_search(
         if len(hits) >= k:
             break
     return SearchResult(hits=hits, fused=fused, expanded_docs=expanded_docs)
+
+
+def expand_query(engine: "Engine", query: str, n: int) -> list[str]:
+    """LLM query expansion (qmd-style). Returns up to n alternative phrasings;
+    failures degrade gracefully to no expansion."""
+    try:
+        data = engine.llm.generate_json(
+            "Rewrite this search query for a personal notes database into "
+            f"{n} alternative phrasings that use different vocabulary but seek "
+            'the same information. Return JSON: {"queries": ["..."]}\n\n'
+            f"QUERY: {query}",
+            temperature=0.4,
+            max_output_tokens=256,
+        )
+        variants = [v.strip() for v in data.get("queries", []) if isinstance(v, str)]
+        return [v for v in variants if v and v.lower() != query.lower()][:n]
+    except Exception:
+        return []
+
+
+def _llm_rerank(
+    engine: "Engine", query: str, fused: dict[int, float], chunk_meta: dict[int, ChunkHit]
+) -> None:
+    """Blend LLM relevance scores (0-10) into the fusion scores of the top
+    candidates. One LLM call; failures leave the fusion ranking untouched."""
+    cfg = engine.cfg
+    top = sorted(fused.items(), key=lambda x: -x[1])[: cfg.rerank_top]
+    numbered = []
+    for i, (cid, _) in enumerate(top, 1):
+        meta = chunk_meta.get(cid)
+        if meta is None:
+            continue
+        numbered.append((i, cid, f"[{i}] {meta.title}: {meta.text[:300]}"))
+    if not numbered:
+        return
+    try:
+        data = engine.llm.generate_json(
+            "Score each passage 0-10 for how well it answers the query. "
+            'Return JSON: {"scores": {"1": 7, "2": 0, ...}} covering every number.\n\n'
+            f"QUERY: {query}\n\n" + "\n\n".join(t for _, _, t in numbered),
+            temperature=0.0,
+            max_output_tokens=512,
+        )
+        scores = data.get("scores", {})
+        max_fused = max(fused[cid] for _, cid, _ in numbered) or 1.0
+        for i, cid, _ in numbered:
+            raw = scores.get(str(i))
+            if isinstance(raw, (int, float)):
+                llm_score = max(0.0, min(10.0, float(raw))) / 10.0
+                fused[cid] = (
+                    (1 - cfg.rerank_blend) * fused[cid]
+                    + cfg.rerank_blend * llm_score * max_fused
+                )
+    except Exception:
+        pass  # keep fusion ranking
 
 
 def _graph_expand(

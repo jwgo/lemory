@@ -76,10 +76,15 @@ class Engine:
         self.index()
         _watch(self, on_sync=on_sync)
 
-    def search(self, query: str, k: int = 8, graph: bool | None = None, mode: str = "hybrid") -> list[ChunkHit]:
+    def search(
+        self, query: str, k: int = 8, graph: bool | None = None, mode: str = "hybrid",
+        expand: bool | None = None, rerank: bool | None = None,
+    ) -> list[ChunkHit]:
         from .retrieval import hybrid_search
 
-        return hybrid_search(self, query, k=k, graph=graph, mode=mode).hits
+        return hybrid_search(
+            self, query, k=k, graph=graph, mode=mode, expand=expand, rerank=rerank
+        ).hits
 
     def ask(self, question: str, k: int = 8) -> "Answer":
         from .retrieval import answer

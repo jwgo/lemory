@@ -70,10 +70,12 @@ def search(
     k: int = typer.Option(8, help="Number of results"),
     vault: Optional[Path] = typer.Option(None),
     mode: str = typer.Option("hybrid", help="hybrid | vector | bm25 (ablation)"),
+    expand: bool = typer.Option(False, help="LLM query expansion (qmd-style, 1 extra call)"),
+    rerank: bool = typer.Option(False, help="LLM rerank of top candidates (1 extra call)"),
 ):
     """Hybrid search over the indexed vault."""
     eng = _engine(vault)
-    hits = eng.search(query, k=k, mode=mode)
+    hits = eng.search(query, k=k, mode=mode, expand=expand or None, rerank=rerank or None)
     table = Table(show_lines=True)
     table.add_column("#", width=3)
     table.add_column("note")

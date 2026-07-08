@@ -46,6 +46,19 @@ class FakeGemini:
         return "fake answer [1]"
 
     def generate_json(self, prompt, system=None, **kw):
+        self.calls["generate"] += 1
+        if '"queries"' in prompt:
+            return {"queries": ["pricing decision details", "usage based billing plan"]}
+        if '"scores"' in prompt:
+            # rank passages by naive token overlap with the query line
+            import re as _re
+            qline = next((l for l in prompt.splitlines() if l.startswith("QUERY:")), "")
+            q_toks = set(_re.findall(r"[a-z0-9]+", qline.lower()))
+            scores = {}
+            for m in _re.finditer(r"\[(\d+)\] ([^\n]+)", prompt):
+                toks = set(_re.findall(r"[a-z0-9]+", m.group(2).lower()))
+                scores[m.group(1)] = min(10, len(q_toks & toks))
+            return {"scores": scores}
         return {"entities": ["alpha", "beta"]}
 
     def close(self):
