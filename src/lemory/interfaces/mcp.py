@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 
-from .engine import Engine
+from ..engine import Engine
 
 
 def run_mcp(engine: Engine) -> None:

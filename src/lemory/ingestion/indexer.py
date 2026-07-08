@@ -16,10 +16,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional
 
 from .markdown import chunk_note, embed_text_for_chunk, parse_note, render_plain
-from .store import Store
+from ..storage import Store
 
 if TYPE_CHECKING:
-    from .engine import Engine
+    from ..engine import Engine
 
 log = logging.getLogger("lemory.ingest")
 

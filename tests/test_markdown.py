@@ -1,4 +1,4 @@
-from lemory.markdown import chunk_note, embed_text_for_chunk, parse_note, render_plain, split_sections
+from lemory.ingestion.markdown import chunk_note, embed_text_for_chunk, parse_note, render_plain, split_sections
 
 
 def test_frontmatter_tags_wikilinks():

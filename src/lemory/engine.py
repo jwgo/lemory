@@ -8,8 +8,8 @@ from typing import Any, Optional
 import numpy as np
 
 from .config import LemoryConfig, load_config
-from .gemini import GeminiClient
-from .store import ChunkHit, Store
+from .providers import LLMClient, create_client
+from .storage import ChunkHit, Store
 
 
 class Engine:
@@ -23,33 +23,9 @@ class Engine:
         self._index_lock = threading.Lock()
 
     @property
-    def llm(self):
+    def llm(self) -> LLMClient:
         if self._llm is None:
-            provider = self.cfg.resolved_provider()
-            if provider == "openai":
-                from .openai_client import OpenAIClient
-
-                self._llm = OpenAIClient(
-                    api_key=self.cfg.resolved_openai_key(),
-                    llm_model=self.cfg.openai_llm_model,
-                    llm_rpm=self.cfg.openai_llm_rpm,
-                    embed_model=self.cfg.openai_embed_model,
-                    embed_dim=self.cfg.embed_dim,
-                    embed_rpm=self.cfg.openai_embed_rpm,
-                    max_output_tokens=self.cfg.llm_max_output_tokens,
-                )
-            else:
-                self._llm = GeminiClient(
-                    api_key=self.cfg.resolved_gemini_key(),
-                    llm_model=self.cfg.llm_model,
-                    llm_fallback_model=self.cfg.llm_fallback_model,
-                    llm_rpm=self.cfg.llm_rpm,
-                    embed_model=self.cfg.embed_model,
-                    embed_dim=self.cfg.embed_dim,
-                    embed_rpm=self.cfg.embed_rpm,
-                    embed_batch=self.cfg.embed_batch,
-                    max_output_tokens=self.cfg.llm_max_output_tokens,
-                )
+            self._llm = create_client(self.cfg)
         return self._llm
 
     # ------------------------------------------------------------ embeddings
@@ -84,7 +60,7 @@ class Engine:
 
     # ----------------------------------------------------------------- verbs
     def index(self, full: bool = False, progress=None):
-        from .ingest import Indexer
+        from .ingestion import Indexer
 
         with self._index_lock:
             if self._indexer is None:
@@ -95,18 +71,18 @@ class Engine:
             return rep
 
     def watch(self, on_sync=None) -> None:
-        from .ingest import watch as _watch
+        from .ingestion import watch as _watch
 
         self.index()
         _watch(self, on_sync=on_sync)
 
     def search(self, query: str, k: int = 8, graph: bool | None = None, mode: str = "hybrid") -> list[ChunkHit]:
-        from .search import hybrid_search
+        from .retrieval import hybrid_search
 
         return hybrid_search(self, query, k=k, graph=graph, mode=mode).hits
 
     def ask(self, question: str, k: int = 8) -> "Answer":
-        from .answer import answer
+        from .retrieval import answer
 
         return answer(self, question, k=k)
 

@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from common import DATA, load_env, save_json
 
-from lemory.gemini import GeminiClient
+from lemory.providers.gemini import GeminiClient
 
 SEED = 42
 OUT = DATA / "multihop"

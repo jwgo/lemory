@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from common import (DATA, SYSTEMS as ALL_SYSTEMS, WORK, answer_in_text, best_f1,
                     load_env, make_engine, prewarm_queries, save_json)
 
-from lemory.answer import SYSTEM, build_context, build_prompt
+from lemory.retrieval.answer import SYSTEM, build_context, build_prompt
 
 SYSTEMS = {k: v for k, v in ALL_SYSTEMS.items() if k != "lemory-nograph"}
 K = 8

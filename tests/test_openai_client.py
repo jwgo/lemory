@@ -4,7 +4,7 @@ import httpx
 import numpy as np
 import pytest
 
-from lemory.openai_client import OpenAIClient
+from lemory.providers.openai import OpenAIClient
 
 
 def make_client(handler, **kw) -> OpenAIClient:

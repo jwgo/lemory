@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from .engine import Engine
+from ..engine import Engine
 
 log = logging.getLogger("lemory.server")
 
@@ -38,7 +38,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         engine.index()
         if watch:
             def _watch():
-                from .ingest import watch as _w
+                from ..ingestion import watch as _w
                 try:
                     _w(engine)
                 except Exception:

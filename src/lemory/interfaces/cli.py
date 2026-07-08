@@ -11,7 +11,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .engine import create_engine
+from ..engine import create_engine
 
 app = typer.Typer(help="Lemory — personal knowledge base backend for Obsidian.", no_args_is_help=True)
 console = Console()
@@ -115,7 +115,7 @@ def serve(
     """Run the HTTP API (and vault watcher) — the 'backend that just runs'."""
     import uvicorn
 
-    from .server import build_app
+    from .http import build_app
 
     eng = _engine(vault)
     uvicorn.run(build_app(eng, watch=watch), host=host, port=port)
@@ -124,7 +124,7 @@ def serve(
 @app.command()
 def mcp(vault: Optional[Path] = typer.Option(None)):
     """Run as an MCP server (stdio) for Claude Desktop / Claude Code."""
-    from .mcp_server import run_mcp
+    from .mcp import run_mcp
 
     run_mcp(_engine(vault))
 
@@ -135,7 +135,7 @@ def enrich(
     max_docs: int = typer.Option(50, help="Notes to enrich in this pass"),
 ):
     """Optional: LLM entity extraction to densify the graph (uses quota)."""
-    from .ingest import Indexer
+    from ..ingestion import Indexer
 
     eng = _engine(vault)
     eng.index()

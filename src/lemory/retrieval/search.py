@@ -11,11 +11,11 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from .store import ChunkHit, Store
+from ..storage import ChunkHit, Store
 
 if TYPE_CHECKING:
-    from .config import LemoryConfig
-    from .engine import Engine
+    from ..config import LemoryConfig
+    from ..engine import Engine
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 

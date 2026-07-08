@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from lemory.config import LemoryConfig
 from lemory.engine import Engine
-from lemory.store import Store
+from lemory.storage import Store
 
 BENCH_DIR = Path(__file__).parent
 WORK = BENCH_DIR / "work"

@@ -11,51 +11,17 @@ import json
 import logging
 import random
 import re
-import threading
 import time
-from collections import deque
 from typing import Any, Optional
 
 import httpx
 import numpy as np
 
+from .base import RateLimiter, normalize_embeddings, parse_json_loose
+
 log = logging.getLogger("lemory.gemini")
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
-
-
-class RateLimiter:
-    """Requests-per-minute limiter (thread-safe).
-
-    Enforces both a sliding 60s window AND even spacing between requests —
-    burst-then-wait patterns trip fixed-window server quotas even when the
-    average rate is compliant."""
-
-    def __init__(self, rpm: int):
-        self.rpm = max(1, rpm)
-        self.min_interval = 60.0 / self.rpm
-        self.burst = max(2, self.rpm // 4)  # small bursts OK, then paced
-        self._stamps: deque[float] = deque()
-        self._lock = threading.Lock()
-
-    def acquire(self) -> None:
-        while True:
-            with self._lock:
-                now = time.monotonic()
-                while self._stamps and now - self._stamps[0] > 60.0:
-                    self._stamps.popleft()
-                spaced_ok = (
-                    len(self._stamps) < self.burst
-                    or (now - self._stamps[-1]) >= self.min_interval
-                )
-                if len(self._stamps) < self.rpm and spaced_ok:
-                    self._stamps.append(now)
-                    return
-                if not spaced_ok:
-                    wait = self.min_interval - (now - self._stamps[-1]) + 0.01
-                else:
-                    wait = 60.0 - (now - self._stamps[0]) + 0.05
-            time.sleep(min(max(wait, 0.01), 5.0))
 
 
 def _retry_delay_from_429(body: str) -> Optional[float]:
@@ -173,7 +139,7 @@ class GeminiClient:
 
     def generate_json(self, prompt: str, system: str | None = None, **kw) -> Any:
         text = self.generate(prompt, system=system, json_mode=True, **kw)
-        return _parse_json_loose(text)
+        return parse_json_loose(text)
 
     # ------------------------------------------------------------- embeddings
     def embed(self, texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> np.ndarray:
@@ -198,9 +164,7 @@ class GeminiClient:
             vecs = [e["values"] for e in data["embeddings"]]
             out[i : i + len(batch)] = np.asarray(vecs, dtype=np.float32)
         # truncated MRL dims must be re-normalized
-        norms = np.linalg.norm(out, axis=1, keepdims=True)
-        norms[norms == 0] = 1.0
-        return out / norms
+        return normalize_embeddings(out)
 
     def close(self) -> None:
         self._http.close()
@@ -214,16 +178,3 @@ def _extract_text(data: dict) -> str:
         raise RuntimeError(f"unexpected Gemini response shape: {json.dumps(data)[:400]}") from e
 
 
-def _parse_json_loose(text: str) -> Any:
-    """Parse JSON, tolerating markdown fences and stray prose."""
-    t = text.strip()
-    if t.startswith("```"):
-        t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t, flags=re.S)
-    try:
-        return json.loads(t)
-    except json.JSONDecodeError:
-        # last resort: grab the outermost JSON object/array
-        m = re.search(r"[\[{].*[\]}]", t, flags=re.S)
-        if m:
-            return json.loads(m.group(0))
-        raise

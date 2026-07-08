@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from .store import ChunkHit
+from ..storage import ChunkHit
 
 if TYPE_CHECKING:
-    from .engine import Engine
+    from ..engine import Engine
 
 SYSTEM = (
     "You answer questions using ONLY the provided notes from the user's personal "

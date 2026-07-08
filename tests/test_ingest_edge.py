@@ -1,6 +1,6 @@
 """Edge cases for the ingest pipeline."""
 
-from lemory.ingest import iter_vault_files, note_title
+from lemory.ingestion import iter_vault_files, note_title
 
 
 def test_exclude_dirs(engine, vault):

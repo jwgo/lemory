@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from lemory.config import LemoryConfig, load_config
-from lemory.store import Store
+from lemory.storage import Store
 
 
 def test_store_note_is_atomic(tmp_path):
@@ -78,7 +78,7 @@ def test_init_toml_escapes_special_paths(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     from typer.testing import CliRunner
 
-    from lemory.cli import app
+    from lemory.interfaces.cli import app
 
     result = CliRunner().invoke(app, ["init", str(weird)])
     assert result.exit_code == 0

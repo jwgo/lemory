@@ -7,8 +7,9 @@ import string
 import numpy as np
 import pytest
 
-from lemory.markdown import chunk_note, parse_note, render_plain, split_sections
-from lemory.store import Store, _fts_escape
+from lemory.ingestion.markdown import chunk_note, parse_note, render_plain, split_sections
+from lemory.storage import Store
+from lemory.storage.sqlite_store import _fts_escape
 
 PIECES = [
     "# Heading {i}", "## Sub {i}", "###### deep {i}",

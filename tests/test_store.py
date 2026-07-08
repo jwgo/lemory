@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from lemory.store import Store, _fts_escape
+from lemory.storage import Store
+from lemory.storage.sqlite_store import _fts_escape
 
 
 @pytest.fixture

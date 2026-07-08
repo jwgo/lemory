@@ -19,6 +19,8 @@ from typing import Any
 import httpx
 import numpy as np
 
+from .base import RateLimiter, normalize_embeddings, parse_json_loose
+
 log = logging.getLogger("lemory.openai")
 
 BASE = "https://api.openai.com/v1"
@@ -46,8 +48,6 @@ class OpenAIClient:
         max_output_tokens: int = 2048,
         timeout: float = 120.0,
     ):
-        from .gemini import RateLimiter  # same limiter implementation
-
         self.api_key = api_key
         self.llm_model = llm_model
         self.embed_model = embed_model
@@ -124,10 +124,8 @@ class OpenAIClient:
         return data["choices"][0]["message"]["content"] or ""
 
     def generate_json(self, prompt: str, system: str | None = None, **kw) -> Any:
-        from .gemini import _parse_json_loose
-
         text = self.generate(prompt, system=system, json_mode=True, **kw)
-        return _parse_json_loose(text)
+        return parse_json_loose(text)
 
     # ------------------------------------------------------------- embeddings
     def embed(self, texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> np.ndarray:
@@ -142,9 +140,7 @@ class OpenAIClient:
             )
             for j, item in enumerate(data["data"]):
                 out[i + j] = np.asarray(item["embedding"], dtype=np.float32)
-        norms = np.linalg.norm(out, axis=1, keepdims=True)
-        norms[norms == 0] = 1.0
-        return out / norms
+        return normalize_embeddings(out)
 
     def close(self) -> None:
         self._http.close()

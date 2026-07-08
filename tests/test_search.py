@@ -1,4 +1,4 @@
-from lemory.search import _tokens, rrf_fuse
+from lemory.retrieval.search import _tokens, rrf_fuse
 
 
 def test_rrf_fusion_math():

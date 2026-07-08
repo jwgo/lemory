@@ -6,8 +6,8 @@ import httpx
 import numpy as np
 import pytest
 
-from lemory.gemini import (GeminiClient, RateLimiter, _parse_json_loose,
-                           _retry_delay_from_429)
+from lemory.providers.base import RateLimiter, parse_json_loose
+from lemory.providers.gemini import GeminiClient, _retry_delay_from_429
 
 
 def make_client(handler, **kw) -> GeminiClient:
@@ -45,7 +45,7 @@ def test_retry_delay_parsing():
     ('Here you go: {"a": {"b": 2}} hope that helps', {"a": {"b": 2}}),
 ])
 def test_parse_json_loose(raw, expected):
-    assert _parse_json_loose(raw) == expected
+    assert parse_json_loose(raw) == expected
 
 
 def test_generate_returns_text():

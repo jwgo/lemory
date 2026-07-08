@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from lemory.server import build_app
+from lemory.interfaces.http import build_app
 
 
 def test_server_endpoints(engine):

@@ -14,10 +14,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-from .answer import Answer
+from .retrieval import Answer
 from .config import LemoryConfig, load_config
 from .engine import Engine, create_engine
-from .store import ChunkHit
+from .storage import ChunkHit
 
 __version__ = "0.1.0"
 __all__ = [

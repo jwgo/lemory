@@ -19,8 +19,8 @@ from common import WORK, save_json
 
 from lemory.config import LemoryConfig
 from lemory.engine import Engine
-from lemory.search import hybrid_search
-from lemory.store import Store
+from lemory.retrieval.search import hybrid_search
+from lemory.storage import Store
 
 DIM = 768
 # realistic Zipfian vocabulary (~6k words) so BM25 posting lists behave like
