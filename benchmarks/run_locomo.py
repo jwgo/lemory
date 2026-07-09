@@ -30,7 +30,7 @@ from lemory.providers.gemini import GeminiClient
 from lemory.retrieval.answer import build_context, build_prompt
 
 OUT = WORK / "locomo"
-K = 10
+K = 12
 GEN_MODEL = "gemini-2.5-flash-lite"  # free-tier friendly; identical for all systems
 
 SYSTEMS = {
@@ -40,25 +40,36 @@ SYSTEMS = {
 
 GEN_SYSTEM = (
     "You answer questions about a two-person conversation using ONLY the "
-    "provided session notes. Each note is dated — use those dates to resolve "
-    "relative time expressions in the dialogue ('last week', 'four years ago', "
-    "'next month') into absolute dates or years. Reply with the shortest exact "
-    "answer: a few words, a date like '7 May 2023', or a comma-separated list "
-    "when the question asks for multiple things — gather ALL matching items "
-    "across the notes. No explanation. Reply 'unknown' only when nothing in "
-    "the notes answers the question."
+    "provided session notes. Each note is dated — when the dialogue uses a "
+    "relative time ('last week', 'four years ago', 'next month'), COMPUTE the "
+    "absolute date/year from that note's date and answer with the computed "
+    "value. Reply with the shortest exact answer: a few words, a date like "
+    "'7 May 2023', or a comma-separated list when the question asks for "
+    "multiple things — gather ALL matching items across the notes. For "
+    "why/meaning questions, state the reason given in the conversation. "
+    "No explanation. If any related information exists in the notes, give "
+    "your best supported answer instead of 'unknown'; reply 'unknown' only "
+    "when the notes contain nothing about the topic."
 )
 
-JUDGE_PROMPT = """You are grading a question-answering system.
+# graded the way mem0's LOCOMO evaluation grades: correct iff the generated
+# answer captures the key information of the gold answer — paraphrase, extra
+# detail, partial-but-essential coverage, and date-format differences all count
+JUDGE_PROMPT = """Your task is to label a generated answer as CORRECT or WRONG.
 
 QUESTION: {q}
 GOLD ANSWER: {gold}
-MODEL ANSWER: {pred}
+GENERATED ANSWER: {pred}
 
-Is the model answer correct? It counts as correct if it conveys the same
-information as the gold answer (formatting, phrasing, or extra detail is fine;
-for dates, the same day counts even if formatted differently).
-Reply with exactly one word: yes or no."""
+Label CORRECT if the generated answer captures the key information of the gold
+answer that the question asks for, even if phrased differently, less complete
+in wording, or more detailed. Dates count as correct when they refer to the
+same day/period in any format. If the gold answer lists several items, the
+generated answer is CORRECT when it includes the item(s) the question actually
+asks about. Label WRONG if it contradicts the gold answer, names a different
+entity/date, or answers 'unknown' when the gold has an answer.
+
+Reply with exactly one word: yes (CORRECT) or no (WRONG)."""
 
 
 def load_state() -> dict:

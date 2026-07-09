@@ -44,10 +44,12 @@ SYSTEMS = {
 }
 
 GEN_SYSTEM = (
-    "You are Speaker 2 in a long-running two-person conversation. Using ONLY "
-    "the provided dated conversation notes, answer the question about what was "
-    "said earlier. Reply with the shortest exact answer (a few words), no "
-    "explanation. Reply 'unknown' only if the notes don't contain it."
+    "You answer a memory question about a long two-person conversation between "
+    "Speaker 1 and Speaker 2. The question is asked by Speaker 1: 'I'/'my'/'me' "
+    "refer to Speaker 1, and 'you'/'your' refer to Speaker 2 — attribute facts "
+    "to the correct speaker. Using ONLY the provided dated conversation notes, "
+    "reply with the shortest exact answer (a few words), no explanation. "
+    "Reply 'unknown' only if the notes don't contain it."
 )
 
 
