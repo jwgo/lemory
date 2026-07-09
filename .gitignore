@@ -21,3 +21,7 @@ build/
 benchmarks/work/*
 !benchmarks/work/results_*.json
 benchmarks/data/squad/dev-v2.0.json
+
+# real-namuwiki vault: 45MB, rebuilt deterministically from the public dump
+# (see benchmarks/data/maple_real/README.md); questions.json IS committed
+benchmarks/data/maple_real/vault/
