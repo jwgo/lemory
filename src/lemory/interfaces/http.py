@@ -63,6 +63,14 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/", include_in_schema=False)
+    def home():
+        from fastapi.responses import HTMLResponse
+
+        from .webui import PAGE
+
+        return HTMLResponse(PAGE)
+
     @app.get("/status")
     def status():
         return engine.status()
@@ -82,23 +90,26 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         if not q.strip():
             raise HTTPException(400, "empty query")
         hits = engine.search(q, k=k, mode=mode, expand=expand, rerank=rerank)
-        return [
-            {
-                "path": h.path, "title": h.title, "heading": h.heading,
-                "text": h.text, "score": h.score,
-            }
-            for h in hits
-        ]
+        return [_hit_json(h, text=True) for h in hits]
 
     @app.post("/ask")
     def ask(body: AskBody):
         ans = engine.ask(body.question, k=body.k)
         return {
             "answer": ans.text,
-            "sources": [
-                {"path": h.path, "title": h.title, "heading": h.heading, "score": h.score}
-                for h in ans.sources
-            ],
+            "sources": [_hit_json(h, text=True) for h in ans.sources],
         }
 
     return app
+
+
+def _hit_json(h, text: bool = False) -> dict:
+    from datetime import datetime
+
+    out = {
+        "path": h.path, "title": h.title, "heading": h.heading, "score": h.score,
+        "date": datetime.fromtimestamp(h.doc_date).date().isoformat() if h.doc_date > 0 else None,
+    }
+    if text:
+        out["text"] = h.text
+    return out
