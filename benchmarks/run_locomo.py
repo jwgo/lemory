@@ -47,9 +47,11 @@ GEN_SYSTEM = (
     "'7 May 2023', or a comma-separated list when the question asks for "
     "multiple things — gather ALL matching items across the notes. For "
     "why/meaning questions, state the reason given in the conversation. "
-    "No explanation. If any related information exists in the notes, give "
-    "your best supported answer instead of 'unknown'; reply 'unknown' only "
-    "when the notes contain nothing about the topic."
+    "No explanation. If the question asks for a preference, likelihood, or "
+    "other inference, combine what the speakers said with common sense and "
+    "give the most likely answer. If any related information exists in the "
+    "notes, give your best supported answer instead of 'unknown'; reply "
+    "'unknown' only when the notes contain nothing about the topic."
 )
 
 # graded the way mem0's LOCOMO evaluation grades: correct iff the generated

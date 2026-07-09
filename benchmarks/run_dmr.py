@@ -64,15 +64,53 @@ def parse_back(tb: str) -> timedelta:
     return timedelta(days=days, hours=hours)
 
 
+def _norm_words(s: str) -> set[str]:
+    return set(w for w in re.findall(r"[a-z']+", s.lower()) if len(w) > 3)
+
+
+def _persona_facts(row: dict) -> dict[int, list[set[str]]]:
+    out = {}
+    for spk in (1, 2):
+        flat = []
+        for sess in row.get(f"summary_speaker_{spk}", []) or []:
+            for fact in (sess if isinstance(sess, list) else [sess]):
+                fw = _norm_words(str(fact))
+                if fw:
+                    flat.append(fw)
+        out[spk] = flat
+    return out
+
+
+def _infer_start_speaker(dialog: list[dict], facts: dict[int, list[set[str]]]) -> int:
+    """previous_dialogs turns carry no speaker ids and sessions do NOT always
+    start with Speaker 1 (~27% start with Speaker 2). Score both labelings
+    against the dataset's per-speaker session summaries (MSC metadata, not QA
+    answers) and pick the consistent one."""
+    scores = {1: 0.0, 2: 0.0}
+    for start in (1, 2):
+        for j, t in enumerate(dialog):
+            spk = start if j % 2 == 0 else (3 - start)
+            tw = _norm_words(t.get("text", ""))
+            if len(tw) < 4:
+                continue
+            for fw in facts.get(spk, []):
+                ov = len(tw & fw) / len(fw)
+                if ov > 0.8:
+                    scores[start] += ov
+    return 1 if scores[1] >= scores[2] else 2
+
+
 def conv_notes(row: dict) -> list[tuple[str, str]]:
     """[(filename, content)] for one conversation: previous sessions + final."""
     notes = []
     prevs = row.get("previous_dialogs", [])
+    facts = _persona_facts(row)
     for i, pd in enumerate(prevs):
         date = (TODAY - parse_back(pd.get("time_back", ""))).date().isoformat()
+        start = _infer_start_speaker(pd.get("dialog", []), facts)
         lines = []
         for j, t in enumerate(pd.get("dialog", [])):
-            speaker = f"Speaker {1 + j % 2}"
+            speaker = f"Speaker {start if j % 2 == 0 else (3 - start)}"
             lines.append(f"{speaker}: {t.get('text', '')}")
         notes.append((
             f"Session {i+1:02d}.md",

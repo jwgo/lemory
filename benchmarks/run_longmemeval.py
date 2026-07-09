@@ -52,6 +52,22 @@ GEN_SYSTEM = (
     "contain the answer."
 )
 
+PREF_SYSTEM = (
+    "You are the user's assistant. Respond helpfully to their request, "
+    "personalizing your response using what the provided dated session notes "
+    "reveal about the user's situation, plans, and preferences. Keep it to "
+    "2-4 sentences."
+)
+
+PREF_JUDGE = """You are grading whether an assistant response is personalized correctly.
+
+USER REQUEST: {q}
+PERSONALIZATION RUBRIC (what a good response should reflect): {gold}
+ASSISTANT RESPONSE: {pred}
+
+Does the response reflect the preference/context described in the rubric?
+Reply with exactly one word: yes or no."""
+
 UNKNOWN_MARKERS = ("unknown", "don't know", "not provided", "no information", "cannot")
 
 
@@ -126,18 +142,24 @@ def main(limit: int | None = None) -> None:
         if rep.embedded:
             print(f"  {qid}: {rep.chunks} chunks ({rep.embedded} embedded, {rep.seconds:.0f}s)", flush=True)
         is_abs = qid.endswith("_abs")
+        is_pref = q["question_type"] == "single-session-preference"
+        q_date = str(q.get("question_date", ""))[:10]
+        # the official protocol anchors relative-time questions on question_date
+        question = (f"(Today is {q_date}.) " if q_date else "") + q["question"]
         for sys_name in todo:
             hits = eng.search(q["question"], k=K, **SYSTEMS[sys_name])
             ctx = build_context(hits, max_chars=13000)
             pred = eng.llm.generate(
-                build_prompt(ctx, q["question"]), system=GEN_SYSTEM,
-                temperature=0.0, max_output_tokens=64,
+                build_prompt(ctx, question),
+                system=PREF_SYSTEM if is_pref else GEN_SYSTEM,
+                temperature=0.0, max_output_tokens=200 if is_pref else 64,
             ).strip()
             if is_abs:
                 correct = int(any(m in pred.lower() for m in UNKNOWN_MARKERS))
             else:
+                jp = PREF_JUDGE if is_pref else JUDGE_PROMPT
                 verdict = judge.generate(
-                    JUDGE_PROMPT.format(q=q["question"], gold=q["answer"], pred=pred),
+                    jp.format(q=q["question"], gold=q["answer"], pred=pred),
                     temperature=0.0, max_output_tokens=8,
                 ).strip().lower()
                 correct = 1 if verdict.startswith("yes") else 0
