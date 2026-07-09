@@ -172,6 +172,14 @@ def hybrid_search(
         # of nouns — no question words) are exact-match lookups where the
         # lexical leg is the reliable signal; full questions lean semantic.
         kw_boost = cfg.keyword_bm25_boost if _is_keyword_query(query) else 1.0
+        # verbatim questions (phrased with the note's own words — reference-QA
+        # style) also deserve a lexical lean: detected per query by how much of
+        # the query's vocabulary the top BM25 chunks already cover. Paraphrased,
+        # cross-lingual, or typo'd queries have low coverage and are unaffected.
+        if kw_boost == 1.0 and bm25_hits:
+            cov = _bm25_coverage(store, lex_query, bm25_hits)
+            if cov >= cfg.verbatim_gate:
+                kw_boost = cfg.keyword_bm25_boost
         fused = rrf_fuse(
             [(hits, w * (kw_boost if kind == "bm25" else 1.0))
              for kind, hits, w in tagged_lists],
@@ -252,6 +260,21 @@ _QUESTION_WORDS = {
     "is", "are", "was", "were",
     "뭐", "뭔가", "무엇", "누구", "언제", "어디", "어디서", "어떻게", "왜", "몇",
 }
+
+
+def _bm25_coverage(store: Store, query: str, bm25_hits: list[tuple[int, float]]) -> float:
+    """Fraction of the query's content tokens present in the best-covering
+    top-3 BM25 chunk (title included)."""
+    q_tokens = _tokens(query)
+    if len(q_tokens) < 4:
+        return 0.0
+    meta = store.get_chunks([cid for cid, _ in bm25_hits[:3]])
+    best = 0.0
+    for m in meta.values():
+        text = (m.text + " " + m.title).lower()
+        hit = sum(1 for t in q_tokens if t in text)
+        best = max(best, hit / len(q_tokens))
+    return best
 
 
 def _is_keyword_query(query: str) -> bool:

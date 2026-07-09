@@ -73,6 +73,7 @@ class LemoryConfig(BaseSettings):
     w_vector: float = 1.0
     w_bm25: float = 0.8
     keyword_bm25_boost: float = 1.8  # lexical weight multiplier for short keyword queries
+    verbatim_gate: float = 0.75  # query-token coverage in top BM25 chunks that flips to lexical lean
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
