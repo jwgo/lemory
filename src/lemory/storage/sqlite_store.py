@@ -152,6 +152,7 @@ class Store:
         self._matrix: Optional[np.ndarray] = None  # [n, dim] float32, L2-normalized
         self._matrix_chunk_ids: Optional[np.ndarray] = None
         self._matrix_pos: dict[int, int] = {}  # chunk_id -> row
+        self._lexicon: Optional[dict[str, int]] = None  # FTS term -> doc count
         self._dirty = True
         with self.conn() as c:
             c.executescript(SCHEMA)
@@ -194,6 +195,7 @@ class Store:
         invalidation can never be lost."""
         with self._matrix_lock:
             self._dirty = True
+            self._lexicon = None
 
     def _upsert_document_tx(
         self, c: sqlite3.Connection, path: str, title: str, content_hash: str,
@@ -493,6 +495,44 @@ class Store:
             return []
         # bm25() returns lower-is-better; flip sign so higher is better
         return [(int(r["rowid"]), -float(r["s"])) for r in rows]
+
+    # ------------------------------------------------------------ typo lexicon
+    _LEX_WORD_RE = re.compile(r"[A-Za-z]{3,}")
+
+    def lexicon(self) -> dict[str, int]:
+        """Surface-form vocabulary of the indexed text (word -> frequency),
+        cached until the index changes. Unstemmed on purpose: typo correction
+        compares the user's raw word against real words, then FTS stems the
+        replacement normally. Pure local scan — no API involved."""
+        with self._matrix_lock:
+            lex = self._lexicon
+        if lex is not None:
+            return lex
+        counts: dict[str, int] = {}
+        for row in self.conn().execute(
+            "SELECT ch.text AS text, d.title AS title FROM chunks ch "
+            "JOIN documents d ON d.id = ch.doc_id"
+        ):
+            for w in self._LEX_WORD_RE.findall(row["text"] + " " + row["title"]):
+                lw = w.lower()
+                counts[lw] = counts.get(lw, 0) + 1
+        with self._matrix_lock:
+            self._lexicon = counts
+        return counts
+
+    def token_known(self, token: str) -> bool:
+        """True if the token (after FTS stemming) matches anything indexed."""
+        safe = token.replace('"', "")
+        if not safe:
+            return True
+        try:
+            row = self.conn().execute(
+                'SELECT rowid FROM chunks_fts WHERE chunks_fts MATCH ? LIMIT 1',
+                (f'"{safe}"',),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return True  # never "correct" what we can't verify
+        return row is not None
 
     # ------------------------------------------------------------------ misc
     def title_map(self) -> dict[str, int]:

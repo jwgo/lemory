@@ -1,663 +1,833 @@
 {
-  "preds": {
+  "bench": "multihop",
+  "k": 8,
+  "systems": {
     "lemory": {
-      "0:Where does the author of \"Chronicles of ": {
-        "pred": "Quantum Loom [4]",
-        "answers": [
-          "Quantum Loom"
-        ],
-        "hops": 2
-      },
-      "1:What is Ethan Cross's favorite tool?": {
-        "pred": "NetGuardian Monitor [1, 2]",
-        "answers": [
-          "NetGuardian Monitor"
-        ],
-        "hops": 1
-      },
-      "2:In which city is the company running Pro": {
-        "pred": "Tallinn [6]",
-        "answers": [
-          "Tallinn"
-        ],
-        "hops": 2
-      },
-      "3:What is the hobby of the person who lead": {
-        "pred": "Historical reenactment of ancient battles",
-        "answers": [
-          "Historical reenactment of ancient battles"
-        ],
-        "hops": 2
-      },
-      "4:What programming language is the tool us": {
-        "pred": "Rust [3, 5]",
-        "answers": [
-          "Rust"
-        ],
-        "hops": 2
-      },
-      "5:What is the hometown of the person who w": {
-        "pred": "Denver [1, 3]",
-        "answers": [
-          "Denver"
-        ],
-        "hops": 2
-      },
-      "6:What is the hobby of the person who lead": {
-        "pred": "Composing experimental electronic music [4]",
-        "answers": [
-          "Composing experimental electronic music"
-        ],
-        "hops": 2
-      },
-      "7:What was decided at Q2 R&D Summit Tokyo?": {
-        "pred": "Approved funding for the 'Project Chimera' prototype phase [1].",
-        "answers": [
-          "Approved funding for the 'Project Chimera' prototype phase."
-        ],
-        "hops": 1
-      },
-      "8:What programming language is the tool us": {
-        "pred": "Bash [2, 3]",
-        "answers": [
-          "Bash"
-        ],
-        "hops": 2
-      },
-      "9:What programming language is the tool us": {
-        "pred": "Python [3, 7]",
-        "answers": [
-          "Python"
-        ],
-        "hops": 2
-      },
-      "10:Where does the author of \"Synthetics and": {
-        "pred": "Veridian Robotics [5]",
-        "answers": [
-          "Veridian Robotics"
-        ],
-        "hops": 2
-      },
-      "11:What is Zane Kincaid's favorite tool?": {
-        "pred": "CodeQuill IDE [1, 2]",
-        "answers": [
-          "CodeQuill IDE"
-        ],
-        "hops": 1
-      },
-      "12:What was decided at Operations Efficienc": {
-        "pred": "Streamlined the global supply chain by consolidating distribution hubs [1, 2].",
-        "answers": [
-          "Streamlined the global supply chain by consolidating distribution hubs."
-        ],
-        "hops": 1
-      },
-      "13:What is the hobby of the person who lead": {
-        "pred": "Practicing traditional Chinese calligraphy [3, 4].",
-        "answers": [
-          "Practicing traditional Chinese calligraphy"
-        ],
-        "hops": 2
-      },
-      "14:When was Synthetica Soundworks founded?": {
-        "pred": "1989 [1]",
-        "answers": [
-          "1989"
-        ],
-        "hops": 1
-      },
-      "15:In which city is the company running Pro": {
-        "pred": "Porto",
-        "answers": [
-          "Porto"
-        ],
-        "hops": 2
-      },
-      "16:What is Anya Sharma's favorite tool?": {
-        "pred": "CanvasFlow Prototyper [2]",
-        "answers": [
-          "CanvasFlow Prototyper"
-        ],
-        "hops": 1
-      },
-      "17:In which city is the company running Pro": {
-        "pred": "Lisbon",
-        "answers": [
-          "Lisbon"
-        ],
-        "hops": 2
-      },
-      "18:What is the hobby of the person who lead": {
-        "pred": "Designing and 3D printing miniature rockets [4]",
-        "answers": [
-          "Designing and 3D printing miniature rockets"
-        ],
-        "hops": 2
-      },
-      "19:In which city is the company running Pro": {
-        "pred": "Reykjavík",
-        "answers": [
-          "Reykjavík"
-        ],
-        "hops": 2
-      },
-      "20:What is the hobby of the person who lead": {
-        "pred": "Competitive powerlifting [3]",
-        "answers": [
-          "Competitive powerlifting"
-        ],
-        "hops": 2
-      },
-      "21:What is the hometown of the person who w": {
-        "pred": "Paris [3, 4]",
-        "answers": [
-          "Paris"
-        ],
-        "hops": 2
-      },
-      "22:What programming language is the tool us": {
-        "pred": "JavaScript [6]",
-        "answers": [
-          "JavaScript"
-        ],
-        "hops": 2
-      },
-      "23:What programming language is the tool us": {
-        "pred": "Go [3]",
-        "answers": [
-          "Go"
-        ],
-        "hops": 2
-      },
-      "24:In which city is the company running Pro": {
-        "pred": "Porto [4]",
-        "answers": [
-          "Porto"
-        ],
-        "hops": 2
-      },
-      "25:Where does the author of \"Whispers from ": {
-        "pred": "Chronos Systems [3]",
-        "answers": [
-          "Chronos Systems"
-        ],
-        "hops": 2
-      },
-      "26:What is Seraphina Dubois's favorite tool": {
-        "pred": "Circuit Weaver Workbench [2]",
-        "answers": [
-          "Circuit Weaver Workbench"
-        ],
-        "hops": 1
-      },
-      "27:Where does the author of \"The Quantum La": {
-        "pred": "Chronos Systems",
-        "answers": [
-          "Chronos Systems"
-        ],
-        "hops": 2
-      },
-      "28:In which city is the company running Pro": {
-        "pred": "Reykjavík [4]",
-        "answers": [
-          "Reykjavík"
-        ],
-        "hops": 2
-      },
-      "29:What programming language is the tool us": {
-        "pred": "Python [3, 5]",
-        "answers": [
-          "Python"
-        ],
-        "hops": 2
-      }
+      "f1": 1.0,
+      "em": 1.0,
+      "n": 30
     },
-    "vector": {
-      "0:Where does the author of \"Chronicles of ": {
-        "pred": "I don't know.",
-        "answers": [
-          "Quantum Loom"
-        ],
-        "hops": 2
-      },
-      "1:What is Ethan Cross's favorite tool?": {
-        "pred": "NetGuardian Monitor [1, 2]",
-        "answers": [
-          "NetGuardian Monitor"
-        ],
-        "hops": 1
-      },
-      "2:In which city is the company running Pro": {
-        "pred": "Tallinn [4]",
-        "answers": [
-          "Tallinn"
-        ],
-        "hops": 2
-      },
-      "3:What is the hobby of the person who lead": {
-        "pred": "The notes do not contain information about the hobby of the person who leads Project Oracle.",
-        "answers": [
-          "Historical reenactment of ancient battles"
-        ],
-        "hops": 2
-      },
-      "4:What programming language is the tool us": {
-        "pred": "Rust [1, 4]",
-        "answers": [
-          "Rust"
-        ],
-        "hops": 2
-      },
-      "5:What is the hometown of the person who w": {
-        "pred": "I don't know.",
-        "answers": [
-          "Denver"
-        ],
-        "hops": 2
-      },
-      "6:What is the hobby of the person who lead": {
-        "pred": "I don't know.",
-        "answers": [
-          "Composing experimental electronic music"
-        ],
-        "hops": 2
-      },
-      "7:What was decided at Q2 R&D Summit Tokyo?": {
-        "pred": "Approved funding for the 'Project Chimera' prototype phase [1].",
-        "answers": [
-          "Approved funding for the 'Project Chimera' prototype phase."
-        ],
-        "hops": 1
-      },
-      "8:What programming language is the tool us": {
-        "pred": "Bash [2, 8]",
-        "answers": [
-          "Bash"
-        ],
-        "hops": 2
-      },
-      "9:What programming language is the tool us": {
-        "pred": "CodeWeaver Studio [5]",
-        "answers": [
-          "Python"
-        ],
-        "hops": 2
-      },
-      "10:Where does the author of \"Synthetics and": {
-        "pred": "I don't know.",
-        "answers": [
-          "Veridian Robotics"
-        ],
-        "hops": 2
-      },
-      "11:What is Zane Kincaid's favorite tool?": {
-        "pred": "CodeQuill IDE [1, 2]",
-        "answers": [
-          "CodeQuill IDE"
-        ],
-        "hops": 1
-      },
-      "12:What was decided at Operations Efficienc": {
-        "pred": "Streamlined the global supply chain by consolidating distribution hubs [2].",
-        "answers": [
-          "Streamlined the global supply chain by consolidating distribution hubs."
-        ],
-        "hops": 1
-      },
-      "13:What is the hobby of the person who lead": {
-        "pred": "I don't know.",
-        "answers": [
-          "Practicing traditional Chinese calligraphy"
-        ],
-        "hops": 2
-      },
-      "14:When was Synthetica Soundworks founded?": {
-        "pred": "1989 [1]",
-        "answers": [
-          "1989"
-        ],
-        "hops": 1
-      },
-      "15:In which city is the company running Pro": {
-        "pred": "New York",
-        "answers": [
-          "Porto"
-        ],
-        "hops": 2
-      },
-      "16:What is Anya Sharma's favorite tool?": {
-        "pred": "CanvasFlow Prototyper [2]",
-        "answers": [
-          "CanvasFlow Prototyper"
-        ],
-        "hops": 1
-      },
-      "17:In which city is the company running Pro": {
-        "pred": "I don't know.",
-        "answers": [
-          "Lisbon"
-        ],
-        "hops": 2
-      },
-      "18:What is the hobby of the person who lead": {
-        "pred": "I don't know.",
-        "answers": [
-          "Designing and 3D printing miniature rockets"
-        ],
-        "hops": 2
-      },
-      "19:In which city is the company running Pro": {
-        "pred": "I don't know.",
-        "answers": [
-          "Reykjavík"
-        ],
-        "hops": 2
-      },
-      "20:What is the hobby of the person who lead": {
-        "pred": "Competitive powerlifting [6]",
-        "answers": [
-          "Competitive powerlifting"
-        ],
-        "hops": 2
-      },
-      "21:What is the hometown of the person who w": {
-        "pred": "Paris [1, 3, 7]",
-        "answers": [
-          "Paris"
-        ],
-        "hops": 2
-      },
-      "22:What programming language is the tool us": {
-        "pred": "DataSculpt Pro [2, 3]",
-        "answers": [
-          "JavaScript"
-        ],
-        "hops": 2
-      },
-      "23:What programming language is the tool us": {
-        "pred": "Go",
-        "answers": [
-          "Go"
-        ],
-        "hops": 2
-      },
-      "24:In which city is the company running Pro": {
-        "pred": "I don't know.",
-        "answers": [
-          "Porto"
-        ],
-        "hops": 2
-      },
-      "25:Where does the author of \"Whispers from ": {
-        "pred": "Chronos Systems",
-        "answers": [
-          "Chronos Systems"
-        ],
-        "hops": 2
-      },
-      "26:What is Seraphina Dubois's favorite tool": {
-        "pred": "Circuit Weaver Workbench [2]",
-        "answers": [
-          "Circuit Weaver Workbench"
-        ],
-        "hops": 1
-      },
-      "27:Where does the author of \"The Quantum La": {
-        "pred": "I don't know.",
-        "answers": [
-          "Chronos Systems"
-        ],
-        "hops": 2
-      },
-      "28:In which city is the company running Pro": {
-        "pred": "I don't know.",
-        "answers": [
-          "Reykjavík"
-        ],
-        "hops": 2
-      },
-      "29:What programming language is the tool us": {
-        "pred": "Python",
-        "answers": [
-          "Python"
-        ],
-        "hops": 2
-      }
+    "vector_only": {
+      "f1": 0.43333333333333335,
+      "em": 0.43333333333333335,
+      "n": 30
     },
-    "bm25": {
-      "0:Where does the author of \"Chronicles of ": {
-        "pred": "I don't know.",
-        "answers": [
-          "Quantum Loom"
-        ],
-        "hops": 2
-      },
-      "1:What is Ethan Cross's favorite tool?": {
-        "pred": "NetGuardian Monitor [1, 3]",
-        "answers": [
-          "NetGuardian Monitor"
-        ],
-        "hops": 1
-      },
-      "2:In which city is the company running Pro": {
-        "pred": "Tallinn [2, 4]",
-        "answers": [
-          "Tallinn"
-        ],
-        "hops": 2
-      },
-      "3:What is the hobby of the person who lead": {
-        "pred": "I don't know.",
-        "answers": [
-          "Historical reenactment of ancient battles"
-        ],
-        "hops": 2
-      },
-      "4:What programming language is the tool us": {
-        "pred": "Rust [6, 4]",
-        "answers": [
-          "Rust"
-        ],
-        "hops": 2
-      },
-      "5:What is the hometown of the person who w": {
-        "pred": "I don't know.",
-        "answers": [
-          "Denver"
-        ],
-        "hops": 2
-      },
-      "6:What is the hobby of the person who lead": {
-        "pred": "I don't know.",
-        "answers": [
-          "Composing experimental electronic music"
-        ],
-        "hops": 2
-      },
-      "7:What was decided at Q2 R&D Summit Tokyo?": {
-        "pred": "Approved funding for the 'Project Chimera' prototype phase [2].",
-        "answers": [
-          "Approved funding for the 'Project Chimera' prototype phase."
-        ],
-        "hops": 1
-      },
-      "8:What programming language is the tool us": {
-        "pred": "Bash [7]",
-        "answers": [
-          "Bash"
-        ],
-        "hops": 2
-      },
-      "9:What programming language is the tool us": {
-        "pred": "CodeWeaver Studio [6]",
-        "answers": [
-          "Python"
-        ],
-        "hops": 2
-      },
-      "10:Where does the author of \"Synthetics and": {
-        "pred": "I don't know.",
-        "answers": [
-          "Veridian Robotics"
-        ],
-        "hops": 2
-      },
-      "11:What is Zane Kincaid's favorite tool?": {
-        "pred": "CodeQuill IDE [1, 2]",
-        "answers": [
-          "CodeQuill IDE"
-        ],
-        "hops": 1
-      },
-      "12:What was decided at Operations Efficienc": {
-        "pred": "Streamlined the global supply chain by consolidating distribution hubs [1, 2].",
-        "answers": [
-          "Streamlined the global supply chain by consolidating distribution hubs."
-        ],
-        "hops": 1
-      },
-      "13:What is the hobby of the person who lead": {
-        "pred": "I don't know.",
-        "answers": [
-          "Practicing traditional Chinese calligraphy"
-        ],
-        "hops": 2
-      },
-      "14:When was Synthetica Soundworks founded?": {
-        "pred": "1989 [1]",
-        "answers": [
-          "1989"
-        ],
-        "hops": 1
-      },
-      "15:In which city is the company running Pro": {
-        "pred": "Porto",
-        "answers": [
-          "Porto"
-        ],
-        "hops": 2
-      },
-      "16:What is Anya Sharma's favorite tool?": {
-        "pred": "CanvasFlow Prototyper [1]",
-        "answers": [
-          "CanvasFlow Prototyper"
-        ],
-        "hops": 1
-      },
-      "17:In which city is the company running Pro": {
-        "pred": "I don't know.",
-        "answers": [
-          "Lisbon"
-        ],
-        "hops": 2
-      },
-      "18:What is the hobby of the person who lead": {
-        "pred": "designing and 3D printing miniature rockets [1]",
-        "answers": [
-          "Designing and 3D printing miniature rockets"
-        ],
-        "hops": 2
-      },
-      "19:In which city is the company running Pro": {
-        "pred": "Reykjavík",
-        "answers": [
-          "Reykjavík"
-        ],
-        "hops": 2
-      },
-      "20:What is the hobby of the person who lead": {
-        "pred": "Competitive powerlifting [7]",
-        "answers": [
-          "Competitive powerlifting"
-        ],
-        "hops": 2
-      },
-      "21:What is the hometown of the person who w": {
-        "pred": "I don't know.",
-        "answers": [
-          "Paris"
-        ],
-        "hops": 2
-      },
-      "22:What programming language is the tool us": {
-        "pred": "I don't know.",
-        "answers": [
-          "JavaScript"
-        ],
-        "hops": 2
-      },
-      "23:What programming language is the tool us": {
-        "pred": "I don't know.",
-        "answers": [
-          "Go"
-        ],
-        "hops": 2
-      },
-      "24:In which city is the company running Pro": {
-        "pred": "Porto [2, 5]",
-        "answers": [
-          "Porto"
-        ],
-        "hops": 2
-      },
-      "25:Where does the author of \"Whispers from ": {
-        "pred": "I don't know.",
-        "answers": [
-          "Chronos Systems"
-        ],
-        "hops": 2
-      },
-      "26:What is Seraphina Dubois's favorite tool": {
-        "pred": "Circuit Weaver Workbench [1]",
-        "answers": [
-          "Circuit Weaver Workbench"
-        ],
-        "hops": 1
-      },
-      "27:Where does the author of \"The Quantum La": {
-        "pred": "Quantum Loom [8]",
-        "answers": [
-          "Chronos Systems"
-        ],
-        "hops": 2
-      },
-      "28:In which city is the company running Pro": {
-        "pred": "Reykjavík [8]",
-        "answers": [
-          "Reykjavík"
-        ],
-        "hops": 2
-      },
-      "29:What programming language is the tool us": {
-        "pred": "Python",
-        "answers": [
-          "Python"
-        ],
-        "hops": 2
-      }
+    "bm25_only": {
+      "f1": 0.4666666666666667,
+      "em": 0.4666666666666667,
+      "n": 30
     }
   },
-  "summary": {
-    "lemory": {
-      "f1": 0.8674074074074074,
-      "contain_em": 1.0,
-      "n": 30,
-      "f1_hops1": 0.8888888888888887,
-      "f1_hops2": 0.8608695652173913
+  "details": [
+    {
+      "system": "lemory",
+      "q": "In which city is the company running Project Aurora Borealis headquartered?",
+      "gold": [
+        "Porto"
+      ],
+      "pred": "Porto",
+      "f1": 1.0
     },
-    "vector": {
-      "f1": 0.42814814814814817,
-      "contain_em": 0.5,
-      "n": 30,
-      "f1_hops1": 0.9047619047619048,
-      "f1_hops2": 0.28309178743961355
+    {
+      "system": "lemory",
+      "q": "What programming language is the tool used by Project Solara Genesis written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "Python",
+      "f1": 1.0
     },
-    "bm25": {
-      "f1": 0.4907407407407407,
-      "contain_em": 0.5666666666666667,
-      "n": 30,
-      "f1_hops1": 0.8888888888888887,
-      "f1_hops2": 0.3695652173913043
+    {
+      "system": "lemory",
+      "q": "What is the hometown of the person who wrote \"Resonance and Reverie: AI in Generative Music\"?",
+      "gold": [
+        "Seattle"
+      ],
+      "pred": "Seattle",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "Where does the author of \"Quantum Entanglement for the Layman: A Practical Guide\" work?",
+      "gold": [
+        "Synthetica Soundworks"
+      ],
+      "pred": "Synthetica Soundworks",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is the hometown of the person who wrote \"Robot Ethics and the Soul of Silicon\"?",
+      "gold": [
+        "Austin"
+      ],
+      "pred": "Austin",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What programming language is the tool used by Project Quantum Leap written in?",
+      "gold": [
+        "TypeScript"
+      ],
+      "pred": "TypeScript",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What programming language is the tool used by Project Chimera Protocol written in?",
+      "gold": [
+        "Go"
+      ],
+      "pred": "Go",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "In which city is the company running Project Chronos Echo headquartered?",
+      "gold": [
+        "Porto"
+      ],
+      "pred": "Porto",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What programming language is the tool used by Project Nexus Prime written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "Python",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "In which city is the company running Project Terra Nova headquartered?",
+      "gold": [
+        "Reykjavík"
+      ],
+      "pred": "Reykjavík",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is the hobby of the person who leads Project Terra Nova?",
+      "gold": [
+        "Lock picking and safe cracking (for sport)"
+      ],
+      "pred": "Lock picking and safe cracking (for sport)",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "In which city is the company running Project Starfall headquartered?",
+      "gold": [
+        "Osaka"
+      ],
+      "pred": "Osaka",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What programming language is the tool used by Project Terra Nova written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "Python",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "In which city is the company running Project Quantum Leap headquartered?",
+      "gold": [
+        "Reykjavík"
+      ],
+      "pred": "Reykjavík",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "In which city is the company running Project Orpheus Resonate headquartered?",
+      "gold": [
+        "Tallinn"
+      ],
+      "pred": "Tallinn",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "Where does the author of \"The Cipher's Shadow: Decentralized Cybersecurity Frontiers\" work?",
+      "gold": [
+        "Aether Dynamics"
+      ],
+      "pred": "Aether Dynamics",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What programming language is the tool used by Project Obsidian Shield written in?",
+      "gold": [
+        "C++"
+      ],
+      "pred": "C++",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "Where does the author of \"Robot Ethics and the Soul of Silicon\" work?",
+      "gold": [
+        "ChronoWeave Labs"
+      ],
+      "pred": "ChronoWeave Labs",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is the hobby of the person who leads Project Chronos Echo?",
+      "gold": [
+        "Modding classic video game consoles"
+      ],
+      "pred": "Modding classic video game consoles",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is the hobby of the person who leads Project Quantum Leap?",
+      "gold": [
+        "Competitive drone racing"
+      ],
+      "pred": "Competitive drone racing",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is the hobby of the person who leads Project Starfall?",
+      "gold": [
+        "Growing rare carnivorous plants"
+      ],
+      "pred": "Growing rare carnivorous plants",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "When was Quantal Forge founded?",
+      "gold": [
+        "2005"
+      ],
+      "pred": "2005",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What was decided at Luminary Systems Q4 Strategy Retreat?",
+      "gold": [
+        "Prioritized market entry into the South American renewable energy sector for 2025."
+      ],
+      "pred": "Prioritized market entry into the South American renewable energy sector for 2025.",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "When was Nexus Robotics founded?",
+      "gold": [
+        "1993"
+      ],
+      "pred": "1993",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What was decided at Aether Dynamics Aerospace Safety Symposium?",
+      "gold": [
+        "Implemented new pre-flight safety protocols for orbital debris removal missions."
+      ],
+      "pred": "Implemented new pre-flight safety protocols for orbital debris removal missions.",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What was decided at Nexus Robotics International Partner Convention?",
+      "gold": [
+        "Signed a strategic partnership agreement with 'Global Logistics Co.' for robot deployment."
+      ],
+      "pred": "Signed a strategic partnership agreement with 'Global Logistics Co.' for robot deployment.",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is Maya Singh's favorite tool?",
+      "gold": [
+        "ChronoScan Microscope"
+      ],
+      "pred": "ChronoScan Microscope",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is Jaxen Reed's favorite tool?",
+      "gold": [
+        "NetGuard Analyzer"
+      ],
+      "pred": "NetGuard Analyzer",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is Chloe Zhao's favorite tool?",
+      "gold": [
+        "Solstice Optima"
+      ],
+      "pred": "Solstice Optima",
+      "f1": 1.0
+    },
+    {
+      "system": "lemory",
+      "q": "What is Kaelen Rourke's favorite tool?",
+      "gold": [
+        "KineticCAD Suite"
+      ],
+      "pred": "KineticCAD Suite",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "In which city is the company running Project Aurora Borealis headquartered?",
+      "gold": [
+        "Porto"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What programming language is the tool used by Project Solara Genesis written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "C++",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is the hometown of the person who wrote \"Resonance and Reverie: AI in Generative Music\"?",
+      "gold": [
+        "Seattle"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "Where does the author of \"Quantum Entanglement for the Layman: A Practical Guide\" work?",
+      "gold": [
+        "Synthetica Soundworks"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is the hometown of the person who wrote \"Robot Ethics and the Soul of Silicon\"?",
+      "gold": [
+        "Austin"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What programming language is the tool used by Project Quantum Leap written in?",
+      "gold": [
+        "TypeScript"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What programming language is the tool used by Project Chimera Protocol written in?",
+      "gold": [
+        "Go"
+      ],
+      "pred": "Go",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "In which city is the company running Project Chronos Echo headquartered?",
+      "gold": [
+        "Porto"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What programming language is the tool used by Project Nexus Prime written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "Python",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "In which city is the company running Project Terra Nova headquartered?",
+      "gold": [
+        "Reykjavík"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is the hobby of the person who leads Project Terra Nova?",
+      "gold": [
+        "Lock picking and safe cracking (for sport)"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "In which city is the company running Project Starfall headquartered?",
+      "gold": [
+        "Osaka"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What programming language is the tool used by Project Terra Nova written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "In which city is the company running Project Quantum Leap headquartered?",
+      "gold": [
+        "Reykjavík"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "In which city is the company running Project Orpheus Resonate headquartered?",
+      "gold": [
+        "Tallinn"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "Where does the author of \"The Cipher's Shadow: Decentralized Cybersecurity Frontiers\" work?",
+      "gold": [
+        "Aether Dynamics"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What programming language is the tool used by Project Obsidian Shield written in?",
+      "gold": [
+        "C++"
+      ],
+      "pred": "C++",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "Where does the author of \"Robot Ethics and the Soul of Silicon\" work?",
+      "gold": [
+        "ChronoWeave Labs"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is the hobby of the person who leads Project Chronos Echo?",
+      "gold": [
+        "Modding classic video game consoles"
+      ],
+      "pred": "Modding classic video game consoles",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is the hobby of the person who leads Project Quantum Leap?",
+      "gold": [
+        "Competitive drone racing"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is the hobby of the person who leads Project Starfall?",
+      "gold": [
+        "Growing rare carnivorous plants"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "vector_only",
+      "q": "When was Quantal Forge founded?",
+      "gold": [
+        "2005"
+      ],
+      "pred": "2005",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What was decided at Luminary Systems Q4 Strategy Retreat?",
+      "gold": [
+        "Prioritized market entry into the South American renewable energy sector for 2025."
+      ],
+      "pred": "Prioritized market entry into the South American renewable energy sector for 2025.",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "When was Nexus Robotics founded?",
+      "gold": [
+        "1993"
+      ],
+      "pred": "1993",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What was decided at Aether Dynamics Aerospace Safety Symposium?",
+      "gold": [
+        "Implemented new pre-flight safety protocols for orbital debris removal missions."
+      ],
+      "pred": "Implemented new pre-flight safety protocols for orbital debris removal missions.",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What was decided at Nexus Robotics International Partner Convention?",
+      "gold": [
+        "Signed a strategic partnership agreement with 'Global Logistics Co.' for robot deployment."
+      ],
+      "pred": "Signed a strategic partnership agreement with 'Global Logistics Co.' for robot deployment.",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is Maya Singh's favorite tool?",
+      "gold": [
+        "ChronoScan Microscope"
+      ],
+      "pred": "ChronoScan Microscope",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is Jaxen Reed's favorite tool?",
+      "gold": [
+        "NetGuard Analyzer"
+      ],
+      "pred": "NetGuard Analyzer",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is Chloe Zhao's favorite tool?",
+      "gold": [
+        "Solstice Optima"
+      ],
+      "pred": "Solstice Optima",
+      "f1": 1.0
+    },
+    {
+      "system": "vector_only",
+      "q": "What is Kaelen Rourke's favorite tool?",
+      "gold": [
+        "KineticCAD Suite"
+      ],
+      "pred": "KineticCAD Suite",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "In which city is the company running Project Aurora Borealis headquartered?",
+      "gold": [
+        "Porto"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What programming language is the tool used by Project Solara Genesis written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is the hometown of the person who wrote \"Resonance and Reverie: AI in Generative Music\"?",
+      "gold": [
+        "Seattle"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "Where does the author of \"Quantum Entanglement for the Layman: A Practical Guide\" work?",
+      "gold": [
+        "Synthetica Soundworks"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is the hometown of the person who wrote \"Robot Ethics and the Soul of Silicon\"?",
+      "gold": [
+        "Austin"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What programming language is the tool used by Project Quantum Leap written in?",
+      "gold": [
+        "TypeScript"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What programming language is the tool used by Project Chimera Protocol written in?",
+      "gold": [
+        "Go"
+      ],
+      "pred": "Go",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "In which city is the company running Project Chronos Echo headquartered?",
+      "gold": [
+        "Porto"
+      ],
+      "pred": "Porto",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What programming language is the tool used by Project Nexus Prime written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "Python",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "In which city is the company running Project Terra Nova headquartered?",
+      "gold": [
+        "Reykjavík"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is the hobby of the person who leads Project Terra Nova?",
+      "gold": [
+        "Lock picking and safe cracking (for sport)"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "In which city is the company running Project Starfall headquartered?",
+      "gold": [
+        "Osaka"
+      ],
+      "pred": "Osaka",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What programming language is the tool used by Project Terra Nova written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "In which city is the company running Project Quantum Leap headquartered?",
+      "gold": [
+        "Reykjavík"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "In which city is the company running Project Orpheus Resonate headquartered?",
+      "gold": [
+        "Tallinn"
+      ],
+      "pred": "Tallinn",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "Where does the author of \"The Cipher's Shadow: Decentralized Cybersecurity Frontiers\" work?",
+      "gold": [
+        "Aether Dynamics"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What programming language is the tool used by Project Obsidian Shield written in?",
+      "gold": [
+        "C++"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "Where does the author of \"Robot Ethics and the Soul of Silicon\" work?",
+      "gold": [
+        "ChronoWeave Labs"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is the hobby of the person who leads Project Chronos Echo?",
+      "gold": [
+        "Modding classic video game consoles"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is the hobby of the person who leads Project Quantum Leap?",
+      "gold": [
+        "Competitive drone racing"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is the hobby of the person who leads Project Starfall?",
+      "gold": [
+        "Growing rare carnivorous plants"
+      ],
+      "pred": "unknown",
+      "f1": 0.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "When was Quantal Forge founded?",
+      "gold": [
+        "2005"
+      ],
+      "pred": "2005",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What was decided at Luminary Systems Q4 Strategy Retreat?",
+      "gold": [
+        "Prioritized market entry into the South American renewable energy sector for 2025."
+      ],
+      "pred": "Prioritized market entry into the South American renewable energy sector for 2025",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "When was Nexus Robotics founded?",
+      "gold": [
+        "1993"
+      ],
+      "pred": "1993",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What was decided at Aether Dynamics Aerospace Safety Symposium?",
+      "gold": [
+        "Implemented new pre-flight safety protocols for orbital debris removal missions."
+      ],
+      "pred": "Implemented new pre-flight safety protocols for orbital debris removal missions.",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What was decided at Nexus Robotics International Partner Convention?",
+      "gold": [
+        "Signed a strategic partnership agreement with 'Global Logistics Co.' for robot deployment."
+      ],
+      "pred": "Signed a strategic partnership agreement with 'Global Logistics Co.' for robot deployment.",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is Maya Singh's favorite tool?",
+      "gold": [
+        "ChronoScan Microscope"
+      ],
+      "pred": "ChronoScan Microscope",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is Jaxen Reed's favorite tool?",
+      "gold": [
+        "NetGuard Analyzer"
+      ],
+      "pred": "NetGuard Analyzer",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is Chloe Zhao's favorite tool?",
+      "gold": [
+        "Solstice Optima"
+      ],
+      "pred": "Solstice Optima",
+      "f1": 1.0
+    },
+    {
+      "system": "bm25_only",
+      "q": "What is Kaelen Rourke's favorite tool?",
+      "gold": [
+        "KineticCAD Suite"
+      ],
+      "pred": "KineticCAD Suite",
+      "f1": 1.0
     }
-  }
+  ]
 }

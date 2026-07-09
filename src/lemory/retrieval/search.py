@@ -61,6 +61,53 @@ def rrf_fuse(
     return scores
 
 
+_ASCII_WORD_RE = re.compile(r"[A-Za-z]{4,}")
+
+
+def _edit_distance_capped(a: str, b: str, cap: int) -> int:
+    """Levenshtein with early exit once the distance must exceed cap."""
+    if abs(len(a) - len(b)) > cap:
+        return cap + 1
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        best = i
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[-1] + 1, prev[j - 1] + (ca != cb)))
+            best = min(best, cur[-1])
+        if best > cap:
+            return cap + 1
+        prev = cur
+    return prev[-1]
+
+
+def correct_typos(store: Store, query: str) -> str:
+    """Local did-you-mean: replace query words that match nothing in the index
+    with the closest indexed term (edit distance 1, or 2 for longer words).
+    Purely lexical and offline — the vector leg is left on the raw query,
+    which embeddings already handle; this repairs the BM25/title-boost legs."""
+    lexicon = None
+    corrected = query
+    for m in _ASCII_WORD_RE.finditer(query):
+        word = m.group(0)
+        lower = word.lower()
+        if store.token_known(lower):
+            continue
+        if lexicon is None:
+            lexicon = store.lexicon()
+        cap = 1 if len(lower) <= 5 else 2
+        best, best_key = None, (cap + 1, 0)
+        for term, doc_count in lexicon.items():
+            if term[0] != lower[0] or abs(len(term) - len(lower)) > cap:
+                continue
+            d = _edit_distance_capped(lower, term, cap)
+            if d <= cap and (d, -doc_count) < (best_key[0], -best_key[1]):
+                best, best_key = term, (d, doc_count)
+        if best:
+            corrected = re.sub(rf"(?<!\w){re.escape(word)}(?!\w)", best, corrected)
+    return corrected
+
+
 def hybrid_search(
     engine: "Engine",
     query: str,
@@ -76,23 +123,33 @@ def hybrid_search(
     use_expand = (cfg.query_expansion if expand is None else expand) and mode == "hybrid"
     use_rerank = (cfg.rerank if rerank is None else rerank) and mode == "hybrid"
 
+    # local typo repair: the lexical legs (BM25, title boost) die on typos the
+    # embedding leg shrugs off; correcting only unknown words is safe because
+    # a word that matches the index is never touched
+    lex_query = query
+    if mode == "hybrid" and cfg.typo_correction:
+        lex_query = correct_typos(store, query)
+
     # qmd-style query expansion: search each LLM-generated variant too, and
     # fuse everything — variants recover vocabulary the note uses but the
     # user's phrasing doesn't. Variants get lower fusion weight than the
     # original query.
-    queries = [(query, 1.0)]
+    queries = [(query, 1.0, "both")]
+    if lex_query != query:
+        # corrected text repairs the lexical leg only — no extra embedding call
+        queries.append((lex_query, 0.9, "bm25"))
     if use_expand:
         for variant in expand_query(engine, query, cfg.expansion_variants):
-            queries.append((variant, 0.6))
+            queries.append((variant, 0.6, "both"))
 
     qv = None
     tagged_lists: list[tuple[str, list[tuple[int, float]], float]] = []
     vec_hits: list[tuple[int, float]] = []
     bm25_hits: list[tuple[int, float]] = []
-    for q_text, weight in queries:
+    for q_text, weight, legs in queries:
         v_hits: list[tuple[int, float]] = []
         b_hits: list[tuple[int, float]] = []
-        if mode in ("hybrid", "vector"):
+        if mode in ("hybrid", "vector") and legs != "bm25":
             v = engine.embed_query_cached(q_text)
             if q_text == query:
                 qv = v
@@ -126,7 +183,8 @@ def hybrid_search(
 
     # --- title boost: a chunk from a note whose title matches query terms is
     # more likely the canonical source (Obsidian notes are entity-titled).
-    q_tokens = _tokens(query)
+    # uses the typo-corrected text so a misspelled title still gets its boost
+    q_tokens = _tokens(lex_query)
     if mode == "hybrid" and q_tokens and cfg.title_boost > 0:
         for cid, meta in chunk_meta.items():
             t_tokens = _tokens(meta.title)
