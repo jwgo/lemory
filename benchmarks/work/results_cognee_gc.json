@@ -1,0 +1,249 @@
+{
+  "e2e_graph_completion": {
+    "f1": 0.39387254901960783,
+    "contain_em": 0.36666666666666664,
+    "n": 30
+  },
+  "details": [
+    {
+      "q": "In which city is the company running Project Solstice headquartered?",
+      "gold": [
+        "Porto"
+      ],
+      "pred": "Spectra Innovations",
+      "f1": 0.0
+    },
+    {
+      "q": "What programming language is the tool used by Project Zenith written in?",
+      "gold": [
+        "Rust"
+      ],
+      "pred": "TypeScript",
+      "f1": 0.0
+    },
+    {
+      "q": "What is the hometown of the person who wrote \"Whispers from the Void-Net\"?",
+      "gold": [
+        "Paris"
+      ],
+      "pred": "Paris",
+      "f1": 1.0
+    },
+    {
+      "q": "Where does the author of \"Synthetics and Sentience\" work?",
+      "gold": [
+        "Veridian Robotics"
+      ],
+      "pred": "Quantum Loom",
+      "f1": 0.0
+    },
+    {
+      "q": "What is the hometown of the person who wrote \"Chronicles of the Subterranean Cities\"?",
+      "gold": [
+        "Bengaluru"
+      ],
+      "pred": "Maya Singh",
+      "f1": 0.0
+    },
+    {
+      "q": "What programming language is the tool used by Project Lumina written in?",
+      "gold": [
+        "C++"
+      ],
+      "pred": "SynthForge Engine",
+      "f1": 0.0
+    },
+    {
+      "q": "What programming language is the tool used by Project Maelstrom written in?",
+      "gold": [
+        "Go"
+      ],
+      "pred": "AetherNet Monitor",
+      "f1": 0.0
+    },
+    {
+      "q": "In which city is the company running Project Chimera headquartered?",
+      "gold": [
+        "Porto"
+      ],
+      "pred": "Spectra Innovations",
+      "f1": 0.0
+    },
+    {
+      "q": "What programming language is the tool used by Project Oracle written in?",
+      "gold": [
+        "Python"
+      ],
+      "pred": "CodeWeaver Studio",
+      "f1": 0.0
+    },
+    {
+      "q": "In which city is the company running Project Atlas headquartered?",
+      "gold": [
+        "Reykjavík"
+      ],
+      "pred": "Veridian Robotics",
+      "f1": 0.0
+    },
+    {
+      "q": "What is the hobby of the person who leads Project Atlas?",
+      "gold": [
+        "Collecting rare botanical specimens"
+      ],
+      "pred": "Anya Sharma",
+      "f1": 0.0
+    },
+    {
+      "q": "In which city is the company running Project Nightingale headquartered?",
+      "gold": [
+        "Osaka"
+      ],
+      "pred": "Luminar Data",
+      "f1": 0.0
+    },
+    {
+      "q": "What programming language is the tool used by Project Atlas written in?",
+      "gold": [
+        "Rust"
+      ],
+      "pred": "NeuroLink OS",
+      "f1": 0.0
+    },
+    {
+      "q": "In which city is the company running Project Lumina headquartered?",
+      "gold": [
+        "Reykjavík"
+      ],
+      "pred": "Veridian Robotics",
+      "f1": 0.0
+    },
+    {
+      "q": "In which city is the company running Project Sentinel headquartered?",
+      "gold": [
+        "Tallinn"
+      ],
+      "pred": "Chronos Systems",
+      "f1": 0.0
+    },
+    {
+      "q": "Where does the author of \"The Algorithmic Heartbeat\" work?",
+      "gold": [
+        "Aether Dynamics"
+      ],
+      "pred": "Quantum Loom",
+      "f1": 0.0
+    },
+    {
+      "q": "What programming language is the tool used by Project Chronos written in?",
+      "gold": [
+        "JavaScript"
+      ],
+      "pred": "DataSculpt Pro",
+      "f1": 0.0
+    },
+    {
+      "q": "Where does the author of \"Chronicles of the Subterranean Cities\" work?",
+      "gold": [
+        "Quantum Loom"
+      ],
+      "pred": "Quantum Loom",
+      "f1": 1.0
+    },
+    {
+      "q": "What is the hobby of the person who leads Project Chimera?",
+      "gold": [
+        "Composing experimental electronic music"
+      ],
+      "pred": "Maya Singh",
+      "f1": 0.0
+    },
+    {
+      "q": "What is the hobby of the person who leads Project Lumina?",
+      "gold": [
+        "Restoring vintage synthesizers"
+      ],
+      "pred": "restoring vintage synthesizers",
+      "f1": 1.0
+    },
+    {
+      "q": "What is the hobby of the person who leads Project Nightingale?",
+      "gold": [
+        "Building custom mechanical keyboards"
+      ],
+      "pred": "Zane Kincaid",
+      "f1": 0.0
+    },
+    {
+      "q": "When was Neuralink Solutions founded?",
+      "gold": [
+        "2005"
+      ],
+      "pred": "2005",
+      "f1": 1.0
+    },
+    {
+      "q": "What was decided at Operations Efficiency Meeting Singapore?",
+      "gold": [
+        "Streamlined the global supply chain by consolidating distribution hubs."
+      ],
+      "pred": "Streamlining the global supply chain by consolidating distribution hubs.",
+      "f1": 0.875
+    },
+    {
+      "q": "When was Spectra Innovations founded?",
+      "gold": [
+        "1993"
+      ],
+      "pred": "1993",
+      "f1": 1.0
+    },
+    {
+      "q": "What was decided at Cybersecurity Workshop Berlin?",
+      "gold": [
+        "Implemented mandatory bi-annual security audits across all divisions."
+      ],
+      "pred": "Implemented mandatory bi-annual security audits across all divisions.",
+      "f1": 1.0
+    },
+    {
+      "q": "What was decided at Project Nightingale Alpha Review?",
+      "gold": [
+        "Recommended a focus group trial for the AI's emotional range."
+      ],
+      "pred": "Recommended a focus group trial for the AI's emotional range capabilities.",
+      "f1": 0.9411764705882353
+    },
+    {
+      "q": "What is Zane Kincaid's favorite tool?",
+      "gold": [
+        "CodeQuill IDE"
+      ],
+      "pred": "CodeQuill IDE",
+      "f1": 1.0
+    },
+    {
+      "q": "What is Anya Sharma's favorite tool?",
+      "gold": [
+        "CanvasFlow Prototyper"
+      ],
+      "pred": "CanvasFlow Prototyper",
+      "f1": 1.0
+    },
+    {
+      "q": "What is Marcus Finch's favorite tool?",
+      "gold": [
+        "LogiTrack Dashboard"
+      ],
+      "pred": "LogiTrack Dashboard",
+      "f1": 1.0
+    },
+    {
+      "q": "What is Seraphina Dubois's favorite tool?",
+      "gold": [
+        "Circuit Weaver Workbench"
+      ],
+      "pred": "Circuit Weaver Workbench",
+      "f1": 1.0
+    }
+  ]
+}

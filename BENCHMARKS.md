@@ -40,9 +40,6 @@ Same Gemini generator and prompt for every system; only retrieval differs. Token
 
 | System | F1 | EM (contain) | F1 (2-hop) | F1 (1-hop) | n |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 0.867 | 1.000 | 0.861 | 0.889 | 30 |
-| Vector-only (naive RAG) | 0.428 | 0.500 | 0.283 | 0.905 | 30 |
-| BM25 (lexical) | 0.491 | 0.567 | 0.370 | 0.889 | 30 |
 
 ## End-to-end QA — 실제 나무위키 메이플스토리 (real data)
 
@@ -68,6 +65,40 @@ answer string appears in the top-8 retrieved texts (LemoryBench, 57 q).
 | mem0 OSS (Gemini backend) | 0.579 |
 
 mem0 by hops: 1-hop 0.6666666666666666, 2-hop 0.5476190476190477 · 212 ms/query, ingest 0s for 54 notes
+
+## 4b. External system: cognee (OSS)
+
+cognee v1.2 with the identical Gemini models (flash-lite for cognify's
+graph extraction, gemini-embedding-001 @768d), default local stores
+(LanceDB + Ladybug/Kuzu graph). Full `cognify` knowledge-graph build over
+the 54-note vault, then its `CHUNKS` retrieval; e2e uses the same
+generator/prompt as every other row (LemoryBench, 57 q / e2e 30 q).
+
+| System | Answer-in-context@8 | 1-hop | 2-hop | e2e F1 | EM (contain) |
+|---|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 0.867 | 1.000 |
+| cognee CHUNKS retrieval | 0.561 | 1.000 | 0.405 | 0.467 | 0.467 |
+| cognee `GRAPH_COMPLETION` (its native graph-QA pipeline) | — | — | — | 0.394 | 0.367 |
+
+cognee retrieval p50 latency: 4994 ms/query (Lemory: ~2 ms local + one cached embedding call). cognify ingest of the 54-note vault took ~45 min under free-tier rate limits vs ~30 s for Lemory's index.
+
+## 4c. Query robustness (real-world phrasings)
+
+The multi-hop questions re-asked as committed variants: an English
+paraphrase, a natural Korean phrasing (Korean query → English notes),
+a terse keyword lookup, and a typo'd version (1-2 injected typos).
+Metric: full-support@8 against the original gold notes. Lemory's typo
+resilience comes from local did-you-mean correction over the vault
+vocabulary (zero API calls; hybrid pipeline only — baselines stay pure).
+
+| System | original | paraphrase | korean | keyword | typo |
+|---|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 1.000 | 0.946 | 0.975 | 0.982 | 0.965 |
+| Lemory w/o graph (ablation) | 0.544 | 0.446 | 0.275 | 0.464 | 0.526 |
+| Vector-only (naive RAG) | 0.544 | 0.464 | 0.475 | 0.482 | 0.491 |
+| BM25 (lexical) | 0.579 | 0.429 | 0.250 | 0.482 | 0.404 |
+
+Optional LLM query expansion (`--expand`) was also measured: paraphrase 0.911, korean 0.950, typo 0.825 — no better than the LLM-free pipeline on this corpus, which is why it stays off by default (saves one LLM call per query).
 
 ## Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
 
@@ -145,6 +176,9 @@ python benchmarks/run_retrieval.py multihop
 python benchmarks/run_retrieval.py squad
 python benchmarks/run_e2e.py multihop 40
 python benchmarks/run_mem0.py              # optional, needs mem0ai + qdrant-client
+python benchmarks/run_cognee.py            # optional, needs cognee (slow: cognify)
+python benchmarks/gen_robust_queries.py    # no-op: variants are committed
+python benchmarks/run_robustness.py
 python benchmarks/report.py
 ```
 
@@ -155,6 +189,5 @@ python benchmarks/report.py
 * **BM25** is the classic lexical baseline (what most in-app search does).
 * **Lemory w/o graph** isolates where the multi-hop gain comes from.
 * **mem0** is a real external OSS memory system run end-to-end.
-* **cognee** is not run in-harness: its cognify step requires per-chunk LLM
-  calls beyond free-tier limits for a corpus this size; Lemory's optional
-  `enrich_entities` implements the equivalent enrichment.
+* **cognee** is a real external OSS knowledge-graph system run end-to-end
+  (full cognify + retrieval + its native GRAPH_COMPLETION QA), same models.
