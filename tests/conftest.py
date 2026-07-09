@@ -13,6 +13,14 @@ DIM = 64
 _WORD = re.compile(r"[a-z0-9]+|[가-힣]+")
 
 
+@pytest.fixture(autouse=True)
+def _isolate_global_env(tmp_path, monkeypatch):
+    """Tests must never see the developer's real ~/.lemory/env credentials."""
+    import lemory.config as config_mod
+
+    monkeypatch.setattr(config_mod, "GLOBAL_ENV_FILE", tmp_path / "no-global-env")
+
+
 def _subtokens(text: str) -> list[str]:
     """Words plus Hangul bigrams, so the fake embedder gives Korean text
     meaningful subword similarity (mirrors real multilingual embedders)."""
