@@ -37,10 +37,14 @@ def test_bm25_handles_special_chars(store):
 def test_hangul_bigrams():
     from lemory.storage.sqlite_store import hangul_bigrams
 
-    assert hangul_bigrams("윤하준") == ["윤하", "하준"]
-    assert hangul_bigrams("윤하준가 좋아함") == ["윤하", "하준", "준가", "좋아", "아함"]
+    assert hangul_bigrams("윤하준") == ["윤", "하", "준", "윤하", "하준"]
+    assert hangul_bigrams("윤하준가 좋아함") == [
+        "윤", "하", "준", "가", "윤하", "하준", "준가",
+        "좋", "아", "함", "좋아", "아함",
+    ]
     assert hangul_bigrams("english only") == []
-    assert hangul_bigrams("김") == []  # single syllable: no bigram
+    # single-syllable words ('책', '김') must match their suffixed forms
+    assert hangul_bigrams("김") == ["김"]
 
 
 def test_bm25_korean_particle_still_matches(store):

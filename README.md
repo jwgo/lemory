@@ -22,6 +22,9 @@ lemory index --vault ~/Obsidian/MyVault    # first index (incremental afterwards
 lemory ask "what did I decide about the pricing model?"
 ```
 
+Not sure the setup is right? `lemory doctor` checks vault, key, API, and index
+in one shot. `lemory recent` lists what you touched lately.
+
 Or three lines of Python (cognee-style):
 
 ```python
@@ -106,11 +109,21 @@ Design choices that matter:
 - **Free-tier friendly.** Everything runs on one Gemini free-tier key: batched
   embeddings, RPM throttling, 429/503 backoff with server-advised delays, and
   automatic model fallback.
-- **Korean-ready retrieval.** Hangul is indexed as character bigrams alongside
-  whole tokens (CJK-analyzer style), so 조사가 붙은 질의("윤하준**가**")도
-  원형("윤하준")을 찾습니다; the title boost is particle-tolerant, and short
-  keyword queries adaptively weight the lexical leg. On the 948-note mixed
-  KR/EN second-brain benchmark this took planted-fact hit@1 from 56% to 100%.
+- **Korean-ready retrieval.** Hangul is indexed as character unigrams+bigrams
+  alongside whole tokens (CJK-analyzer style), so 조사가 붙은 질의("윤하준**가**")도
+  원형("윤하준")을 찾고, 한 글자 단어("책")도 활용형("책은")과 매칭됩니다; the
+  title boost is particle-tolerant, and short keyword queries adaptively weight
+  the lexical leg. On the 948-note mixed KR/EN second-brain benchmark this took
+  planted-fact hit@1 from 56% to 100%.
+- **It knows what "요새" means.** Notes get dates (frontmatter › daily-note
+  filename › mtime); queries like "요새 내가 읽던 책 뭐였지?", "어제 회의에서 뭐
+  결정했지?", "지난주 A/B 결과?" are detected (rule-based KR/EN, zero API calls)
+  and recency multiplies relevance — so the CURRENT answer beats the stale one
+  that has more mentions, while plain queries keep history fully reachable.
+  `ask()` shows each note's date to the model, so conflicting facts resolve to
+  the newest. On the 6-month temporal scenario: overall hit@1 **1.000** vs
+  0.273 (vector) / 0.636 (BM25), and 6/6 correct cited answers in the live
+  Korean `ask()` session.
 - **Typo-tolerant lexical search.** Query words that match nothing in the
   vault get a local did-you-mean correction against the vault's own
   vocabulary before the BM25/title legs run (the embedding leg already

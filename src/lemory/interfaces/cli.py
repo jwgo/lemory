@@ -40,6 +40,104 @@ def init(vault: Path = typer.Argument(..., help="Path to your Obsidian vault")):
 
 
 @app.command()
+def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check")):
+    """Diagnose your setup in one command: key, vault, database, search."""
+    from ..config import load_config
+
+    ok = True
+
+    def check(label: str, passed: bool, detail: str = "") -> bool:
+        mark = "[green]✔[/green]" if passed else "[red]✘[/red]"
+        console.print(f" {mark} {label}" + (f" — {detail}" if detail else ""))
+        return passed
+
+    cfg = load_config(vault=vault)
+
+    # 1. vault
+    try:
+        v = cfg.resolved_vault()
+        n_md = sum(1 for _ in v.rglob("*.md"))
+        ok &= check("vault", v.is_dir(), f"{v} ({n_md} .md files)")
+    except Exception as e:
+        ok = check("vault", False, str(e))
+        v = None
+
+    # 2. API key + live round-trip
+    try:
+        provider = cfg.resolved_provider()
+        check("api key", True, f"provider={provider}")
+        try:
+            eng = _engine(vault)
+            vec = eng.llm.embed(["lemory doctor ping"])
+            ok &= check("embedding API", vec.shape[-1] == cfg.embed_dim,
+                        f"{cfg.active_embed_model()} @{vec.shape[-1]}d")
+        except Exception as e:
+            ok = check("embedding API", False, str(e)[:120])
+    except Exception as e:
+        ok = check("api key", False, str(e)[:120])
+
+    # 3. sqlite features
+    import sqlite3
+    try:
+        c = sqlite3.connect(":memory:")
+        c.execute("CREATE VIRTUAL TABLE t USING fts5(x)")
+        ok &= check("sqlite FTS5", True, sqlite3.sqlite_version)
+    except Exception as e:
+        ok = check("sqlite FTS5", False, str(e))
+
+    # 4. index state (empty is a to-do, not a failure)
+    if v is not None:
+        try:
+            eng = _engine(vault)
+            st = eng.status()
+            if st["documents"] > 0:
+                check("index", True,
+                      f"{st['documents']} docs / {st['chunks']} chunks / {st['links']} links")
+                hits = eng.search("test", k=1)
+                ok &= check("search", True, f"returned {len(hits)} hit(s)")
+            else:
+                console.print(" [yellow]⚠[/yellow] index — empty, run [bold]lemory index[/bold] to build it")
+        except Exception as e:
+            ok = check("index", False, str(e)[:120])
+
+    console.print()
+    if ok:
+        console.print("[green]all good[/green] — try: [bold]lemory ask \"요새 내가 뭐 했지?\"[/bold]")
+    else:
+        console.print("[yellow]fix the ✘ items above and re-run[/yellow] [bold]lemory doctor[/bold]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def recent(
+    vault: Optional[Path] = typer.Option(None),
+    days: int = typer.Option(7, help="Look-back window in days"),
+    limit: int = typer.Option(20, help="Max notes to list"),
+):
+    """What did I touch lately? Notes from the last N days, newest first."""
+    import time as _time
+    from datetime import datetime
+
+    eng = _engine(vault)
+    dates = eng.store.doc_dates()
+    docs = {d.id: d for d in eng.store.all_docs()}
+    cutoff = _time.time() - days * 86400
+    rows = sorted(
+        ((ts, docs[did]) for did, ts in dates.items() if ts >= cutoff and did in docs),
+        key=lambda x: -x[0],
+    )[:limit]
+    if not rows:
+        console.print(f"no notes in the last {days} days")
+        return
+    table = Table(show_header=True)
+    table.add_column("date", width=12)
+    table.add_column("note")
+    for ts, doc in rows:
+        table.add_row(datetime.fromtimestamp(ts).date().isoformat(), doc.path)
+    console.print(table)
+
+
+@app.command()
 def index(
     vault: Optional[Path] = typer.Option(None, help="Vault path (else lemory.toml / LEMORY_VAULT)"),
     full: bool = typer.Option(False, help="Re-chunk everything (embeddings still cached)"),

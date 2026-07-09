@@ -199,6 +199,43 @@ def main() -> None:
                 ], ["lemory", "lemory-nograph", "vector", "bm25"])
             )
 
+    tp_file = WORK / "results_temporal.json"
+    if tp_file.exists():
+        d = json.loads(tp_file.read_text())
+        cols = [
+            ("recent_fact_hit@1", "recent-fact hit@1"),
+            ("superseded_trap_hit@1", "superseded-trap hit@1"),
+            ("window_hit@1", "window hit@1"),
+            ("old_fact_hit@1", "old-fact hit@1"),
+            ("overall_hit@1", "overall hit@1"),
+        ]
+        rows = [{"system": s, **m} for s, m in d.items()]
+        order = ["lemory", "lemory-norecency", "vector", "bm25"]
+        names = dict(NAMES)
+        names["lemory-norecency"] = "Lemory w/o recency (ablation)"
+        head = "| System | " + " | ".join(l for _, l in cols) + " |"
+        sep = "|---" * (len(cols) + 1) + "|"
+        lines = [head, sep]
+        for s in order:
+            r = next((x for x in rows if x["system"] == s), None)
+            if r:
+                lines.append("| " + names.get(s, s) + " | " +
+                             " | ".join(f"{r.get(k):.3f}" if isinstance(r.get(k), float) else "—"
+                                        for k, _ in cols) + " |")
+        sections.append(
+            "## Temporal scenario: \"요새 내가 하던 그거 뭐였지?\" (real embeddings)\n\n"
+            "A generated 6-month personal vault (127 daily/meeting notes, fixed TODAY)\n"
+            "where facts EVOLVE: the current book/exercise/tool supersedes an older one\n"
+            "that has MORE mentions — the trap a recency-blind retriever falls into.\n"
+            "Query classes: vague recency (요새/요즘/최근/지금), explicit windows\n"
+            "(어제/지난주/오늘/N일 전/N월), and old-fact references (history must stay\n"
+            "reachable). Recency detection is rule-based KR/EN, zero API calls, and\n"
+            "multiplies relevance rather than replacing it (week-banded decay).\n"
+            "In the live `ask()` session over this vault, 6/6 Korean memory questions\n"
+            "were answered correctly with citations.\n\n"
+            + "\n".join(lines)
+        )
+
     sb_file = WORK / "results_secondbrain.json"
     if sb_file.exists():
         d = json.loads(sb_file.read_text())

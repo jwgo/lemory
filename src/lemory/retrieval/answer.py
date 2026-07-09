@@ -13,8 +13,10 @@ if TYPE_CHECKING:
 SYSTEM = (
     "You answer questions using ONLY the provided notes from the user's personal "
     "knowledge base. Cite sources inline as [n] using the note numbers given. "
+    "Each note shows its date; when notes disagree, the most recent note states "
+    "the current fact — prefer it and treat older notes as superseded. "
     "If the notes do not contain the answer, say you don't know — do not invent facts. "
-    "Be direct and concise."
+    "Be direct and concise. Answer in the user's language."
 )
 
 
@@ -38,10 +40,15 @@ def build_prompt(context: str, question: str, instruction: str = "ANSWER:") -> s
 
 
 def build_context(hits: list[ChunkHit], max_chars: int = 14000) -> str:
+    from datetime import datetime
+
     parts = []
     used = 0
     for i, h in enumerate(hits, 1):
-        head = f"[{i}] {h.title}" + (f" › {h.heading}" if h.heading else "")
+        date_tag = ""
+        if h.doc_date > 0:
+            date_tag = f" ({datetime.fromtimestamp(h.doc_date).date().isoformat()})"
+        head = f"[{i}] {h.title}{date_tag}" + (f" › {h.heading}" if h.heading else "")
         body = h.text
         block = f"{head}\n{body}\n"
         if used + len(block) > max_chars:

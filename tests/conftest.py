@@ -20,6 +20,7 @@ def _subtokens(text: str) -> list[str]:
     for t in _WORD.findall(text.lower()):
         toks.append(t)
         if "가" <= t[0] <= "힣" and len(t) > 1:
+            toks.extend(t)  # unigrams, mirroring the FTS CJK analyzer
             toks.extend(t[i : i + 2] for i in range(len(t) - 1))
     return toks
 

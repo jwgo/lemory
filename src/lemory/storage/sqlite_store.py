@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import sqlite3
 import threading
@@ -25,6 +26,8 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 import numpy as np
+
+log = logging.getLogger("lemory.store")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
@@ -92,6 +95,7 @@ class ChunkHit:
     heading: str
     text: str
     score: float
+    doc_date: float = 0.0  # epoch seconds; see retrieval.temporal.doc_date
 
 
 @dataclass
@@ -104,19 +108,23 @@ class DocRecord:
     tags: list[str] = field(default_factory=list)
 
 
-_HANGUL_RUN = re.compile(r"[가-힣]{2,}")
+_HANGUL_RUN = re.compile(r"[가-힣]+")
 
 
 def hangul_bigrams(text: str) -> list[str]:
-    """Character bigrams of every Hangul run (CJK-analyzer style).
+    """Character unigrams + bigrams of every Hangul run (CJK-analyzer style).
 
     Korean is agglutinative — '윤하준가'(name+조사) never token-matches
     '윤하준' under unicode61. Indexing and querying Hangul as overlapping
     bigrams ('윤하 하준 준가') restores lexical matching without a
-    morphology dictionary.
+    morphology dictionary. Unigrams are included too because single-syllable
+    words are common ('책', '집', '차') and would otherwise never match their
+    particle-suffixed forms ('책은') — BM25's IDF keeps frequent single
+    syllables from dominating.
     """
     grams: list[str] = []
     for run in _HANGUL_RUN.findall(text):
+        grams.extend(run)
         grams.extend(run[i : i + 2] for i in range(len(run) - 1))
     return grams
 
@@ -153,13 +161,27 @@ class Store:
         self._matrix_chunk_ids: Optional[np.ndarray] = None
         self._matrix_pos: dict[int, int] = {}  # chunk_id -> row
         self._lexicon: Optional[dict[str, int]] = None  # FTS term -> doc count
+        self._doc_dates: Optional[dict[int, float]] = None  # doc_id -> epoch
         self._dirty = True
-        with self.conn() as c:
-            c.executescript(SCHEMA)
-            # migrate pre-wikilinks databases in place
-            cols = {r["name"] for r in c.execute("PRAGMA table_info(documents)")}
-            if "wikilinks" not in cols:
-                c.execute("ALTER TABLE documents ADD COLUMN wikilinks TEXT NOT NULL DEFAULT '[]'")
+        try:
+            with self.conn() as c:
+                c.executescript(SCHEMA)
+                # migrate pre-wikilinks databases in place
+                cols = {r["name"] for r in c.execute("PRAGMA table_info(documents)")}
+                if "wikilinks" not in cols:
+                    c.execute("ALTER TABLE documents ADD COLUMN wikilinks TEXT NOT NULL DEFAULT '[]'")
+        except sqlite3.DatabaseError as e:
+            # the vault is the source of truth — a corrupted index is
+            # recoverable by rebuilding, never a reason to be dead in the water
+            log.warning("index database unreadable (%s); moving it aside and rebuilding", e)
+            self.close()
+            quarantine = self.db_path.with_suffix(".corrupt")
+            for suffix in ("", "-wal", "-shm"):
+                p = Path(str(self.db_path) + suffix)
+                if p.exists():
+                    p.replace(Path(str(quarantine) + suffix))
+            with self.conn() as c:
+                c.executescript(SCHEMA)
 
     def conn(self) -> sqlite3.Connection:
         c = getattr(self._local, "conn", None)
@@ -169,6 +191,9 @@ class Store:
             c.execute("PRAGMA journal_mode=WAL")
             c.execute("PRAGMA foreign_keys=ON")
             c.execute("PRAGMA synchronous=NORMAL")
+            # a second lemory process (CLI next to a running server) must wait
+            # for write locks instead of failing with 'database is locked'
+            c.execute("PRAGMA busy_timeout=8000")
             self._local.conn = c
         return c
 
@@ -196,6 +221,7 @@ class Store:
         with self._matrix_lock:
             self._dirty = True
             self._lexicon = None
+            self._doc_dates = None
 
     def _upsert_document_tx(
         self, c: sqlite3.Connection, path: str, title: str, content_hash: str,
@@ -209,7 +235,10 @@ class Store:
                  content_hash=excluded.content_hash, mtime=excluded.mtime,
                  tags=excluded.tags, frontmatter=excluded.frontmatter,
                  wikilinks=excluded.wikilinks, indexed_at=excluded.indexed_at""",
-            (path, title, content_hash, mtime, json.dumps(tags), json.dumps(frontmatter),
+            (path, title, content_hash, mtime, json.dumps(tags),
+             # default=str: YAML frontmatter commonly contains datetime.date
+             # values (`date: 2026-07-08`), which plain json.dumps rejects
+             json.dumps(frontmatter, default=str),
              json.dumps(wikilinks or []), indexed_at),
         )
         row = c.execute("SELECT id FROM documents WHERE path=?", (path,)).fetchone()
@@ -312,10 +341,12 @@ class Store:
                 WHERE ch.id IN ({q})""",
             ids,
         ).fetchall()
+        dates = self.doc_dates()
         return {
             r["id"]: ChunkHit(
                 chunk_id=r["id"], doc_id=r["doc_id"], path=r["path"], title=r["title"],
                 heading=r["heading"], text=r["text"], score=0.0,
+                doc_date=dates.get(r["doc_id"], 0.0),
             )
             for r in rows
         }
@@ -495,6 +526,24 @@ class Store:
             return []
         # bm25() returns lower-is-better; flip sign so higher is better
         return [(int(r["rowid"]), -float(r["s"])) for r in rows]
+
+    # -------------------------------------------------------------- doc dates
+    def doc_dates(self) -> dict[int, float]:
+        """doc_id -> best-effort note date (epoch), cached until index change."""
+        from ..retrieval.temporal import doc_date as _doc_date
+
+        with self._matrix_lock:
+            cached = self._doc_dates
+        if cached is not None:
+            return cached
+        out: dict[int, float] = {}
+        for r in self.conn().execute(
+            "SELECT id, title, path, frontmatter, mtime FROM documents"
+        ):
+            out[r["id"]] = _doc_date(r["title"], r["path"], r["frontmatter"], r["mtime"])
+        with self._matrix_lock:
+            self._doc_dates = out
+        return out
 
     # ------------------------------------------------------------ typo lexicon
     _LEX_WORD_RE = re.compile(r"[A-Za-z]{3,}")

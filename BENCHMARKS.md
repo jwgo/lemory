@@ -17,10 +17,10 @@ the precondition for a correct multi-hop answer.
 
 | System | Full-support@8 (2-hop) | Full-support@8 (all) | Recall@1 | MRR@10 | ms/query* |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 1.919 |
-| Lemory w/o graph (ablation) | 0.381 | 0.544 | 1.000 | 1.000 | 1.326 |
-| Vector-only (naive RAG) | 0.381 | 0.544 | 0.965 | 0.982 | 0.385 |
-| BM25 (lexical) | 0.429 | 0.579 | 0.825 | 0.912 | 0.764 |
+| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 2.512 |
+| Lemory w/o graph (ablation) | 0.381 | 0.544 | 1.000 | 1.000 | 1.750 |
+| Vector-only (naive RAG) | 0.381 | 0.544 | 0.965 | 0.982 | 0.436 |
+| BM25 (lexical) | 0.429 | 0.579 | 0.825 | 0.912 | 0.817 |
 
 ## 2. Single-hop retrieval (SQuAD v2 dev, real external data)
 
@@ -29,10 +29,10 @@ Hit = retrieved chunk is from the gold article and contains a gold answer.
 
 | System | Recall@1 | Recall@3 | Recall@5 | Recall@8 | MRR@10 | ms/query* |
 |---|---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 0.847 | 0.963 | 0.970 | 0.970 | 0.899 | 6.605 |
-| Lemory w/o graph (ablation) | 0.863 | 0.960 | 0.967 | 0.967 | 0.908 | 5.552 |
-| Vector-only (naive RAG) | 0.813 | 0.950 | 0.973 | 0.980 | 0.881 | 7.871 |
-| BM25 (lexical) | 0.830 | 0.920 | 0.950 | 0.970 | 0.881 | 7.524 |
+| **Lemory** (hybrid + graph) | 0.847 | 0.960 | 0.967 | 0.970 | 0.897 | 7.766 |
+| Lemory w/o graph (ablation) | 0.863 | 0.960 | 0.967 | 0.970 | 0.908 | 6.626 |
+| Vector-only (naive RAG) | 0.813 | 0.950 | 0.973 | 0.980 | 0.881 | 8.124 |
+| BM25 (lexical) | 0.830 | 0.920 | 0.950 | 0.970 | 0.881 | 7.449 |
 
 ## End-to-end QA — LemoryBench (synthetic multi-hop)
 
@@ -132,6 +132,25 @@ Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers 
 | Lemory w/o graph (ablation) | 0.947 | 1.000 | 1.000 | 1.000 |
 | Vector-only (naive RAG) | 0.895 | 1.000 | 1.000 | 1.000 |
 | BM25 (lexical) | 0.895 | 1.000 | 1.000 | 1.000 |
+
+## Temporal scenario: "요새 내가 하던 그거 뭐였지?" (real embeddings)
+
+A generated 6-month personal vault (127 daily/meeting notes, fixed TODAY)
+where facts EVOLVE: the current book/exercise/tool supersedes an older one
+that has MORE mentions — the trap a recency-blind retriever falls into.
+Query classes: vague recency (요새/요즘/최근/지금), explicit windows
+(어제/지난주/오늘/N일 전/N월), and old-fact references (history must stay
+reachable). Recency detection is rule-based KR/EN, zero API calls, and
+multiplies relevance rather than replacing it (week-banded decay).
+In the live `ask()` session over this vault, 6/6 Korean memory questions
+were answered correctly with citations.
+
+| System | recent-fact hit@1 | superseded-trap hit@1 | window hit@1 | old-fact hit@1 | overall hit@1 |
+|---|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| Lemory w/o recency (ablation) | 0.400 | 0.000 | 0.750 | 1.000 | 0.545 |
+| Vector-only (naive RAG) | 0.000 | 0.000 | 0.500 | 1.000 | 0.273 |
+| BM25 (lexical) | 0.600 | 1.000 | 0.750 | 0.000 | 0.636 |
 
 ## Second-brain scale (948 mixed KR/EN notes, LLM-free)
 

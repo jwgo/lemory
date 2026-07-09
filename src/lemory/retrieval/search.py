@@ -8,10 +8,12 @@ query embedding) and costs one embedding call per query (cached).
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from ..storage import ChunkHit, Store
+from .temporal import parse_temporal, recency_weight
 
 if TYPE_CHECKING:
     from ..config import LemoryConfig
@@ -180,6 +182,29 @@ def hybrid_search(
         return SearchResult(hits=[])
 
     chunk_meta = store.get_chunks(fused.keys())
+
+    # --- recency: "요새 내가 하던 그거 뭐였지?" — when the query signals time
+    # (vague recency or an explicit window), newer notes get boosted and notes
+    # inside the asked window get boosted hardest. MULTIPLICATIVE on the fused
+    # score, so recency amplifies relevance instead of replacing it: a fresh
+    # but irrelevant note stays below an on-topic one. Rule-based, zero API.
+    if mode == "hybrid" and cfg.recency_boost > 0:
+        now_ts = getattr(engine, "now", time.time)()
+        intent = parse_temporal(query, now=now_ts)
+        if intent.active:
+            dates = store.doc_dates()
+            doc_of = {cid: m.doc_id for cid, m in chunk_meta.items()}
+            for cid in list(fused.keys()):
+                ts = dates.get(doc_of.get(cid, -1), 0.0)
+                if ts <= 0:
+                    continue
+                if intent.range_start is not None:
+                    in_window = intent.range_start <= ts < (intent.range_end or now_ts)
+                    factor = 1.0 + cfg.recency_boost * (2.5 if in_window else 0.0)
+                else:
+                    w = recency_weight(ts, now_ts, cfg.recency_half_life_days)
+                    factor = 1.0 + cfg.recency_boost * w
+                fused[cid] *= factor
 
     # --- title boost: a chunk from a note whose title matches query terms is
     # more likely the canonical source (Obsidian notes are entity-titled).
