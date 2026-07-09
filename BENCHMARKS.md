@@ -133,6 +133,18 @@ Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers 
 | Vector-only (naive RAG) | 0.895 | 1.000 | 1.000 | 1.000 |
 | BM25 (lexical) | 0.895 | 1.000 | 1.000 | 1.000 |
 
+## Real external data: KorQuAD 1.0 (한국어 위키피디아, 인간 작성 질문)
+
+140 real Korean Wikipedia articles as notes; 400 human-written dev questions (seeded sample of 5,774). Hit = chunk from the gold article containing a gold answer span.
+
+**BM25 wins here and we report it**: SQuAD-family questions quote the passage vocabulary (written while reading it), which is BM25's best case. The robustness section shows what happens when the same kind of content is asked in the user's own words — BM25 0.25–0.48, Lemory 0.95+.
+
+| System | Recall@1 | Recall@5 | MRR@10 | e2e EM (40q) |
+|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 0.887 | 0.985 | 0.930 | 0.875 |
+| Vector-only (naive RAG) | 0.855 | 0.968 | 0.902 | 0.925 |
+| BM25 (lexical) | 0.922 | 0.993 | 0.952 | 0.950 |
+
 ## Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
 The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for every system; adversarial category excluded (mem0 protocol). mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini).

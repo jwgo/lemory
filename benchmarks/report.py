@@ -199,6 +199,32 @@ def main() -> None:
                 ], ["lemory", "lemory-nograph", "vector", "bm25"])
             )
 
+    kq_file = WORK / "results_korquad.json"
+    if kq_file.exists():
+        d = json.loads(kq_file.read_text())
+        e2e = d.get("e2e_40q", {})
+        lines = ["| System | Recall@1 | Recall@5 | MRR@10 | e2e EM (40q) |",
+                 "|---|---|---|---|---|"]
+        for s in ("lemory", "vector", "bm25"):
+            if s in d["systems"]:
+                v = d["systems"][s]
+                em = e2e.get(s, {}).get("contain_em")
+                lines.append(f"| {NAMES.get(s, s)} | {v['recall@1']:.3f} | {v['recall@5']:.3f} "
+                             f"| {v['mrr@10']:.3f} | {em:.3f} |" if em is not None else
+                             f"| {NAMES.get(s, s)} | {v['recall@1']:.3f} | {v['recall@5']:.3f} "
+                             f"| {v['mrr@10']:.3f} | — |")
+        sections.append(
+            "## Real external data: KorQuAD 1.0 (한국어 위키피디아, 인간 작성 질문)\n\n"
+            f"140 real Korean Wikipedia articles as notes; {d['n_questions']} human-written "
+            "dev questions (seeded sample of 5,774). Hit = chunk from the gold article "
+            "containing a gold answer span.\n\n"
+            "**BM25 wins here and we report it**: SQuAD-family questions quote the passage "
+            "vocabulary (written while reading it), which is BM25's best case. The "
+            "robustness section shows what happens when the same kind of content is asked "
+            "in the user's own words — BM25 0.25–0.48, Lemory 0.95+.\n\n"
+            + "\n".join(lines)
+        )
+
     mem_benches = [
         ("results_locomo.json", "LOCOMO (long-term conversational memory, 160-question stratified sample)",
          "The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for "

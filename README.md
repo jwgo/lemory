@@ -52,15 +52,18 @@ extract "memories" with LLM pipelines, pay per API call. We think that's backwar
 **[KorQuAD 1.0](https://korquad.github.io/)** — 140 real Korean Wikipedia
 articles, 400 human-written questions (sampled from dev 5,774):
 
-| System | Recall@1 | Recall@5 | MRR@10 | e2e answer EM |
+| System | Recall@1 | Recall@5 | MRR@10 | e2e answer EM (40q) |
 |---|---|---|---|---|
-| **Lemory** (hybrid+graph) | 0.888 | 0.985 | 0.930 | **0.875** |
-| Vector-only RAG | 0.855 | 0.968 | 0.902 | — |
-| BM25 | **0.923** | 0.993 | 0.952 | — |
+| **Lemory** (hybrid+graph) | 0.888 | 0.985 | 0.930 | 0.875 |
+| Vector-only RAG | 0.855 | 0.968 | 0.902 | 0.925 |
+| BM25 | **0.923** | **0.993** | **0.952** | **0.950** |
 
-<sub>Yes, BM25 wins recall@1 here and we say so: SQuAD-family questions are
-written while looking at the passage, so vocabulary overlap is total. Ask the
-same corpus in *your own words* and BM25 collapses — that's the next table.</sub>
+<sub>Yes, **BM25 wins this table** and we print it anyway: SQuAD-family questions
+are written while looking at the passage, so the vocabulary overlap is total —
+grep-style search is genuinely enough for quote-the-document questions. But
+nobody queries their own memory in verbatim quotes. Ask the same kind of corpus
+in *your own words* — paraphrased, cross-lingual, typo'd — and BM25 collapses
+while Lemory doesn't. That's the next two tables, and that's the product.</sub>
 
 **나무위키 실문서 1,469편** (public 2021 dump, 33,375 chunks, **24,850 real
 wikilink edges**) — code-verified QA (answer exists only in the gold note):
