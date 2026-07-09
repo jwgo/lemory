@@ -55,8 +55,18 @@ def parse_session_date(raw: str) -> str | None:
     return f"{int(year):04d}-{month:02d}-{int(day):02d}"
 
 
+LOCOMO_URL = "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json"
+
+
 def main(sample_all: bool = False) -> None:
-    data = json.loads((DATA / "locomo" / "locomo10.json").read_text())
+    src = DATA / "locomo" / "locomo10.json"
+    if not src.exists():
+        import urllib.request
+
+        src.parent.mkdir(parents=True, exist_ok=True)
+        print(f"downloading locomo10.json from {LOCOMO_URL} ...")
+        urllib.request.urlretrieve(LOCOMO_URL, src)
+    data = json.loads(src.read_text())
     rng = random.Random(SEED)
 
     all_questions = []
