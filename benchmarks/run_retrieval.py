@@ -30,7 +30,7 @@ def load_bench(name: str):
     if name == "squad":
         vault = WORK / "squad_vault"
         questions = json.loads((WORK / "squad_questions.json").read_text())
-    elif name in ("multihop", "maple", "law"):
+    elif name in ("multihop", "maple", "law", "maple_real"):
         vault = DATA / name / "vault"
         questions = json.loads((DATA / name / "questions.json").read_text())
     else:

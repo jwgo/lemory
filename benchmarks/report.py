@@ -111,6 +111,11 @@ def main() -> None:
         )
 
     for name, title, note in (
+        ("maple_real", "실제 나무위키 메이플스토리 (1,469 real documents)",
+         "All documents categorized under 메이플스토리 in the public namuwiki 2021-03-01 dump "
+         "(867k docs scanned): 33,375 chunks, 24,850 real wikilink edges. QA drafted by LLM, "
+         "kept only if code-verified: answer appears ONLY in the gold note, no title leakage "
+         "(see gen_maple_real_qa.py)."),
         ("maple", "메이플스토리 (나무위키-style, Korean)",
          "Real game entities/terminology; relations wired by code, QA gold by construction."),
         ("law", "전세사기 관계법령 (Korean legal)",
