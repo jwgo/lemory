@@ -101,7 +101,7 @@ def main(only: str | None = None) -> None:
     state = load_state()
     judge = GeminiClient(api_key=os.environ["GEMINI_API_KEY"],
                          llm_model=GEN_MODEL, llm_fallback_model="gemini-2.5-flash",
-                         llm_rpm=12)
+                         llm_rpm=60)
 
     engines: dict[int, Engine] = {}
 
@@ -110,7 +110,7 @@ def main(only: str | None = None) -> None:
             cfg = LemoryConfig(
                 vault=OUT / "vaults" / f"conv{conv}",
                 data_dir=WORK / f"index-locomo-{conv}",
-                llm_model=GEN_MODEL, llm_rpm=12,
+                llm_model=GEN_MODEL, llm_rpm=60,
             )
             engines[conv] = Engine(cfg)
             rep = engines[conv].index()
