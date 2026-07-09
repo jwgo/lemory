@@ -139,8 +139,8 @@ The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for ev
 
 | System | evidence_recall@10 | judge_acc | judge_multi_hop | judge_open_domain | judge_single_hop | judge_temporal |
 |---|---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 0.891 | 0.706 | 0.533 | 0.375 | 0.852 | 0.822 |
-| Vector-only (naive RAG) | 0.867 | 0.688 | 0.556 | 0.375 | 0.852 | 0.733 |
+| **Lemory** (hybrid + graph) | 0.894 | 0.706 | 0.533 | 0.375 | 0.852 | 0.822 |
+| Vector-only (naive RAG) | 0.876 | 0.688 | 0.556 | 0.375 | 0.852 | 0.733 |
 
 ## Memory benchmark: DMR / Deep Memory Retrieval (MemGPT/Zep), full 500 questions
 
@@ -157,8 +157,45 @@ Per-question ~50-session haystacks with dates; includes temporal reasoning, know
 
 | System | acc_abstention | acc_knowledge-update | acc_multi-session | acc_single-session-assistant | acc_single-session-preference | acc_single-session-user | acc_temporal-reasoning | judge_acc |
 |---|---|---|---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 0.812 | 0.560 | 1.000 | 0.833 | 0.867 | 0.741 | 0.760 |
-| Vector-only (naive RAG) | 1.000 | 0.812 | 0.520 | 1.000 | 0.833 | 1.000 | 0.704 | 0.760 |
+| **Lemory** (hybrid + graph) | 1.000 | 0.812 | 0.480 | 1.000 | 0.667 | 0.867 | 0.741 | 0.730 |
+| Vector-only (naive RAG) | 1.000 | 0.875 | 0.520 | 1.000 | 0.833 | 1.000 | 0.667 | 0.760 |
+
+## External tool: qmd (tobi/qmd, local-model markdown search)
+
+Same corpus (multihop vault) and metric (full-support@8 by gold note).
+qmd ran its bundled local models (embeddinggemma-300M, 1.7B query
+expander, Qwen3 reranker) on the benchmark machine's CPU — on GPU its
+latency drops to seconds, but the quality numbers are hardware-independent.
+qmd's vector-only mode could not be sampled reliably (per-invocation
+model load, 19-190s) and is omitted.
+
+| System | natural question | 2-hop | Korean | typo | keyword | p50 latency |
+|---|---|---|---|---|---|---|
+| **Lemory** (hybrid+graph) | 1.000 | 1.000 | 0.975 | 0.965 | 0.982 | ~3 ms local |
+| qmd `query` (full local-LLM pipeline) | 0.526 | 0.381 | — | — | — | 59 s (CPU) |
+| qmd `search` (BM25) | 0.000 | 0.000 | 0.000 | 0.000 | 0.214 | 0.6 s |
+
+qmd's BM25 uses AND semantics — natural-language questions return zero
+results, so it is effectively keyword-only. Lemory accepts any phrasing.
+Convenience: qmd requires ~2.2 GB of model downloads before first use;
+Lemory needs one API key (or a 220 MB model in keyless local mode), and
+adds what qmd doesn't have: grounded answers with citations, temporal
+awareness, a live vault watcher, a web UI, and an Obsidian plugin.
+
+## Context efficiency (supermemory-style aggregation)
+
+supermemory's LongMemEval headline is high recall while adding only
+~720 tokens of context. Lemory's precise retrieval already keeps ask()
+context in that range by default, and `context_style="compact"`
+aggregates further — sentence-level fact sheets built with the same
+embedding cache the index uses (zero LLM calls):
+
+| Set | Style | contain-EM | F1 | ~context tokens |
+|---|---|---|---|---|
+| multihop | full | 0.967 | 0.705 | 556 |
+| multihop | compact | 0.933 | 0.698 | 418 |
+| temporal | full | 1.000 | 0.572 | 193 |
+| temporal | compact | 1.000 | 0.599 | 162 |
 
 ## Temporal scenario: "요새 내가 하던 그거 뭐였지?" (real embeddings)
 

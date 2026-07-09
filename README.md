@@ -1,202 +1,198 @@
-# Lemory
+<div align="center">
 
-**A high-performance personal knowledge base backend for your Obsidian vault.**
+# 🍋 Lemory
 
-Point Lemory at your vault and it becomes a live, queryable second brain: it watches
-your notes, indexes them incrementally, builds a knowledge graph from your links —
-and answers questions with citations. One API key, zero services, one SQLite file.
+**Your Obsidian vault, answering back.**
 
-Inspired by [cognee](https://github.com/topoteretes/cognee)'s easy setup and
-ECL pipeline, [mem0](https://github.com/mem0ai/mem0)'s incremental memory
-updates, supermemory's fast hybrid retrieval, and the "your notes are an
-interconnected wiki" idea — Lemory treats your `[[wikilinks]]` as a free
-knowledge graph instead of paying an LLM to build one.
+A zero-service personal knowledge base backend: point it at your vault and it becomes a
+live, queryable second brain — hybrid semantic + keyword + link-graph + **time-aware**
+retrieval, with cited answers in any language you write in.
+
+[![CI](https://github.com/jwgo/lemory/actions/workflows/ci.yml/badge.svg)](https://github.com/jwgo/lemory/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![Benchmarks](https://img.shields.io/badge/benchmarks-reproducible-orange.svg)](BENCHMARKS.md)
+
+<img src="docs/assets/webui.png" alt="Lemory answering '요새 내가 읽던 책 뭐였지?' — the current book, with dated citations" width="820">
+
+*"What was that book I've been reading lately?" — Lemory finds the **current** answer,
+not the one from four months ago, and cites the exact notes.*
+
+</div>
+
+---
+
+## Why Lemory
+
+**🎯 Retrieval that measurably wins.** Same corpus, same embeddings, same generator,
+same judge — only the retrieval differs:
+
+| Benchmark | **Lemory** | naive RAG | mem0 | cognee | supermemory | qmd |
+|---|---|---|---|---|---|---|
+| Multi-hop (full-support@8) | **1.000** | 0.561 | 0.579 | 0.561 | 0.579 | 0.526 |
+| [LOCOMO](https://github.com/snap-research/locomo) (LLM-judge) | **0.706** | 0.688 | 0.669¹ | — | — | — |
+| [LongMemEval_S](https://github.com/xiaowu0162/LongMemEval) (LLM-judge) | **0.76** | 0.76 | — | — | — | — |
+| DMR (500 q, LLM-judge) | **0.694** | 0.648 | — | — | — | — |
+| Query robustness (KR/typo/paraphrase) | **0.95–0.98** | 0.25–0.49 | — | — | — | 0.00–0.21 |
+| Retrieval latency (p50) | **~3 ms** | ~1 ms | 212 ms | ~5,000 ms | 327 ms | 0.6–59 s |
+
+<sub>¹ mem0's published score (their own eval). All in-harness numbers and how to
+reproduce them: **[BENCHMARKS.md](BENCHMARKS.md)**. External systems ran with the
+same Gemini models wherever they allow it.</sub>
+
+**🕐 It knows what "요새" and "recently" mean.** Notes get dates (frontmatter › daily-note
+filename › mtime). "What did we decide yesterday?", "지난주 A/B 결과?", "what's the
+current owner?" — recency multiplies relevance, explicit windows filter, and when facts
+changed over time **the newest one wins** while history stays reachable. On a 6-month
+scenario vault with evolving facts: hit@1 **1.000** vs 0.273 (vector) / 0.636 (BM25).
+
+**🔌 Zero services, five surfaces.** One SQLite file + numpy. No Docker, no vector DB,
+no graph DB. Use it from the **CLI**, the built-in **web UI**, **Obsidian** (bundled
+plugin), **Claude Code / VS Code** (MCP), or **Python/HTTP**.
+
+**🇰🇷 Korean-native.** Hangul unigram+bigram indexing (조사가 붙어도, 한 글자 단어도
+매칭), particle-tolerant ranking, cross-lingual queries (Korean questions over English
+notes: 0.975). Answers come back in your language.
+
+**🔑 One key — or none.** Everything runs on a single free-tier Gemini key. Or run
+`pip install "lemory[local]"` and search works **fully offline** with local multilingual
+embeddings (220 MB, one-time).
 
 ## Quickstart
 
 ```bash
-pip install -e .
-export GEMINI_API_KEY=...        # free-tier key from https://aistudio.google.com works
-
-lemory index --vault ~/Obsidian/MyVault    # first index (incremental afterwards)
-lemory ask "what did I decide about the pricing model?"
+pipx install "git+https://github.com/jwgo/lemory"   # or: pip install ...
+lemory setup      # vault path + free Gemini key → checks + first index
+lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"
 ```
 
-Not sure the setup is right? `lemory doctor` checks vault, key, API, and index
-in one shot. `lemory recent` lists what you touched lately.
+Then keep it alive:
 
-Or three lines of Python (cognee-style):
+```bash
+lemory serve      # web UI at http://127.0.0.1:8377 + live vault watcher
+```
+
+<details>
+<summary><b>Use it from Obsidian</b></summary>
+
+Copy the bundled plugin and enable it — the sidebar asks your vault with
+clickable, dated citations:
+
+```bash
+cp obsidian-plugin/{main.js,manifest.json,styles.css} \
+   <vault>/.obsidian/plugins/lemory/
+```
+
+Requires `lemory serve` running. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
+</details>
+
+<details>
+<summary><b>Use it from Claude Code / Claude Desktop / VS Code (MCP)</b></summary>
+
+```bash
+claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault
+```
+
+Six tools: `search_notes`, `ask_notes`, `recent_notes`, `read_note`, `list_notes`,
+`vault_status` — search first, then drill into full notes filesystem-style.
+</details>
+
+<details>
+<summary><b>Use it from Python</b></summary>
 
 ```python
 import lemory
 
 lemory.configure(vault="~/Obsidian/MyVault")
-lemory.index()                                   # incremental; safe to re-run
-print(lemory.ask("what did I decide about pricing?").text)   # cited answer
+lemory.index()                                   # incremental; re-runs are free
+print(lemory.ask("what did I decide about pricing?").text)
 ```
-
-Run it as the always-on backend for your vault:
-
-```bash
-lemory serve --vault ~/Obsidian/MyVault    # HTTP API + live file watcher on :8377
-```
-
-```
-GET  /search?q=...&k=8      hybrid search
-POST /ask                   {"question": "..."}  → grounded, cited answer
-GET  /status                index stats
-POST /index                 force reindex
-```
-
-`lemory watch` does the same without HTTP: edit notes in Obsidian, Lemory keeps up.
-
-### Try it in 60 seconds (no vault needed)
-
-A 54-note interlinked demo vault ships in the repo:
-
-```bash
-export GEMINI_API_KEY=...
-lemory index --vault benchmarks/data/multihop/vault
-lemory ask "What is the hobby of the person who leads Project Atlas?" --vault benchmarks/data/multihop/vault
-```
-
-The answer requires two notes (the project note names the lead, the person note
-holds the hobby) — that hop is what Lemory's graph retrieval does and naive RAG misses.
-
-### Use it from Claude (MCP)
-
-```bash
-pip install -e ".[mcp]"
-```
-
-```json
-{"mcpServers": {"lemory": {"command": "lemory", "args": ["mcp", "--vault", "~/Obsidian/MyVault"]}}}
-```
-
-Claude Desktop / Claude Code then get `search_notes`, `ask_notes`, and
-`vault_status` tools over your live vault.
+</details>
 
 ## How it works
 
 ```
-Obsidian vault ──▶ watcher ──▶ incremental sync (content-hash diff)
-                                 │
-                                 ├─ heading-aware chunking (+ title breadcrumbs)
-                                 ├─ Gemini embeddings (batched, cached in SQLite)
-                                 └─ note graph: [[wikilinks]] + unlinked title
-                                    mentions (+ optional LLM entity extraction)
-
-query ─▶ (optional LLM query expansion) ─▶ vector top-k ─┐
-                                       └─▶ BM25 (FTS5) ──┼─▶ adaptive RRF fusion
-                                                         │      + title boost
-         1-hop graph expansion (multi-hop recall)  ◀─────┘
-         (optional LLM rerank) ─▶ per-note diversity cap ─▶ hits / ask()
+ Obsidian vault (*.md)
+    │  watcher: content-hash diff → only changed notes re-embed (cache!)
+    ▼
+ parse: frontmatter · tags · [[wikilinks]] · aliases · dates
+    → heading-aware chunks, embedded with "Title > Heading" breadcrumbs
+    → knowledge graph FOR FREE: wikilinks + unlinked title mentions
+    ▼
+ one SQLite file: chunks · FTS5 (BM25) · link graph · embedding cache
+    ▼
+ query ──► typo repair (local did-you-mean)
+       ──► dense top-k  ┐
+       ──► BM25 top-k   ├─ weighted RRF fusion ─► title boost ─► recency boost
+                        ┘                                        (if temporal)
+       ──► 1-hop graph expansion  ← this is what answers multi-hop questions
+    ▼
+ top-k diverse chunks ──► Gemini ──► answer with [n] citations & dates
 ```
 
-Design choices that matter:
+Search itself is **local and LLM-free** (~3 ms after the cached query embedding).
+The only per-query API cost is one embedding call. `ask()` adds one generation call
+and keeps context small (~550 tokens typical; `context_style="compact"` aggregates
+to dated one-line facts, cutting tokens a further 25% with zero extra LLM calls).
 
-- **Zero services.** SQLite (FTS5 for BM25, tables for chunks/links/cache) plus an
-  in-memory numpy matrix for exact cosine search. At personal-vault scale this is
-  faster than running a vector DB — retrieval is ~1–3 ms after the query embedding.
-- **Incremental everything.** Only changed notes are re-chunked; embeddings are
-  cached by content hash, so re-indexing an unchanged vault costs **zero** API calls.
-- **The graph is free.** Your wikilinks and unlinked title mentions already encode
-  the entity graph other tools reconstruct with LLM calls. Lemory uses them at
-  retrieval time: hits pull in their linked neighbors, which is what answers
-  multi-hop questions ("what's the hobby of the person who leads Project X?").
-  Optional `enrich_entities = true` adds cognee-style LLM entity edges for vaults
-  with few links.
-- **Free-tier friendly.** Everything runs on one Gemini free-tier key: batched
-  embeddings, RPM throttling, 429/503 backoff with server-advised delays, and
-  automatic model fallback.
-- **Korean-ready retrieval.** Hangul is indexed as character unigrams+bigrams
-  alongside whole tokens (CJK-analyzer style), so 조사가 붙은 질의("윤하준**가**")도
-  원형("윤하준")을 찾고, 한 글자 단어("책")도 활용형("책은")과 매칭됩니다; the
-  title boost is particle-tolerant, and short keyword queries adaptively weight
-  the lexical leg. On the 948-note mixed KR/EN second-brain benchmark this took
-  planted-fact hit@1 from 56% to 100%.
-- **It knows what "요새" means.** Notes get dates (frontmatter › daily-note
-  filename › mtime); queries like "요새 내가 읽던 책 뭐였지?", "어제 회의에서 뭐
-  결정했지?", "지난주 A/B 결과?" are detected (rule-based KR/EN, zero API calls)
-  and recency multiplies relevance — so the CURRENT answer beats the stale one
-  that has more mentions, while plain queries keep history fully reachable.
-  `ask()` shows each note's date to the model, so conflicting facts resolve to
-  the newest. On the 6-month temporal scenario: overall hit@1 **1.000** vs
-  0.273 (vector) / 0.636 (BM25), and 6/6 correct cited answers in the live
-  Korean `ask()` session.
-- **Typo-tolerant lexical search.** Query words that match nothing in the
-  vault get a local did-you-mean correction against the vault's own
-  vocabulary before the BM25/title legs run (the embedding leg already
-  shrugs off typos). Zero API calls; words that match the index are never
-  touched.
-- **qmd-style LLM stages (optional).** `--expand` rewrites the query into
-  variants that are searched and fused; `--rerank` blends LLM relevance scores
-  into the ranking — both off by default (each costs one LLM call), degrade
-  gracefully, and are inspired by Tobi Lütke's qmd retrieval pipeline. (On our
-  benchmarks the LLM-free pipeline already matches them — see BENCHMARKS.md.)
+## Features that come from using it, not from a spec sheet
 
-## Benchmarks
-
-Lemory's hybrid retrieval is benchmarked against naive-RAG (pure vector, same
-embeddings), BM25, an ablation without the graph, and mem0 (OSS) as an external
-system — on real SQuAD v2 data and a multi-hop personal-wiki benchmark.
-See [BENCHMARKS.md](BENCHMARKS.md) for numbers and methodology. Headlines:
-
-- **Real data** (1,469 실제 나무위키 메이플스토리 docs, 33k chunks, 50 verified
-  questions): 2-hop full evidence retrieved **70%** vs 43% (vector) / 40% (BM25);
-  recall@8 100%.
-- **Synthetic multi-hop** (gold labels correct by construction): full evidence
-  **100%** vs ~40% for both baselines; end-to-end answer F1 0.87 vs 0.43/0.49
-  with the identical generator.
-- **vs mem0 (OSS)**: answer-in-context@8 **1.000 vs 0.579**, same Gemini models.
-- **vs cognee (OSS)**: full cognify graph build, same Gemini models —
-  answer-in-context@8 **1.000 vs 0.561**, e2e F1 **0.867 vs 0.467**, and
-  Lemory retrieval is ~2 ms vs ~5 s per query.
-- **Query robustness** (paraphrase / Korean-query-on-English-notes / keyword /
-  typo variants): full-support@8 **0.95–0.98** vs 0.25–0.49 for vector/BM25;
-  typos handled by a local did-you-mean pass (zero API calls).
-- **SQuAD v2** (300 real single-hop questions): recall@1 0.847 / MRR 0.899 —
-  graph expansion never hurts single-hop (rank-1 cap).
-
-Reproduce with:
-
-```bash
-python benchmarks/prep_squad.py        # downloads SQuAD v2 dev (real data)
-python benchmarks/run_retrieval.py squad
-python benchmarks/run_retrieval.py multihop
-python benchmarks/run_e2e.py multihop 40
-```
+- **"아 그거 뭐였지?" queries work** — vague recency, explicit windows (어제/지난주/
+  N일 전/3월에/yesterday/last week), superseded facts resolve to the latest.
+- **Typos survive** — unknown words get a local did-you-mean pass against your
+  vault's own vocabulary (0 API calls): typo robustness 0.825 → 0.965.
+- **List questions get full answers** — "What books has she read?" auto-widens
+  retrieval depth (adaptive-k) so every mention reaches the model.
+- **Renames, deletes, aliases, date frontmatter, Korean filenames** — all handled
+  live under the watcher; 236 offline tests cover the messy cases.
+- **`lemory doctor`** diagnoses vault/key/API/index in one shot;
+  **`lemory recent`** answers "요새 내가 뭐 만졌지?" without an LLM.
+- **Crash-safe** — corrupted index quarantines and rebuilds itself (your vault is
+  the source of truth); concurrent CLI+server access just works.
 
 ## Configuration
 
-Everything works with defaults; override via `lemory.toml`, env (`LEMORY_*`), or
+Everything has working defaults. Override via `lemory.toml`, env (`LEMORY_*`), or
 `lemory.configure(...)`:
 
 ```toml
 [lemory]
 vault = "~/Obsidian/MyVault"
-# provider = "auto"             # auto | gemini | openai (auto picks from available keys)
-# chunk_chars = 1400
+# provider = "auto"            # gemini | openai | local (keyless)
+# recency_half_life_days = 21
+# context_style = "full"       # or "compact" (fact-sheet context)
 # graph_expansion = true
-# mention_links = true          # unlinked title mentions as graph edges
-# enrich_entities = false       # optional LLM entity extraction (uses quota)
-# llm_model = "gemini-2.5-flash"
-# openai_llm_model = "gpt-4o-mini"
-# embed_dim = 768
+# enrich_entities = false      # optional cognify-style LLM entity graph
 ```
 
-### Providers
+## Benchmarks & honesty
 
-Lemory runs on **Gemini** (default; a free-tier key is enough) or **OpenAI** —
-set `GEMINI_API_KEY` or `OPENAI_API_KEY` and `provider = "auto"` does the rest.
-Both providers implement the same interface (LLM, batched embeddings, rate
-limiting, retries). Switching embedding providers changes the vector space, so
-run `lemory index --full` after a switch — the cache is keyed by model, nothing
-mixes silently.
-
-## Development
+Every number above is generated by code in [`benchmarks/`](benchmarks/) with
+committed corpora, seeded sampling, gold labels verified by construction, and
+identical generator/judge across systems. Run them yourself:
 
 ```bash
-uv venv && uv pip install -e ".[dev]"
-pytest              # offline test suite (fake embedder, no network)
+python benchmarks/gen_multihop.py && python benchmarks/run_retrieval.py multihop
+python benchmarks/run_locomo.py        # downloads LOCOMO, judged eval
+python benchmarks/run_temporal.py      # the "요새 그거 뭐였지" scenario
 ```
+
+Known limits (also in [BENCHMARKS.md](BENCHMARKS.md)): LOCOMO/LongMemEval use
+stratified samples (160/100 questions) sized for API budgets — `--all` runs the
+full sets; published numbers from other teams use different generators/judges and
+are quoted as context, not as same-harness comparisons.
+
+## Roadmap
+
+- [ ] PyPI release (`pip install lemory`)
+- [ ] Obsidian community plugin store listing
+- [ ] Attachment & PDF indexing
+- [ ] Entity-graph enrichment on by default (budget-aware)
+- [ ] Multi-vault profiles
+
+## Contributing
+
+`uv venv && uv pip install -e ".[dev]" && pytest` — the suite is offline and needs
+no API key. See [CONTRIBUTING.md](CONTRIBUTING.md). 한국어 이슈/PR 환영합니다.
+
+**[한국어 README](README.ko.md)** · MIT © Lemory contributors
