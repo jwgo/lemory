@@ -67,7 +67,12 @@ def answer(engine: "Engine", question: str, k: int = 8) -> Answer:
     hits = engine.search(question, k=k)
     if not hits:
         return Answer(text="I couldn't find anything relevant in the vault.", sources=[])
-    context = build_context(hits)
+    if engine.cfg.context_style == "compact":
+        from .compact import build_compact_context
+
+        context = build_compact_context(engine, question, hits)
+    else:
+        context = build_context(hits)
     prompt = build_prompt(context, question)
     text = engine.llm.generate(prompt, system=SYSTEM, temperature=0.1)
     return Answer(text=text.strip(), sources=hits)

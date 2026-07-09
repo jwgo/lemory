@@ -76,6 +76,7 @@ class LemoryConfig(BaseSettings):
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
+    context_style: str = "full"   # "full" chunks or "compact" fact-sheet context for ask()
     recency_half_life_days: float = 21.0
     graph_expansion: bool = True
     graph_top_docs: int = 6

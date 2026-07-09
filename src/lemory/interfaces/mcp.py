@@ -73,6 +73,35 @@ def run_mcp(engine: Engine) -> None:
         )
 
     @mcp.tool()
+    def read_note(path: str, offset: int = 0, limit: int = 200) -> str:
+        """Read a note's full markdown by its vault-relative path (as returned
+        by search_notes/recent_notes). Filesystem-style memory access: search
+        first, then drill into the exact note. offset/limit are line-based."""
+        vault = engine.cfg.resolved_vault()
+        target = (vault / path).resolve()
+        if not str(target).startswith(str(vault)) or not target.is_file():
+            return json.dumps({"error": f"no such note: {path}"})
+        lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+        body = "\n".join(lines[offset : offset + limit])
+        return json.dumps(
+            {"path": path, "lines": len(lines), "offset": offset, "content": body},
+            ensure_ascii=False,
+        )
+
+    @mcp.tool()
+    def list_notes(folder: str = "", limit: int = 100) -> str:
+        """List note paths (optionally under a folder), newest-modified first —
+        browse the vault like a filesystem."""
+        vault = engine.cfg.resolved_vault()
+        base = (vault / folder).resolve() if folder else vault
+        if not str(base).startswith(str(vault)) or not base.is_dir():
+            return json.dumps({"error": f"no such folder: {folder}"})
+        files = sorted(base.rglob("*.md"), key=lambda p: -p.stat().st_mtime)[:limit]
+        return json.dumps(
+            [str(p.relative_to(vault)) for p in files], ensure_ascii=False
+        )
+
+    @mcp.tool()
     def vault_status() -> str:
         """Index statistics for the connected vault."""
         return json.dumps(engine.status())
