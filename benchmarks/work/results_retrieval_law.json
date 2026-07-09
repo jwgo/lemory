@@ -1,0 +1,50 @@
+{
+  "lemory": {
+    "recall@1": 1.0,
+    "recall@3": 1.0,
+    "recall@5": 1.0,
+    "recall@8": 1.0,
+    "mrr@10": 1.0,
+    "full_support@8": 1.0,
+    "support_recall@8": 1.0,
+    "full_support@8_hops1": 1.0,
+    "full_support@8_hops2": 1.0,
+    "ms_per_query": 3.417642492997019
+  },
+  "lemory-nograph": {
+    "recall@1": 1.0,
+    "recall@3": 1.0,
+    "recall@5": 1.0,
+    "recall@8": 1.0,
+    "mrr@10": 1.0,
+    "full_support@8": 0.9473684210526315,
+    "support_recall@8": 0.9736842105263158,
+    "full_support@8_hops1": 1.0,
+    "full_support@8_hops2": 0.8571428571428571,
+    "ms_per_query": 2.8056847421746505
+  },
+  "vector": {
+    "recall@1": 1.0,
+    "recall@3": 1.0,
+    "recall@5": 1.0,
+    "recall@8": 1.0,
+    "mrr@10": 1.0,
+    "full_support@8": 0.8947368421052632,
+    "support_recall@8": 0.9473684210526315,
+    "full_support@8_hops1": 1.0,
+    "full_support@8_hops2": 0.7142857142857143,
+    "ms_per_query": 0.32417397750051397
+  },
+  "bm25": {
+    "recall@1": 1.0,
+    "recall@3": 1.0,
+    "recall@5": 1.0,
+    "recall@8": 1.0,
+    "mrr@10": 1.0,
+    "full_support@8": 0.8947368421052632,
+    "support_recall@8": 0.9561403508771928,
+    "full_support@8_hops1": 1.0,
+    "full_support@8_hops2": 0.7142857142857143,
+    "ms_per_query": 2.588410126535516
+  }
+}

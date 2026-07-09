@@ -74,6 +74,7 @@ class LemoryConfig(BaseSettings):
     graph_expansion: bool = True
     graph_top_docs: int = 6
     graph_alpha: float = 0.55  # neighbor score = alpha * src_score * edge_weight * sim
+    graph_sim_floor: float = 0.25  # skip neighbors whose best chunk sim is below this
     mention_links: bool = True
     per_doc_cap: int = 3
     title_boost: float = 0.12

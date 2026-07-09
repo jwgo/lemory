@@ -1,0 +1,188 @@
+{
+  "jobs": [
+    {
+      "name": "아크메이지(썬,콜)",
+      "group": "마법사",
+      "main_stat": "INT",
+      "signature_skill": "썬더 브레이크"
+    },
+    {
+      "name": "히어로",
+      "group": "전사",
+      "main_stat": "STR",
+      "signature_skill": "레이징 블로우"
+    },
+    {
+      "name": "나이트로드",
+      "group": "도적",
+      "main_stat": "LUK",
+      "signature_skill": "쿼드러플 스로우"
+    },
+    {
+      "name": "신궁",
+      "group": "궁수",
+      "main_stat": "DEX",
+      "signature_skill": "스나이핑"
+    },
+    {
+      "name": "바이퍼",
+      "group": "해적",
+      "main_stat": "STR",
+      "signature_skill": "에너지 블라스트"
+    },
+    {
+      "name": "데몬어벤져",
+      "group": "데몬",
+      "main_stat": "HP",
+      "signature_skill": "익시드: 엑스큐션"
+    },
+    {
+      "name": "아델",
+      "group": "레프",
+      "main_stat": "STR",
+      "signature_skill": "디바이드"
+    },
+    {
+      "name": "루미너스",
+      "group": "영웅",
+      "main_stat": "INT",
+      "signature_skill": "아포칼립스"
+    },
+    {
+      "name": "카이저",
+      "group": "노바",
+      "main_stat": "STR",
+      "signature_skill": "기가 슬래셔"
+    },
+    {
+      "name": "은월",
+      "group": "영웅",
+      "main_stat": "STR",
+      "signature_skill": "정령 집속"
+    }
+  ],
+  "bosses": [
+    {
+      "name": "루시드",
+      "region": "레헬른",
+      "level_req": 220,
+      "reward": "악몽의 지배자"
+    },
+    {
+      "name": "윌",
+      "region": "에스페라",
+      "level_req": 235,
+      "reward": "거울세계의 코어 젬스톤"
+    },
+    {
+      "name": "검은 마법사",
+      "region": "테네브리스",
+      "level_req": 250,
+      "reward": "어둠의 계승자"
+    },
+    {
+      "name": "데미안",
+      "region": "타락한 세계수",
+      "level_req": 210,
+      "reward": "루타비스 조각"
+    },
+    {
+      "name": "스우",
+      "region": "블랙헤븐",
+      "level_req": 190,
+      "reward": "앱솔랩스 코인"
+    },
+    {
+      "name": "카웅",
+      "region": "크리티아스",
+      "level_req": 190,
+      "reward": "카오스 파편"
+    },
+    {
+      "name": "자쿰",
+      "region": "엘나스",
+      "level_req": 100,
+      "reward": "자쿰의 투구"
+    },
+    {
+      "name": "핑크빈",
+      "region": "시간의 신전",
+      "level_req": 160,
+      "reward": "핑크빈의 모자"
+    }
+  ],
+  "regions": [
+    {
+      "name": "아케인 리버",
+      "continent": "아케인 리버",
+      "level_range": "200~250"
+    },
+    {
+      "name": "레헬른",
+      "continent": "아케인 리버",
+      "level_range": "220~229"
+    },
+    {
+      "name": "에스페라",
+      "continent": "아케인 리버",
+      "level_range": "235~239"
+    },
+    {
+      "name": "테네브리스",
+      "continent": "테네브리스",
+      "level_range": "250~275"
+    },
+    {
+      "name": "타락한 세계수",
+      "continent": "판테온",
+      "level_range": "190~210"
+    },
+    {
+      "name": "블랙헤븐",
+      "continent": "판테온",
+      "level_range": "190~210"
+    },
+    {
+      "name": "크리티아스",
+      "continent": "판테온",
+      "level_range": "190~210"
+    },
+    {
+      "name": "엘나스",
+      "continent": "빅토리아 아일랜드",
+      "level_range": "90~120"
+    }
+  ],
+  "items": [
+    {
+      "name": "앱솔랩스 무기",
+      "source": "스우",
+      "type": "무기"
+    },
+    {
+      "name": "아케인셰이드 무기",
+      "source": "루시드",
+      "type": "무기"
+    },
+    {
+      "name": "칠흑의 보스 장신구",
+      "source": "검은 마법사",
+      "type": "장신구"
+    },
+    {
+      "name": "루타비스 세트",
+      "source": "데미안",
+      "type": "방어구"
+    },
+    {
+      "name": "응축된 힘의 결정석",
+      "source": "자쿰",
+      "type": "장신구"
+    },
+    {
+      "name": "마력이 깃든 안대",
+      "source": "윌",
+      "type": "장신구"
+    }
+  ]
+}

@@ -268,6 +268,12 @@ def _graph_expand(
     chunk_ids_by_doc = store.doc_chunk_ids_many(list(neighbor_gain))
     all_sims = store.chunk_sims(qv, [c for ids in chunk_ids_by_doc.values() for c in ids])
 
+    # expansion may fill ranks 2..k but must never displace the best direct
+    # hit: multi-hop only needs the neighbor IN the top-k, while single-hop
+    # precision depends on rank-1 staying with the direct evidence
+    top_direct = max(fused.values(), default=0.0)
+    cap = top_direct * 0.98
+
     expanded = []
     for dst, gain in sorted(neighbor_gain.items(), key=lambda x: -x[1]):
         sims = {c: all_sims[c] for c in chunk_ids_by_doc.get(dst, []) if c in all_sims}
@@ -275,14 +281,18 @@ def _graph_expand(
             continue
         best_cid = max(sims, key=sims.get)
         sim = max(sims[best_cid], 0.0)
+        if sim < cfg.graph_sim_floor:
+            # neighbor's content has nothing to do with the query: linked-but-
+            # irrelevant notes must not displace direct hits (single-hop safety)
+            continue
         add = gain * (0.35 + 0.65 * sim)  # relevance-gated: irrelevant neighbors decay
         if add <= 0:
             continue
-        fused[best_cid] = fused.get(best_cid, 0.0) + add
+        fused[best_cid] = min(fused.get(best_cid, 0.0) + add, cap)
         # runner-up chunk at half strength (long notes may hold the fact deeper)
         rest = {c: s for c, s in sims.items() if c != best_cid}
         if rest:
             second = max(rest, key=rest.get)
-            fused[second] = fused.get(second, 0.0) + add * 0.5
+            fused[second] = min(fused.get(second, 0.0) + add * 0.5, cap)
         expanded.append(dst)
     return expanded

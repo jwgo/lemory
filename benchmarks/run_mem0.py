@@ -102,7 +102,7 @@ def main() -> None:
     mem0_ok, per_hops = [], {1: [], 2: []}
     t0 = time.time()
     for q in questions:
-        res = m.search(q["q"], user_id="bench", limit=8)
+        res = m.search(q["q"], filters={"user_id": "bench"}, limit=8)
         memories = [r["memory"] for r in (res["results"] if isinstance(res, dict) else res)]
         ok = answer_in_texts(memories, q["answers"])
         mem0_ok.append(ok)
