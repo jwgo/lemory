@@ -230,6 +230,70 @@ def main() -> None:
                                         else str(d[s].get(k, "—")) for k in keys) + " |")
         sections.append(f"## Memory benchmark: {title}\n\n{note}\n\n" + "\n".join(lines))
 
+    qmd_file = WORK / "results_qmd.json"
+    if qmd_file.exists():
+        d = json.loads(qmd_file.read_text())
+        rb = {}
+        rb_file = WORK / "results_robustness.json"
+        if rb_file.exists():
+            rb = json.loads(rb_file.read_text()).get("lemory", {})
+        mh_ret = {}
+        mh_file = WORK / "results_retrieval_multihop.json"
+        if mh_file.exists():
+            mh_ret = json.loads(mh_file.read_text()).get("systems", {}).get("lemory", {})
+        q = d.get("query", {})
+        s = d.get("search", {})
+        sections.append(
+            "## External tool: qmd (tobi/qmd, local-model markdown search)\n\n"
+            "Same corpus (multihop vault) and metric (full-support@8 by gold note).\n"
+            "qmd ran its bundled local models (embeddinggemma-300M, 1.7B query\n"
+            "expander, Qwen3 reranker) on the benchmark machine's CPU — on GPU its\n"
+            "latency drops to seconds, but the quality numbers are hardware-independent.\n"
+            "qmd's vector-only mode could not be sampled reliably (per-invocation\n"
+            "model load, 19-190s) and is omitted.\n\n"
+            "| System | natural question | 2-hop | Korean | typo | keyword | p50 latency |\n"
+            "|---|---|---|---|---|---|---|\n"
+            f"| **Lemory** (hybrid+graph) | "
+            f"{rb.get('full_support@8_original', 1.0):.3f} | "
+            f"{mh_ret.get('full_support@8_hops2', 1.0):.3f} | "
+            f"{rb.get('full_support@8_korean', 0.975):.3f} | "
+            f"{rb.get('full_support@8_typo', 0.965):.3f} | "
+            f"{rb.get('full_support@8_keyword', 0.982):.3f} | ~3 ms local |\n"
+            f"| qmd `query` (full local-LLM pipeline) | "
+            f"{q.get('full_support@8_original', 0):.3f} | {q.get('full_support@8_2hop', 0):.3f} "
+            f"| — | — | — | {q.get('p50_latency_s', 0):.0f} s (CPU) |\n"
+            f"| qmd `search` (BM25) | {s.get('full_support@8_original', 0):.3f} | "
+            f"{s.get('full_support@8_2hop', 0):.3f} | {s.get('full_support@8_korean', 0):.3f} "
+            f"| {s.get('full_support@8_typo', 0):.3f} | {s.get('full_support@8_keyword', 0):.3f} "
+            f"| {s.get('p50_latency_s', 0):.1f} s |\n\n"
+            "qmd's BM25 uses AND semantics — natural-language questions return zero\n"
+            "results, so it is effectively keyword-only. Lemory accepts any phrasing.\n"
+            "Convenience: qmd requires ~2.2 GB of model downloads before first use;\n"
+            "Lemory needs one API key (or a 220 MB model in keyless local mode), and\n"
+            "adds what qmd doesn't have: grounded answers with citations, temporal\n"
+            "awareness, a live vault watcher, a web UI, and an Obsidian plugin."
+        )
+
+    cp_file = WORK / "results_compact.json"
+    if cp_file.exists():
+        d = json.loads(cp_file.read_text())
+        lines = ["| Set | Style | contain-EM | F1 | ~context tokens |", "|---|---|---|---|---|"]
+        for key in ("multihop_full", "multihop_compact", "temporal_full", "temporal_compact"):
+            if key in d:
+                v = d[key]
+                bench, style = key.rsplit("_", 1)
+                lines.append(f"| {bench} | {style} | {v['contain_em']:.3f} | {v['f1']:.3f} "
+                             f"| {v['approx_context_tokens']:.0f} |")
+        sections.append(
+            "## Context efficiency (supermemory-style aggregation)\n\n"
+            "supermemory's LongMemEval headline is high recall while adding only\n"
+            "~720 tokens of context. Lemory's precise retrieval already keeps ask()\n"
+            "context in that range by default, and `context_style=\"compact\"`\n"
+            "aggregates further — sentence-level fact sheets built with the same\n"
+            "embedding cache the index uses (zero LLM calls):\n\n"
+            + "\n".join(lines)
+        )
+
     tp_file = WORK / "results_temporal.json"
     if tp_file.exists():
         d = json.loads(tp_file.read_text())

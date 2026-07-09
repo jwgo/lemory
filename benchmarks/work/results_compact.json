@@ -8,10 +8,10 @@
   },
   "multihop_compact": {
     "n": 30,
-    "f1": 0.6371008403361346,
-    "contain_em": 0.8666666666666667,
-    "avg_context_chars": 1277.5666666666666,
-    "approx_context_tokens": 319.39166666666665
+    "f1": 0.6983442265795208,
+    "contain_em": 0.9333333333333333,
+    "avg_context_chars": 1671.8333333333333,
+    "approx_context_tokens": 417.9583333333333
   },
   "temporal_full": {
     "n": 11,
@@ -22,9 +22,9 @@
   },
   "temporal_compact": {
     "n": 11,
-    "f1": 0.6115702479338844,
+    "f1": 0.5994490358126723,
     "contain_em": 1.0,
-    "avg_context_chars": 535.4545454545455,
-    "approx_context_tokens": 133.86363636363637
+    "avg_context_chars": 648.5454545454545,
+    "approx_context_tokens": 162.13636363636363
   }
 }

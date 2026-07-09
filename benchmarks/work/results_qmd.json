@@ -1,0 +1,25 @@
+{
+  "query": {
+    "full_support@8_original": 0.5263157894736842,
+    "full_support@8_2hop": 0.38095238095238093,
+    "p50_latency_s": 59.494253396987915
+  },
+  "vsearch": {
+    "full_support@8_original": 0.0,
+    "full_support@8_paraphrase": 0.0,
+    "full_support@8_korean": 0.0,
+    "full_support@8_keyword": 0.0,
+    "full_support@8_typo": 0.0,
+    "full_support@8_2hop": 0.0,
+    "p50_latency_s": 189.9795331954956
+  },
+  "search": {
+    "full_support@8_original": 0.0,
+    "full_support@8_paraphrase": 0.0,
+    "full_support@8_korean": 0.0,
+    "full_support@8_keyword": 0.21428571428571427,
+    "full_support@8_typo": 0.0,
+    "full_support@8_2hop": 0.0,
+    "p50_latency_s": 0.611729621887207
+  }
+}
