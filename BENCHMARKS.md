@@ -133,6 +133,33 @@ Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers 
 | Vector-only (naive RAG) | 0.895 | 1.000 | 1.000 | 1.000 |
 | BM25 (lexical) | 0.895 | 1.000 | 1.000 | 1.000 |
 
+## Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
+
+The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for every system; adversarial category excluded (mem0 protocol). mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini).
+
+| System | evidence_recall@10 | judge_acc | judge_multi_hop | judge_open_domain | judge_single_hop | judge_temporal |
+|---|---|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 0.891 | 0.706 | 0.533 | 0.375 | 0.852 | 0.822 |
+| Vector-only (naive RAG) | 0.867 | 0.688 | 0.556 | 0.375 | 0.852 | 0.733 |
+
+## Memory benchmark: DMR / Deep Memory Retrieval (MemGPT/Zep), full 500 questions
+
+MSC-Self-Instruct: recall a fact from a 5-session chat. Session speaker labels inferred from dataset summaries (sessions don't always start with Speaker 1). Published Zep/MemGPT numbers (94.8/93.4) use GPT-4-class generators and their own judges — not directly comparable to this controlled all-Gemini setup.
+
+| System | judge_acc |
+|---|---|
+| **Lemory** (hybrid + graph) | 0.694 |
+| Vector-only (naive RAG) | 0.668 |
+
+## Memory benchmark: LongMemEval_S (cleaned), 100-question stratified sample
+
+Per-question ~50-session haystacks with dates; includes temporal reasoning, knowledge updates, preference personalization, and abstention. GPT-4o full-context baseline in the paper is ~0.60.
+
+| System | acc_abstention | acc_knowledge-update | acc_multi-session | acc_single-session-assistant | acc_single-session-preference | acc_single-session-user | acc_temporal-reasoning | judge_acc |
+|---|---|---|---|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 1.000 | 0.812 | 0.560 | 1.000 | 0.833 | 0.867 | 0.741 | 0.760 |
+| Vector-only (naive RAG) | 1.000 | 0.812 | 0.520 | 1.000 | 0.833 | 1.000 | 0.704 | 0.760 |
+
 ## Temporal scenario: "요새 내가 하던 그거 뭐였지?" (real embeddings)
 
 A generated 6-month personal vault (127 daily/meeting notes, fixed TODAY)

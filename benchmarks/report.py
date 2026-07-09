@@ -199,6 +199,37 @@ def main() -> None:
                 ], ["lemory", "lemory-nograph", "vector", "bm25"])
             )
 
+    mem_benches = [
+        ("results_locomo.json", "LOCOMO (long-term conversational memory, 160-question stratified sample)",
+         "The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for "
+         "every system; adversarial category excluded (mem0 protocol). "
+         "mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini)."),
+        ("results_dmr.json", "DMR / Deep Memory Retrieval (MemGPT/Zep), full 500 questions",
+         "MSC-Self-Instruct: recall a fact from a 5-session chat. Session speaker labels "
+         "inferred from dataset summaries (sessions don't always start with Speaker 1). "
+         "Published Zep/MemGPT numbers (94.8/93.4) use GPT-4-class generators and their "
+         "own judges — not directly comparable to this controlled all-Gemini setup."),
+        ("results_longmemeval.json", "LongMemEval_S (cleaned), 100-question stratified sample",
+         "Per-question ~50-session haystacks with dates; includes temporal reasoning, "
+         "knowledge updates, preference personalization, and abstention. GPT-4o "
+         "full-context baseline in the paper is ~0.60."),
+    ]
+    for fname, title, note in mem_benches:
+        f = WORK / fname
+        if not f.exists():
+            continue
+        d = json.loads(f.read_text())
+        keys = sorted({k for m in d.values() for k in m if k != "n"})
+        head = "| System | " + " | ".join(keys) + " |"
+        sep = "|---" * (len(keys) + 1) + "|"
+        lines = [head, sep]
+        for s in ("lemory", "vector"):
+            if s in d:
+                lines.append("| " + NAMES.get(s, s) + " | " +
+                             " | ".join(f"{d[s].get(k):.3f}" if isinstance(d[s].get(k), float)
+                                        else str(d[s].get(k, "—")) for k in keys) + " |")
+        sections.append(f"## Memory benchmark: {title}\n\n{note}\n\n" + "\n".join(lines))
+
     tp_file = WORK / "results_temporal.json"
     if tp_file.exists():
         d = json.loads(tp_file.read_text())

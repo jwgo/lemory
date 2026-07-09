@@ -1,0 +1,10 @@
+{
+  "lemory": {
+    "n": 500,
+    "judge_acc": 0.694
+  },
+  "vector": {
+    "n": 500,
+    "judge_acc": 0.668
+  }
+}
