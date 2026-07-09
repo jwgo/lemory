@@ -111,10 +111,16 @@ Design choices that matter:
   원형("윤하준")을 찾습니다; the title boost is particle-tolerant, and short
   keyword queries adaptively weight the lexical leg. On the 948-note mixed
   KR/EN second-brain benchmark this took planted-fact hit@1 from 56% to 100%.
+- **Typo-tolerant lexical search.** Query words that match nothing in the
+  vault get a local did-you-mean correction against the vault's own
+  vocabulary before the BM25/title legs run (the embedding leg already
+  shrugs off typos). Zero API calls; words that match the index are never
+  touched.
 - **qmd-style LLM stages (optional).** `--expand` rewrites the query into
   variants that are searched and fused; `--rerank` blends LLM relevance scores
   into the ranking — both off by default (each costs one LLM call), degrade
-  gracefully, and are inspired by Tobi Lütke's qmd retrieval pipeline.
+  gracefully, and are inspired by Tobi Lütke's qmd retrieval pipeline. (On our
+  benchmarks the LLM-free pipeline already matches them — see BENCHMARKS.md.)
 
 ## Benchmarks
 
@@ -130,6 +136,12 @@ See [BENCHMARKS.md](BENCHMARKS.md) for numbers and methodology. Headlines:
   **100%** vs ~40% for both baselines; end-to-end answer F1 0.87 vs 0.43/0.49
   with the identical generator.
 - **vs mem0 (OSS)**: answer-in-context@8 **1.000 vs 0.579**, same Gemini models.
+- **vs cognee (OSS)**: full cognify graph build, same Gemini models —
+  answer-in-context@8 **1.000 vs 0.561**, e2e F1 **0.867 vs 0.467**, and
+  Lemory retrieval is ~2 ms vs ~5 s per query.
+- **Query robustness** (paraphrase / Korean-query-on-English-notes / keyword /
+  typo variants): full-support@8 **0.95–0.98** vs 0.25–0.49 for vector/BM25;
+  typos handled by a local did-you-mean pass (zero API calls).
 - **SQuAD v2** (300 real single-hop questions): recall@1 0.847 / MRR 0.899 —
   graph expansion never hurts single-hop (rank-1 cap).
 

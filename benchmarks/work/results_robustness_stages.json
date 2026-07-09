@@ -1,0 +1,10 @@
+{
+  "lemory+expand": {
+    "full_support@8_original": null,
+    "full_support@8_paraphrase": 0.9107142857142857,
+    "full_support@8_korean": 0.95,
+    "full_support@8_keyword": null,
+    "full_support@8_typo": 0.8245614035087719,
+    "seconds": 1151.126732826233
+  }
+}
