@@ -73,6 +73,7 @@ class LemoryConfig(BaseSettings):
     keyword_bm25_boost: float = 1.8  # lexical weight multiplier for short keyword queries
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
+    adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
     recency_half_life_days: float = 21.0
     graph_expansion: bool = True
     graph_top_docs: int = 6

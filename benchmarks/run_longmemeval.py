@@ -146,8 +146,11 @@ def main(limit: int | None = None) -> None:
         q_date = str(q.get("question_date", ""))[:10]
         # the official protocol anchors relative-time questions on question_date
         question = (f"(Today is {q_date}.) " if q_date else "") + q["question"]
+        from lemory.retrieval.intent import adaptive_k
+
+        k_eff = adaptive_k(q["question"], K)  # same widening for every system
         for sys_name in todo:
-            hits = eng.search(q["question"], k=K, **SYSTEMS[sys_name])
+            hits = eng.search(q["question"], k=k_eff, **SYSTEMS[sys_name])
             ctx = build_context(hits, max_chars=13000)
             pred = eng.llm.generate(
                 build_prompt(ctx, question),

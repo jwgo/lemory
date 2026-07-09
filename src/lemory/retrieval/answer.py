@@ -59,6 +59,11 @@ def build_context(hits: list[ChunkHit], max_chars: int = 14000) -> str:
 
 
 def answer(engine: "Engine", question: str, k: int = 8) -> Answer:
+    from .intent import adaptive_k
+
+    # list/count questions have evidence scattered across many notes — widen
+    # retrieval so the generator sees every mention, not just the strongest
+    k = adaptive_k(question, k, engine.cfg.adaptive_list_k)
     hits = engine.search(question, k=k)
     if not hits:
         return Answer(text="I couldn't find anything relevant in the vault.", sources=[])

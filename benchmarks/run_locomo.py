@@ -141,7 +141,10 @@ def main(only: str | None = None) -> None:
             if key in state:
                 continue
             eng = engine_for(q["conv"])
-            hits = eng.search(q["q"], k=K, **opts)
+            from lemory.retrieval.intent import adaptive_k
+
+            k_eff = adaptive_k(q["q"], K)  # same widening for every system
+            hits = eng.search(q["q"], k=k_eff, **opts)
             ev_texts = turn_texts(q["conv"], q["evidence"])
             joined = " ".join(h.text for h in hits).lower()
             ev_found = sum(1 for t in ev_texts if t.lower() in joined)
