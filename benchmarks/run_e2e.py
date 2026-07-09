@@ -28,12 +28,12 @@ def main() -> None:
     bench = sys.argv[1] if len(sys.argv) > 1 else "multihop"
     n_q = int(sys.argv[2]) if len(sys.argv) > 2 else 40
 
-    if bench == "multihop":
-        vault = DATA / "multihop" / "vault"
-        questions = json.loads((DATA / "multihop" / "questions.json").read_text())
-    else:
+    if bench == "squad":
         vault = WORK / "squad_vault"
         questions = json.loads((WORK / "squad_questions.json").read_text())
+    else:  # multihop, maple_real, maple, law — vault + questions under data/
+        vault = DATA / bench / "vault"
+        questions = json.loads((DATA / bench / "questions.json").read_text())
     questions = questions[:n_q]
 
     eng = make_engine(vault, tag=bench)
