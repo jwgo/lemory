@@ -37,8 +37,10 @@ class LemoryConfig(BaseSettings):
     # --- where state lives (defaults to <vault>/.lemory) ---
     data_dir: Optional[Path] = None
 
-    # --- provider: "auto" picks gemini/openai from whichever key is set ---
-    provider: str = "auto"  # auto | gemini | openai
+    # --- provider: "auto" picks gemini/openai from whichever key is set,
+    # falling back to fully-local embeddings when no key exists ---
+    provider: str = "auto"  # auto | gemini | openai | local
+    local_embed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
     # --- Gemini ---
     gemini_api_key: str = ""
@@ -125,25 +127,52 @@ class LemoryConfig(BaseSettings):
         )
 
     def resolved_provider(self) -> str:
-        if self.provider in ("gemini", "openai"):
+        if self.provider in ("gemini", "openai", "local"):
             return self.provider
         if self.resolved_gemini_key():
             return "gemini"
         if self.resolved_openai_key():
             return "openai"
+        try:
+            import fastembed  # noqa: F401  — keyless but local extra installed
+
+            return "local"
+        except ImportError:
+            pass
         raise RuntimeError(
             "No API key found. Set GEMINI_API_KEY (a free-tier key from "
-            "https://aistudio.google.com works) or OPENAI_API_KEY."
+            "https://aistudio.google.com works), OPENAI_API_KEY, or install "
+            "local embeddings: pip install 'lemory[local]'"
         )
 
     def active_embed_model(self) -> str:
-        return self.openai_embed_model if self.resolved_provider() == "openai" else self.embed_model
+        p = self.resolved_provider()
+        if p == "openai":
+            return self.openai_embed_model
+        if p == "local":
+            return self.local_embed_model
+        return self.embed_model
+
+    def active_embed_dim(self) -> int:
+        if self.resolved_provider() == "local":
+            from .providers.local import LOCAL_EMBED_DIM
+
+            return LOCAL_EMBED_DIM
+        return self.embed_dim
 
     def active_llm_model(self) -> str:
-        return self.openai_llm_model if self.resolved_provider() == "openai" else self.llm_model
+        p = self.resolved_provider()
+        if p == "openai":
+            return self.openai_llm_model
+        if p == "local":
+            return (f"{self.llm_model} (answers)" if self.resolved_gemini_key()
+                    else "none — local search-only")
+        return self.llm_model
 
     def resolved_api_key(self) -> str:
         provider = self.resolved_provider()
+        if provider == "local":
+            return ""  # local embeddings need no key
         key = self.resolved_gemini_key() if provider == "gemini" else self.resolved_openai_key()
         if not key:
             raise RuntimeError(f"provider is '{provider}' but no matching API key is set")

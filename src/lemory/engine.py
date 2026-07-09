@@ -31,12 +31,12 @@ class Engine:
     # ------------------------------------------------------------ embeddings
     def embed_documents_cached(self, texts: list[str]) -> tuple[np.ndarray, int]:
         """Embed with content-hash cache. Returns (vectors, api_misses)."""
-        keys = [Store.cache_key(self.cfg.active_embed_model(), self.cfg.embed_dim, "doc", t) for t in texts]
+        keys = [Store.cache_key(self.cfg.active_embed_model(), self.cfg.active_embed_dim(), "doc", t) for t in texts]
         cached = self.store.cache_get_many(keys)
-        out = np.zeros((len(texts), self.cfg.embed_dim), dtype=np.float32)
+        out = np.zeros((len(texts), self.cfg.active_embed_dim()), dtype=np.float32)
         missing_idx = []
         for i, k in enumerate(keys):
-            if k in cached and cached[k].shape[0] == self.cfg.embed_dim:
+            if k in cached and cached[k].shape[0] == self.cfg.active_embed_dim():
                 out[i] = cached[k]
             else:
                 missing_idx.append(i)
@@ -50,9 +50,9 @@ class Engine:
         return out, len(missing_idx)
 
     def embed_query_cached(self, query: str) -> np.ndarray:
-        key = Store.cache_key(self.cfg.active_embed_model(), self.cfg.embed_dim, "query", query)
+        key = Store.cache_key(self.cfg.active_embed_model(), self.cfg.active_embed_dim(), "query", query)
         cached = self.store.cache_get_many([key])
-        if key in cached and cached[key].shape[0] == self.cfg.embed_dim:
+        if key in cached and cached[key].shape[0] == self.cfg.active_embed_dim():
             return cached[key]
         vec = self.llm.embed([query], task_type="RETRIEVAL_QUERY")[0]
         self.store.cache_put_many({key: vec})
@@ -94,7 +94,7 @@ class Engine:
     def status(self) -> dict[str, Any]:
         # status is a purely local verb — it must work without any API key
         try:
-            embed_model = f"{self.cfg.active_embed_model()} ({self.cfg.embed_dim}d)"
+            embed_model = f"{self.cfg.active_embed_model()} ({self.cfg.active_embed_dim()}d)"
             llm_model = self.cfg.active_llm_model()
         except RuntimeError:
             embed_model = llm_model = "unconfigured (no API key)"

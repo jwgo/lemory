@@ -17,11 +17,13 @@ def test_resolved_vault_requires_vault():
         LemoryConfig().resolved_vault()
 
 
-def test_resolved_api_key_error(monkeypatch):
+def test_keyless_resolves_to_local(monkeypatch):
     for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
-    with pytest.raises(RuntimeError, match="No API key"):
-        LemoryConfig().resolved_api_key()
+    cfg = LemoryConfig()
+    # fastembed is installed in this environment -> keyless falls back to local
+    assert cfg.resolved_provider() == "local"
+    assert cfg.resolved_api_key() == ""  # local embeddings need no key
 
 
 def test_api_key_from_env(monkeypatch):

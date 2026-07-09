@@ -15,6 +15,19 @@ __all__ = ["LLMClient", "RateLimiter", "parse_json_loose", "create_client"]
 
 def create_client(cfg: "LemoryConfig") -> LLMClient:
     provider = cfg.resolved_provider()
+    if provider == "local":
+        from .local import LocalClient
+
+        generator = None
+        if cfg.resolved_gemini_key():
+            from .gemini import GeminiClient
+
+            generator = GeminiClient(
+                api_key=cfg.resolved_gemini_key(), llm_model=cfg.llm_model,
+                llm_fallback_model=cfg.llm_fallback_model, llm_rpm=cfg.llm_rpm,
+                max_output_tokens=cfg.llm_max_output_tokens,
+            )
+        return LocalClient(embed_model=cfg.local_embed_model, generator=generator)
     if provider == "openai":
         from .openai import OpenAIClient
 

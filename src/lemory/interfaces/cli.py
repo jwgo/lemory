@@ -131,7 +131,7 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
         try:
             eng = _engine(vault)
             vec = eng.llm.embed(["lemory doctor ping"])
-            ok &= check("embedding API", vec.shape[-1] == cfg.embed_dim,
+            ok &= check("embedding API", vec.shape[-1] == cfg.active_embed_dim(),
                         f"{cfg.active_embed_model()} @{vec.shape[-1]}d")
         except Exception as e:
             ok = check("embedding API", False, str(e)[:120])

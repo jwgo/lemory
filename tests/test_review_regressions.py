@@ -96,7 +96,7 @@ def test_status_without_any_api_key(tmp_path, monkeypatch):
     eng = Engine(LemoryConfig(vault=v, data_dir=tmp_path / "d"))
     st = eng.status()  # must not raise
     assert st["documents"] == 0
-    assert "unconfigured" in st["llm_model"]
+    assert "local" in st["llm_model"] or "unconfigured" in st["llm_model"]
     eng.close()
 
 
