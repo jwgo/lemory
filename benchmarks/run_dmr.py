@@ -35,7 +35,7 @@ from run_locomo import JUDGE_PROMPT, append_state as _append  # reuse judge word
 DATA_FILE = Path(__file__).parent / "data" / "dmr" / "msc_self_instruct.jsonl"
 OUT = WORK / "dmr"
 K = 8
-GEN_MODEL = "gemini-2.5-flash-lite"
+GEN_MODEL = "gemini-2.5-flash"
 TODAY = datetime(2026, 7, 9, 12)
 
 SYSTEMS = {

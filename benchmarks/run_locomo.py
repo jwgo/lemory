@@ -30,8 +30,8 @@ from lemory.providers.gemini import GeminiClient
 from lemory.retrieval.answer import build_context, build_prompt
 
 OUT = WORK / "locomo"
-K = 12
-GEN_MODEL = "gemini-2.5-flash-lite"  # free-tier friendly; identical for all systems
+K = 16
+GEN_MODEL = "gemini-2.5-flash"  # identical generator for all systems
 
 SYSTEMS = {
     "lemory": dict(mode="hybrid", graph=True),
@@ -66,8 +66,10 @@ answer that the question asks for, even if phrased differently, less complete
 in wording, or more detailed. Dates count as correct when they refer to the
 same day/period in any format. If the gold answer lists several items, the
 generated answer is CORRECT when it includes the item(s) the question actually
-asks about. Label WRONG if it contradicts the gold answer, names a different
-entity/date, or answers 'unknown' when the gold has an answer.
+asks about. For yes/no questions, a bare 'yes' or 'no' matching the gold's verdict is
+CORRECT even without the gold's explanation. Label WRONG if it contradicts
+the gold answer, names a different entity/date, or answers 'unknown' when
+the gold has an answer.
 
 Reply with exactly one word: yes (CORRECT) or no (WRONG)."""
 

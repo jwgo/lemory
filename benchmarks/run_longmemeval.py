@@ -35,7 +35,7 @@ OUT = WORK / "longmemeval"
 K = 10
 N_SAMPLE = 100
 SEED = 41
-GEN_MODEL = "gemini-2.5-flash-lite"
+GEN_MODEL = "gemini-2.5-flash"
 
 SYSTEMS = {
     "lemory": dict(mode="hybrid", graph=True),
