@@ -121,9 +121,17 @@ Design choices that matter:
 Lemory's hybrid retrieval is benchmarked against naive-RAG (pure vector, same
 embeddings), BM25, an ablation without the graph, and mem0 (OSS) as an external
 system — on real SQuAD v2 data and a multi-hop personal-wiki benchmark.
-See [BENCHMARKS.md](BENCHMARKS.md) for numbers and methodology; headline: on
-multi-hop questions Lemory retrieves the full supporting evidence for **100%**
-of questions vs ~40% for vector-only RAG, at equal single-hop quality.
+See [BENCHMARKS.md](BENCHMARKS.md) for numbers and methodology. Headlines:
+
+- **Real data** (1,469 실제 나무위키 메이플스토리 docs, 33k chunks, 50 verified
+  questions): 2-hop full evidence retrieved **70%** vs 43% (vector) / 40% (BM25);
+  recall@8 100%.
+- **Synthetic multi-hop** (gold labels correct by construction): full evidence
+  **100%** vs ~40% for both baselines; end-to-end answer F1 0.87 vs 0.43/0.49
+  with the identical generator.
+- **vs mem0 (OSS)**: answer-in-context@8 **1.000 vs 0.579**, same Gemini models.
+- **SQuAD v2** (300 real single-hop questions): recall@1 0.847 / MRR 0.899 —
+  graph expansion never hurts single-hop (rank-1 cap).
 
 Reproduce with:
 

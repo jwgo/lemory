@@ -74,21 +74,26 @@ def main() -> None:
             ], ["lemory", "lemory-nograph", "vector", "bm25"])
         )
 
-    e2e_file = WORK / "results_e2e_multihop.json"
-    if e2e_file.exists():
-        summary = json.loads(e2e_file.read_text()).get("summary", {})
-        rows = [{"system": s, **m} for s, m in summary.items()]
-        sections.append(
-            "## 3. End-to-end QA (same Gemini generator, only retrieval differs)\n\n"
-            "40 LemoryBench questions; token-F1 / containment-EM vs gold answers.\n\n"
-            + table(rows, [
-                ("f1", "F1"),
-                ("contain_em", "EM (contain)"),
-                ("f1_hops2", "F1 (2-hop)"),
-                ("f1_hops1", "F1 (1-hop)"),
-                ("n", "n"),
-            ], ["lemory", "vector", "bm25"])
-        )
+    for e2e_name, e2e_title in (
+        ("multihop", "LemoryBench (synthetic multi-hop)"),
+        ("maple_real", "실제 나무위키 메이플스토리 (real data)"),
+    ):
+        e2e_file = WORK / f"results_e2e_{e2e_name}.json"
+        if e2e_file.exists():
+            summary = json.loads(e2e_file.read_text()).get("summary", {})
+            rows = [{"system": s, **m} for s, m in summary.items()]
+            sections.append(
+                f"## End-to-end QA — {e2e_title}\n\n"
+                "Same Gemini generator and prompt for every system; only retrieval "
+                "differs. Token-F1 / containment-EM vs gold answers.\n\n"
+                + table(rows, [
+                    ("f1", "F1"),
+                    ("contain_em", "EM (contain)"),
+                    ("f1_hops2", "F1 (2-hop)"),
+                    ("f1_hops1", "F1 (1-hop)"),
+                    ("n", "n"),
+                ], ["lemory", "vector", "bm25"])
+            )
 
     m0_file = WORK / "results_mem0.json"
     if m0_file.exists():

@@ -34,15 +34,25 @@ Hit = retrieved chunk is from the gold article and contains a gold answer.
 | Vector-only (naive RAG) | 0.813 | 0.950 | 0.973 | 0.980 | 0.881 | 7.871 |
 | BM25 (lexical) | 0.830 | 0.920 | 0.950 | 0.970 | 0.881 | 7.524 |
 
-## 3. End-to-end QA (same Gemini generator, only retrieval differs)
+## End-to-end QA — LemoryBench (synthetic multi-hop)
 
-40 LemoryBench questions; token-F1 / containment-EM vs gold answers.
+Same Gemini generator and prompt for every system; only retrieval differs. Token-F1 / containment-EM vs gold answers.
 
 | System | F1 | EM (contain) | F1 (2-hop) | F1 (1-hop) | n |
 |---|---|---|---|---|---|
 | **Lemory** (hybrid + graph) | 0.867 | 1.000 | 0.861 | 0.889 | 30 |
 | Vector-only (naive RAG) | 0.428 | 0.500 | 0.283 | 0.905 | 30 |
 | BM25 (lexical) | 0.491 | 0.567 | 0.370 | 0.889 | 30 |
+
+## End-to-end QA — 실제 나무위키 메이플스토리 (real data)
+
+Same Gemini generator and prompt for every system; only retrieval differs. Token-F1 / containment-EM vs gold answers.
+
+| System | F1 | EM (contain) | F1 (2-hop) | F1 (1-hop) | n |
+|---|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 0.594 | 0.640 | 0.481 | 0.762 | 50 |
+| Vector-only (naive RAG) | 0.562 | 0.620 | 0.432 | 0.758 | 50 |
+| BM25 (lexical) | 0.406 | 0.460 | 0.366 | 0.466 | 50 |
 
 ## 4. External system: mem0 (OSS)
 
@@ -58,6 +68,17 @@ answer string appears in the top-8 retrieved texts (LemoryBench, 57 q).
 | mem0 OSS (Gemini backend) | 0.579 |
 
 mem0 by hops: 1-hop 0.6666666666666666, 2-hop 0.5476190476190477 · 212 ms/query, ingest 0s for 54 notes
+
+## Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
+
+All documents categorized under 메이플스토리 in the public namuwiki 2021-03-01 dump (867k docs scanned): 33,375 chunks, 24,850 real wikilink edges. QA drafted by LLM, kept only if code-verified: answer appears ONLY in the gold note, no title leakage (see gen_maple_real_qa.py).
+
+| System | Full-support@8 | Recall@1 | Recall@5 | MRR@10 |
+|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 0.820 | 0.820 | 0.980 | 0.895 |
+| Lemory w/o graph (ablation) | 0.700 | 0.860 | 0.960 | 0.900 |
+| Vector-only (naive RAG) | 0.660 | 0.700 | 0.920 | 0.796 |
+| BM25 (lexical) | 0.560 | 0.540 | 0.860 | 0.688 |
 
 ## Korean corpus: 메이플스토리 (나무위키-style, Korean)
 
