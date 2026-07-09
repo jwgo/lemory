@@ -35,14 +35,16 @@ _SENT_SPLIT_RE = re.compile(
 
 def split_sentences(text: str) -> list[str]:
     parts = [p.strip(" -•\t") for p in _SENT_SPLIT_RE.split(text)]
-    return [p for p in parts if len(p) >= 12]
+    # 8, not higher: Obsidian "Key facts" bullets are terse ("Lead: X") and
+    # are exactly the lines that hold answers — over-filtering loses them
+    return [p for p in parts if len(p) >= 8]
 
 
 def build_compact_context(
     engine: "Engine",
     query: str,
     hits: list[ChunkHit],
-    per_chunk: int = 2,
+    per_chunk: int = 3,
     max_chars: int = 4000,
 ) -> str:
     qv = engine.embed_query_cached(query)
