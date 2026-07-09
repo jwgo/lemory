@@ -40,9 +40,13 @@ SYSTEMS = {
 
 GEN_SYSTEM = (
     "You answer questions about a two-person conversation using ONLY the "
-    "provided session notes. Each note shows its date. Reply with the shortest "
-    "exact answer (a few words; for dates use the format '7 May 2023'), no "
-    "explanation. If the notes don't contain the answer, reply exactly: unknown"
+    "provided session notes. Each note is dated — use those dates to resolve "
+    "relative time expressions in the dialogue ('last week', 'four years ago', "
+    "'next month') into absolute dates or years. Reply with the shortest exact "
+    "answer: a few words, a date like '7 May 2023', or a comma-separated list "
+    "when the question asks for multiple things — gather ALL matching items "
+    "across the notes. No explanation. Reply 'unknown' only when nothing in "
+    "the notes answers the question."
 )
 
 JUDGE_PROMPT = """You are grading a question-answering system.
