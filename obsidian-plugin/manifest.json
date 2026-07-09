@@ -1,0 +1,9 @@
+{
+  "id": "lemory",
+  "name": "Lemory",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Ask questions about your vault, grounded with citations — powered by the local Lemory backend (hybrid semantic + keyword + link-graph + temporal search).",
+  "author": "Lemory",
+  "isDesktopOnly": true
+}

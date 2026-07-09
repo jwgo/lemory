@@ -114,10 +114,15 @@ class LemoryConfig(BaseSettings):
             self.gemini_api_key
             or os.environ.get("GEMINI_API_KEY", "")
             or os.environ.get("GOOGLE_API_KEY", "")
+            or _global_env().get("GEMINI_API_KEY", "")
         )
 
     def resolved_openai_key(self) -> str:
-        return self.openai_api_key or os.environ.get("OPENAI_API_KEY", "")
+        return (
+            self.openai_api_key
+            or os.environ.get("OPENAI_API_KEY", "")
+            or _global_env().get("OPENAI_API_KEY", "")
+        )
 
     def resolved_provider(self) -> str:
         if self.provider in ("gemini", "openai"):
@@ -143,6 +148,34 @@ class LemoryConfig(BaseSettings):
         if not key:
             raise RuntimeError(f"provider is '{provider}' but no matching API key is set")
         return key
+
+
+GLOBAL_ENV_FILE = Path.home() / ".lemory" / "env"
+
+
+def _global_env() -> dict[str, str]:
+    """Machine-global credentials written by `lemory setup` (~/.lemory/env,
+    mode 0600) — so GUI apps like Obsidian, which don't inherit a shell
+    environment, still find the key."""
+    out: dict[str, str] = {}
+    try:
+        for line in GLOBAL_ENV_FILE.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                out[k.strip()] = v.strip()
+    except OSError:
+        pass
+    return out
+
+
+def save_global_env(values: dict[str, str]) -> Path:
+    """Merge values into ~/.lemory/env with owner-only permissions."""
+    merged = {**_global_env(), **values}
+    GLOBAL_ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+    GLOBAL_ENV_FILE.write_text("".join(f"{k}={v}\n" for k, v in merged.items()))
+    GLOBAL_ENV_FILE.chmod(0o600)
+    return GLOBAL_ENV_FILE
 
 
 def _load_toml_overrides(start: Path) -> dict[str, Any]:

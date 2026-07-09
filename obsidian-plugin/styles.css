@@ -1,0 +1,12 @@
+.lemory-root { padding: 8px; }
+.lemory-form { display: flex; gap: 6px; margin-bottom: 8px; }
+.lemory-form input { flex: 1; }
+.lemory-secondary { opacity: 0.8; }
+.lemory-hint { color: var(--text-muted); font-size: 0.85em; margin: 8px 0 4px; }
+.lemory-error { color: var(--text-error); margin-top: 8px; white-space: pre-wrap; }
+.lemory-answer { white-space: pre-wrap; background: var(--background-secondary);
+  border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.lemory-hit { padding: 6px 0; border-bottom: 1px solid var(--background-modifier-border); }
+.lemory-hit-title { cursor: pointer; font-weight: 600; }
+.lemory-date { color: var(--text-muted); font-size: 0.8em; }
+.lemory-excerpt { color: var(--text-muted); font-size: 0.88em; margin-top: 2px; }

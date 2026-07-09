@@ -40,6 +40,68 @@ def init(vault: Path = typer.Argument(..., help="Path to your Obsidian vault")):
 
 
 @app.command()
+def setup(
+    vault: Optional[Path] = typer.Option(None, help="Vault path (prompted if omitted)"),
+    key: Optional[str] = typer.Option(None, help="Gemini API key (prompted if omitted)"),
+    index_now: bool = typer.Option(True, help="Run the first index at the end"),
+):
+    """One-shot setup: vault + API key + health check + first index.
+
+    The key is stored in ~/.lemory/env (owner-only), so Obsidian/Claude/VS Code
+    integrations work without shell environment tricks.
+    """
+    from ..config import load_config, save_global_env
+
+    console.print("[bold]Lemory setup[/bold] — 세 가지만 하면 끝납니다.\n")
+
+    # 1. vault
+    while True:
+        v = vault or Path(typer.prompt("1) Obsidian 볼트 경로 (예: ~/Obsidian/MyVault)"))
+        v = v.expanduser().resolve()
+        if v.is_dir():
+            break
+        console.print(f"[red]폴더가 없습니다:[/red] {v}")
+        vault = None
+    n_md = sum(1 for _ in v.rglob("*.md"))
+    console.print(f"   [green]✔[/green] {v} ({n_md}개 노트)")
+
+    # 2. key
+    existing = load_config().resolved_gemini_key()
+    if key is None and existing:
+        console.print("   [green]✔[/green] Gemini 키가 이미 설정되어 있습니다")
+        k = existing
+    else:
+        k = key or typer.prompt("2) Gemini API 키 (무료: https://aistudio.google.com)", hide_input=True)
+        env_file = save_global_env({"GEMINI_API_KEY": k.strip()})
+        console.print(f"   [green]✔[/green] 키 저장: {env_file} (권한 600)")
+
+    # 3. config file
+    cfg_file = Path.cwd() / "lemory.toml"
+    cfg_file.write_text(f"[lemory]\nvault = {json.dumps(str(v))}\n")
+    console.print(f"   [green]✔[/green] 설정 저장: {cfg_file}")
+
+    # health check + first index
+    eng = _engine(v)
+    try:
+        vec = eng.llm.embed(["setup ping"])
+        console.print(f"   [green]✔[/green] API 연결 확인 ({vec.shape[-1]}d embeddings)")
+    except Exception as e:
+        console.print(f"   [red]✘ API 확인 실패:[/red] {str(e)[:120]}")
+        raise typer.Exit(1)
+    if index_now:
+        with console.status("첫 인덱싱 중... (이후에는 변경분만 처리됩니다)"):
+            rep = eng.index()
+        console.print(f"   [green]✔[/green] 인덱싱 완료: 노트 {rep.added + rep.updated}개, "
+                      f"청크 {rep.chunks}개 ({rep.seconds:.0f}s)")
+    console.print(
+        "\n[bold]다 됐습니다![/bold] 이렇게 써보세요:\n"
+        "  lemory ask \"요새 내가 뭐 했지?\"\n"
+        "  lemory serve            # http://127.0.0.1:8377 웹 UI + Obsidian 플러그인 백엔드\n"
+        "  claude mcp add lemory -- lemory mcp   # Claude Code에서 바로 사용"
+    )
+
+
+@app.command()
 def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check")):
     """Diagnose your setup in one command: key, vault, database, search."""
     from ..config import load_config

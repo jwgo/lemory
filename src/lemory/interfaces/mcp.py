@@ -52,6 +52,27 @@ def run_mcp(engine: Engine) -> None:
         )
 
     @mcp.tool()
+    def recent_notes(days: int = 7, limit: int = 20) -> str:
+        """Notes the user touched in the last N days, newest first — for
+        '요새 내가 뭐 했지?' style questions about recent activity."""
+        import time
+        from datetime import datetime
+
+        engine.index()
+        dates = engine.store.doc_dates()
+        docs = {d.id: d for d in engine.store.all_docs()}
+        cutoff = time.time() - days * 86400
+        rows = sorted(
+            ((ts, docs[did]) for did, ts in dates.items() if ts >= cutoff and did in docs),
+            key=lambda x: -x[0],
+        )[:limit]
+        return json.dumps(
+            [{"date": datetime.fromtimestamp(ts).date().isoformat(), "note": d.title,
+              "path": d.path} for ts, d in rows],
+            ensure_ascii=False,
+        )
+
+    @mcp.tool()
     def vault_status() -> str:
         """Index statistics for the connected vault."""
         return json.dumps(engine.status())

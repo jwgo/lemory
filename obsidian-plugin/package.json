@@ -1,0 +1,16 @@
+{
+  "name": "lemory-obsidian",
+  "version": "0.1.0",
+  "description": "Obsidian plugin for the Lemory personal knowledge base backend",
+  "main": "main.js",
+  "scripts": {
+    "build": "esbuild main.ts --bundle --external:obsidian --format=cjs --target=es2020 --outfile=main.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0",
+    "obsidian": "^1.5.7",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}
