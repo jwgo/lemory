@@ -95,6 +95,26 @@ wherever the system allows it ([full methodology](BENCHMARKS.md)):
 <sub>¹ mem0's own published number. LongMemEval_S: 0.76 (GPT-4o full-context
 baseline ≈ 0.60). DMR (500 q): 0.694 vs 0.648 same-harness naive RAG.</sub>
 
+### How that translates product-to-product
+
+Only systems we ran ourselves, same corpus/models wherever their design allows
+([methodology](BENCHMARKS.md)):
+
+| | **Lemory** | mem0 OSS | cognee | supermemory |
+|---|---|---|---|---|
+| Runs as | 1 process, 1 SQLite file | + Qdrant vector store | + LanceDB & Kuzu stores | hosted API |
+| Knowledge graph from | your `[[wikilinks]]`, free | LLM fact extraction | LLM graph build (~45 min / 54 notes) | — |
+| Ingest LLM calls (54 notes) | **0** | 1–2 per note | many per note | 0 (API-side) |
+| Multi-hop full-support@8 | **1.000** | 0.579 | 0.561 | 0.579 |
+| Retrieval p50 | **~3 ms** | 212 ms | ~5 s | 327 ms |
+| 100% offline mode | yes (Ollama / fastembed) | no (LLM on ingest) | no (LLM on ingest) | no |
+| Korean retrieval | Hangul-bigram FTS, benchmarked | untested by us | untested by us | untested by us |
+| Data location | your disk only | your disk | your disk | their cloud |
+
+mem0 and supermemory are conversational-memory products first — this table
+measures them on the personal-document-KB job Lemory is built for, which is
+exactly the design difference it quantifies. cognee targets the same job.
+
 ## What it feels like
 
 Anything you ever wrote down becomes askable — work, study, games, life:
@@ -150,8 +170,8 @@ search box:
 
 <img src="docs/assets/console-knowledge.png" alt="지식 계층 — 폴더 트리, 노트, 백링크" width="820">
 
-**New here? The step-by-step guide (설치 → 무료 키 → 첫 질문) is
-[docs/GUIDE.ko.md](docs/GUIDE.ko.md).**
+**New here? Step-by-step guide: [docs/GUIDE.md](docs/GUIDE.md)
+(한국어: [docs/GUIDE.ko.md](docs/GUIDE.ko.md)).**
 
 ## Running it for free
 
@@ -206,7 +226,7 @@ Each headline number above traces to one specific design choice:
   lexicon before search, with zero API calls.
 - **Latency ms not seconds** — no vector-DB server round trip: exact numpy
   cosine + SQLite FTS5 in-process. Measured scaling (hybrid+graph, full
-  pipeline): 2k chunks → 7 ms · 10k → 19 ms · 50k → 79 ms. On the real
+  pipeline): 2k chunks → 5.5 ms · 10k → 17 ms · 50k → 70 ms. On the real
   33k-chunk 나무위키 corpus with bigram FTS: ~0.2 s/query — still 25× faster
   than cognee's 5 s.
 - **Cost that rounds to zero** — embeddings are content-addressed

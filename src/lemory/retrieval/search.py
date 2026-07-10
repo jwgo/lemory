@@ -227,7 +227,9 @@ def hybrid_search(
     expanded_docs: list[int] = []
     if use_graph and mode == "hybrid" and qv is not None:
         expanded_docs = _graph_expand(engine, fused, chunk_meta, qv)
-        chunk_meta = store.get_chunks(fused.keys())
+        new_ids = [cid for cid in fused if cid not in chunk_meta]
+        if new_ids:  # only fetch what expansion added, not everything again
+            chunk_meta.update(store.get_chunks(new_ids))
 
     # qmd-style LLM rerank: score the top candidates for relevance and blend
     # with the fusion score (costs one LLM call per search)

@@ -34,14 +34,20 @@ Hit = retrieved chunk is from the gold article and contains a gold answer.
 | Vector-only (naive RAG) | 0.813 | 0.950 | 0.973 | 0.980 | 0.881 | 8.124 |
 | BM25 (lexical) | 0.830 | 0.920 | 0.950 | 0.970 | 0.881 | 7.449 |
 
-## End-to-end QA — LemoryBench (synthetic multi-hop)
+## 3. End-to-end QA — LemoryBench (synthetic multi-hop)
 
-Same Gemini generator and prompt for every system; only retrieval differs. Token-F1 / containment-EM vs gold answers.
+Same Gemini generator and prompt for every system; only retrieval differs. Token-F1 / containment-EM vs gold answers (30 questions).
 
-| System | F1 | EM (contain) | F1 (2-hop) | F1 (1-hop) | n |
-|---|---|---|---|---|---|
+| System | F1 | EM (contain) | n |
+|---|---|---|---|
+| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 30 |
+| BM25 (lexical) | 0.467 | 0.467 | 30 |
+| Vector-only (naive RAG) | 0.433 | 0.433 | 30 |
 
-## End-to-end QA — 실제 나무위키 메이플스토리 (real data)
+Failure mode of the baselines is uniform: the bridge note is found, the answer
+note isn't, and the pinned generator honestly replies "unknown".
+
+## 3b. End-to-end QA — 실제 나무위키 메이플스토리 (real data)
 
 Same Gemini generator and prompt for every system; only retrieval differs. Token-F1 / containment-EM vs gold answers.
 
@@ -64,7 +70,8 @@ answer string appears in the top-8 retrieved texts (LemoryBench, 57 q).
 | BM25 (lexical) | 0.667 |
 | mem0 OSS (Gemini backend) | 0.579 |
 
-mem0 by hops: 1-hop 0.6666666666666666, 2-hop 0.5476190476190477 · 212 ms/query, ingest 0s for 54 notes
+mem0 by hops: 1-hop 0.667, 2-hop 0.548 · 212 ms/query (p50) · ingestion ran its
+LLM fact-extraction once per note (rate-limited; resumable state file).
 
 ## 4b. External system: cognee (OSS)
 
@@ -100,7 +107,7 @@ vocabulary (zero API calls; hybrid pipeline only — baselines stay pure).
 
 Optional LLM query expansion (`--expand`) was also measured: paraphrase 0.911, korean 0.950, typo 0.825 — no better than the LLM-free pipeline on this corpus, which is why it stays off by default (saves one LLM call per query).
 
-## Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
+## 5. Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
 
 All documents categorized under 메이플스토리 in the public namuwiki 2021-03-01 dump (867k docs scanned): 33,375 chunks, 24,850 real wikilink edges. QA drafted by LLM, kept only if code-verified: answer appears ONLY in the gold note, no title leakage (see gen_maple_real_qa.py).
 
@@ -111,7 +118,7 @@ All documents categorized under 메이플스토리 in the public namuwiki 2021-0
 | Vector-only (naive RAG) | 0.660 | 0.700 | 0.920 | 0.796 |
 | BM25 (lexical) | 0.560 | 0.540 | 0.860 | 0.688 |
 
-## Korean corpus: 메이플스토리 (나무위키-style, Korean)
+## 5b. Korean corpus: 메이플스토리 (나무위키-style, Korean)
 
 Real game entities/terminology; relations wired by code, QA gold by construction.
 
@@ -122,7 +129,7 @@ Real game entities/terminology; relations wired by code, QA gold by construction
 | Vector-only (naive RAG) | 0.818 | 1.000 | 1.000 | 1.000 |
 | BM25 (lexical) | 0.818 | 0.939 | 1.000 | 0.965 |
 
-## Korean corpus: 전세사기 관계법령 (Korean legal)
+## 5c. Korean corpus: 전세사기 관계법령 (Korean legal)
 
 Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers code-verified to appear in gold notes.
 
@@ -133,7 +140,7 @@ Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers 
 | Vector-only (naive RAG) | 0.895 | 1.000 | 1.000 | 1.000 |
 | BM25 (lexical) | 0.895 | 1.000 | 1.000 | 1.000 |
 
-## Real external data: KorQuAD 1.0 (한국어 위키피디아, 인간 작성 질문)
+## 6. Real external data: KorQuAD 1.0 (한국어 위키피디아, 인간 작성 질문)
 
 140 real Korean Wikipedia articles as notes; 400 human-written dev questions (seeded sample of 5,774). Hit = chunk from the gold article containing a gold answer span.
 
@@ -145,7 +152,7 @@ Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers 
 | Vector-only (naive RAG) | 0.855 | 0.968 | 0.902 | 0.925 |
 | BM25 (lexical) | 0.922 | 0.993 | 0.952 | 0.950 |
 
-## Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
+## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
 The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for every system; adversarial category excluded (mem0 protocol). mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini).
 
@@ -154,7 +161,7 @@ The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for ev
 | **Lemory** (hybrid + graph) | 0.894 | 0.706 | 0.533 | 0.375 | 0.852 | 0.822 |
 | Vector-only (naive RAG) | 0.876 | 0.688 | 0.556 | 0.375 | 0.852 | 0.733 |
 
-## Memory benchmark: DMR / Deep Memory Retrieval (MemGPT/Zep), full 500 questions
+## 7b. Memory benchmark: DMR / Deep Memory Retrieval (MemGPT/Zep), full 500 questions
 
 MSC-Self-Instruct: recall a fact from a 5-session chat. Session speaker labels inferred from dataset summaries (sessions don't always start with Speaker 1). Published Zep/MemGPT numbers (94.8/93.4) use GPT-4-class generators and their own judges — not directly comparable to this controlled all-Gemini setup.
 
@@ -163,7 +170,7 @@ MSC-Self-Instruct: recall a fact from a 5-session chat. Session speaker labels i
 | **Lemory** (hybrid + graph) | 0.694 |
 | Vector-only (naive RAG) | 0.668 |
 
-## Memory benchmark: LongMemEval_S (cleaned), 100-question stratified sample
+## 7c. Memory benchmark: LongMemEval_S (cleaned), 100-question stratified sample
 
 Per-question ~50-session haystacks with dates; includes temporal reasoning, knowledge updates, preference personalization, and abstention. GPT-4o full-context baseline in the paper is ~0.60.
 
@@ -172,7 +179,7 @@ Per-question ~50-session haystacks with dates; includes temporal reasoning, know
 | **Lemory** (hybrid + graph) | 1.000 | 0.812 | 0.480 | 1.000 | 0.667 | 0.867 | 0.741 | 0.730 |
 | Vector-only (naive RAG) | 1.000 | 0.875 | 0.520 | 1.000 | 0.833 | 1.000 | 0.667 | 0.760 |
 
-## External tool: qmd (tobi/qmd, local-model markdown search)
+## 8. External tool: qmd (tobi/qmd, local-model markdown search)
 
 Same corpus (multihop vault) and metric (full-support@8 by gold note).
 qmd ran its bundled local models (embeddinggemma-300M, 1.7B query
@@ -194,7 +201,7 @@ Lemory needs one API key (or a 220 MB model in keyless local mode), and
 adds what qmd doesn't have: grounded answers with citations, temporal
 awareness, a live vault watcher, a web UI, and an Obsidian plugin.
 
-## Context efficiency (supermemory-style aggregation)
+## 9. Context efficiency (supermemory-style aggregation)
 
 supermemory's LongMemEval headline is high recall while adding only
 ~720 tokens of context. Lemory's precise retrieval already keeps ask()
@@ -209,7 +216,7 @@ embedding cache the index uses (zero LLM calls):
 | temporal | full | 1.000 | 0.572 | 193 |
 | temporal | compact | 1.000 | 0.599 | 162 |
 
-## Temporal scenario: "요새 내가 하던 그거 뭐였지?" (real embeddings)
+## 10. Temporal scenario: "요새 내가 하던 그거 뭐였지?" (real embeddings)
 
 A generated 6-month personal vault (127 daily/meeting notes, fixed TODAY)
 where facts EVOLVE: the current book/exercise/tool supersedes an older one
@@ -228,7 +235,7 @@ were answered correctly with citations.
 | Vector-only (naive RAG) | 0.000 | 0.000 | 0.500 | 1.000 | 0.273 |
 | BM25 (lexical) | 0.600 | 1.000 | 0.750 | 0.000 | 0.636 |
 
-## Second-brain scale (948 mixed KR/EN notes, LLM-free)
+## 11. Second-brain scale (948 mixed KR/EN notes, LLM-free)
 
 Diverse realistic vault (people, projects, daily logs, meetings, tastes,
 clippings) with 50 planted facts; deterministic local embedder, so this
@@ -246,16 +253,16 @@ is covered by the corpora above on real embeddings).
 | Search latency (hybrid) | 3.1 ms |
 
 
-## 5. Local retrieval latency at scale (`perf_local.py`)
+## 12. Local retrieval latency at scale (`perf_local.py`)
 
 Synthetic Zipfian corpus, 50 queries, exact cosine + SQLite FTS5.
 50k chunks ≈ an 8,000-note vault — well past typical personal vaults.
 
 | Index size | hybrid+graph | hybrid | vector | bm25 |
 |---|---|---|---|---|
-| 2,000 chunks | 6.9 ms | 4.4 ms | 0.54 ms | 3.4 ms |
-| 10,000 chunks | 18.7 ms | 16.0 ms | 1.27 ms | 13.7 ms |
-| 50,000 chunks | 79.3 ms | 75.7 ms | 5.54 ms | 68.5 ms |
+| 2,000 chunks | 5.5 ms | 4.3 ms | 0.41 ms | 3.1 ms |
+| 10,000 chunks | 17.1 ms | 14.9 ms | 0.82 ms | 12.9 ms |
+| 50,000 chunks | 69.9 ms | 69.4 ms | 4.4 ms | 60.0 ms |
 
 \* ms/query is local compute only (vector/BM25/graph math), measured on the
 benchmark machine; the query embedding round-trip (~100–300 ms, identical for
