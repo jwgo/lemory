@@ -63,9 +63,26 @@ class Engine:
         from .ingestion import Indexer
 
         with self._index_lock:
+            # vectors from different embedding models live in different spaces —
+            # comparing them silently returns garbage. Detect a model/dim switch
+            # and force a full re-embed (old cache entries are keyed by model,
+            # so switching BACK later is free).
+            sig = f"{self.cfg.active_embed_model()}|{self.cfg.active_embed_dim()}"
+            stored = self.store.get_meta("embed_signature")
+            if stored is not None and stored != sig and self.store.chunk_count() > 0:
+                import logging
+
+                logging.getLogger("lemory.engine").warning(
+                    "embedding model changed (%s -> %s): re-embedding the whole "
+                    "vault so search stays correct", stored, sig,
+                )
+                full = True
+                paths = None
+
             if self._indexer is None:
                 self._indexer = Indexer(self)
             rep = self._indexer.sync(full=full, progress=progress, paths=paths)
+            self.store.set_meta("embed_signature", sig)
             if self.cfg.enrich_entities:
                 self._indexer.enrich_entities()
             return rep

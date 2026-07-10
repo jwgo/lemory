@@ -15,6 +15,16 @@ __all__ = ["LLMClient", "RateLimiter", "parse_json_loose", "create_client"]
 
 def create_client(cfg: "LemoryConfig") -> LLMClient:
     provider = cfg.resolved_provider()
+    if provider == "ollama":
+        from .ollama import OllamaClient
+
+        return OllamaClient(
+            host=cfg.ollama_host,
+            llm_model=cfg.ollama_llm_model,
+            embed_model=cfg.ollama_embed_model,
+            embed_dim=cfg.ollama_embed_dim,
+            max_output_tokens=cfg.llm_max_output_tokens,
+        )
     if provider == "local":
         from .local import LocalClient
 

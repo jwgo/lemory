@@ -39,8 +39,14 @@ class LemoryConfig(BaseSettings):
 
     # --- provider: "auto" picks gemini/openai from whichever key is set,
     # falling back to fully-local embeddings when no key exists ---
-    provider: str = "auto"  # auto | gemini | openai | local
+    provider: str = "auto"  # auto | gemini | openai | local | ollama
     local_embed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+    # --- ollama (fully-local LLM + embeddings; `lemory setup` configures this) ---
+    ollama_host: str = "http://127.0.0.1:11434"
+    ollama_llm_model: str = "gemma3n:e4b"             # Gemma 3n E4B, 4-bit quant
+    ollama_embed_model: str = "qwen3-embedding:0.6b"  # Qwen3-Embedding-0.6B
+    ollama_embed_dim: int = 1024
 
     # --- Gemini ---
     gemini_api_key: str = ""
@@ -129,7 +135,7 @@ class LemoryConfig(BaseSettings):
         )
 
     def resolved_provider(self) -> str:
-        if self.provider in ("gemini", "openai", "local"):
+        if self.provider in ("gemini", "openai", "local", "ollama"):
             return self.provider
         if self.resolved_gemini_key():
             return "gemini"
@@ -153,19 +159,26 @@ class LemoryConfig(BaseSettings):
             return self.openai_embed_model
         if p == "local":
             return self.local_embed_model
+        if p == "ollama":
+            return self.ollama_embed_model
         return self.embed_model
 
     def active_embed_dim(self) -> int:
-        if self.resolved_provider() == "local":
+        p = self.resolved_provider()
+        if p == "local":
             from .providers.local import LOCAL_EMBED_DIM
 
             return LOCAL_EMBED_DIM
+        if p == "ollama":
+            return self.ollama_embed_dim
         return self.embed_dim
 
     def active_llm_model(self) -> str:
         p = self.resolved_provider()
         if p == "openai":
             return self.openai_llm_model
+        if p == "ollama":
+            return self.ollama_llm_model
         if p == "local":
             return (f"{self.llm_model} (answers)" if self.resolved_gemini_key()
                     else "none — local search-only")
@@ -173,8 +186,8 @@ class LemoryConfig(BaseSettings):
 
     def resolved_api_key(self) -> str:
         provider = self.resolved_provider()
-        if provider == "local":
-            return ""  # local embeddings need no key
+        if provider in ("local", "ollama"):
+            return ""  # fully-local providers need no key
         key = self.resolved_gemini_key() if provider == "gemini" else self.resolved_openai_key()
         if not key:
             raise RuntimeError(f"provider is '{provider}' but no matching API key is set")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -65,28 +66,45 @@ def setup(
     n_md = sum(1 for _ in v.rglob("*.md"))
     console.print(f"   [green]✔[/green] {v} ({n_md}개 노트)")
 
-    # 2. key
-    existing = load_config().resolved_gemini_key()
-    if key is None and existing:
-        console.print("   [green]✔[/green] Gemini 키가 이미 설정되어 있습니다")
-        k = existing
+    # 2. execution mode
+    extra_toml = ""
+    if key is not None:
+        mode = "1"  # explicit --key means Gemini mode
     else:
-        k = key or typer.prompt("2) Gemini API 키 (무료: https://aistudio.google.com)", hide_input=True)
-        env_file = save_global_env({"GEMINI_API_KEY": k.strip()})
-        console.print(f"   [green]✔[/green] 키 저장: {env_file} (권한 600)")
+        console.print(
+            "\n2) 실행 모드를 고르세요:\n"
+            "   [bold]1[/bold]  Gemini 무료 API — 답변 생성 포함, 카드 등록 불필요 [dim](추천)[/dim]\n"
+            "   [bold]2[/bold]  완전 로컬 (Ollama) — Gemma 3n E4B 4bit + Qwen3-Embedding-0.6B,\n"
+            "      인터넷·키 없이 질문까지 전부 [dim](RAM 8GB+, 다운로드 ~6GB)[/dim]\n"
+            "   [bold]3[/bold]  경량 로컬 검색 전용 — MiniLM 220MB, ask 제외 [dim](RAM 4GB면 충분)[/dim]"
+        )
+        mode = typer.prompt("   선택", default="1").strip()
+
+    if mode == "2":
+        extra_toml = _setup_ollama()
+    elif mode == "3":
+        extra_toml = _setup_fastembed()
+    else:
+        existing = load_config().resolved_gemini_key()
+        if key is None and existing:
+            console.print("   [green]✔[/green] Gemini 키가 이미 설정되어 있습니다")
+        else:
+            k = key or typer.prompt("   Gemini API 키 (무료: https://aistudio.google.com)", hide_input=True)
+            env_file = save_global_env({"GEMINI_API_KEY": k.strip()})
+            console.print(f"   [green]✔[/green] 키 저장: {env_file} (권한 600)")
 
     # 3. config file
     cfg_file = Path.cwd() / "lemory.toml"
-    cfg_file.write_text(f"[lemory]\nvault = {json.dumps(str(v))}\n")
+    cfg_file.write_text(f"[lemory]\nvault = {json.dumps(str(v))}\n{extra_toml}")
     console.print(f"   [green]✔[/green] 설정 저장: {cfg_file}")
 
     # health check + first index
     eng = _engine(v)
     try:
         vec = eng.llm.embed(["setup ping"])
-        console.print(f"   [green]✔[/green] API 연결 확인 ({vec.shape[-1]}d embeddings)")
+        console.print(f"   [green]✔[/green] 임베딩 연결 확인 ({vec.shape[-1]}d)")
     except Exception as e:
-        console.print(f"   [red]✘ API 확인 실패:[/red] {str(e)[:120]}")
+        console.print(f"   [red]✘ 연결 확인 실패:[/red] {str(e)[:160]}")
         raise typer.Exit(1)
     if index_now:
         with console.status("첫 인덱싱 중... (이후에는 변경분만 처리됩니다)"):
@@ -99,6 +117,69 @@ def setup(
         "  lemory serve            # http://127.0.0.1:8377 웹 UI + Obsidian 플러그인 백엔드\n"
         "  claude mcp add lemory -- lemory mcp   # Claude Code에서 바로 사용"
     )
+
+
+def _machine_ram_gb() -> float:
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1024**3
+    except (ValueError, OSError, AttributeError):
+        return 0.0  # unknown (e.g. Windows) — skip the warning
+
+
+def _setup_ollama() -> str:
+    """Interactive Ollama mode setup. Returns extra lemory.toml lines."""
+    from ..providers.ollama import DEFAULT_EMBED, DEFAULT_HOST, DEFAULT_LLM, OllamaClient
+
+    ram = _machine_ram_gb()
+    if 0 < ram < 8:
+        console.print(
+            f"   [yellow]⚠ RAM {ram:.0f}GB 감지 — Gemma 3n E4B는 8GB 이상을 권장합니다."
+            " 느리거나 스왑이 발생할 수 있어요 (모드 3이 가벼운 대안).[/yellow]"
+        )
+    client = OllamaClient(host=DEFAULT_HOST)
+    if not client.server_alive():
+        console.print(
+            "   [red]✘ Ollama가 실행 중이 아닙니다.[/red]\n"
+            "     설치: [bold]https://ollama.com/download[/bold] (macOS/Windows 앱 또는\n"
+            "           `curl -fsSL https://ollama.com/install.sh | sh`)\n"
+            "     실행 후 다시 `lemory setup`을 돌려주세요."
+        )
+        raise typer.Exit(1)
+    console.print("   [green]✔[/green] Ollama 서버 연결됨")
+
+    installed = client.installed_models()
+    for model, size in ((DEFAULT_LLM, "~5.6GB"), (DEFAULT_EMBED, "~640MB")):
+        if any(m.startswith(model) for m in installed):
+            console.print(f"   [green]✔[/green] {model} 설치됨")
+            continue
+        if typer.confirm(f"   {model} 모델이 없습니다. 지금 받을까요? ({size})", default=True):
+            import subprocess
+
+            r = subprocess.run(["ollama", "pull", model])
+            if r.returncode != 0:
+                console.print(f"   [red]✘ pull 실패[/red] — 수동으로: ollama pull {model}")
+                raise typer.Exit(1)
+        else:
+            console.print(f"   나중에 직접 받아주세요: [bold]ollama pull {model}[/bold]")
+    client.close()
+    console.print("   [green]✔[/green] 완전 로컬 모드 — 볼트 내용이 컴퓨터 밖으로 나가지 않습니다")
+    return 'provider = "ollama"\n'
+
+
+def _setup_fastembed() -> str:
+    """Search-only local mode. Returns extra lemory.toml lines."""
+    try:
+        import fastembed  # noqa: F401
+
+        console.print("   [green]✔[/green] fastembed 준비됨 (첫 색인 때 모델 220MB 자동 다운로드)")
+    except ImportError:
+        console.print(
+            "   [red]✘ fastembed가 없습니다.[/red] 먼저:\n"
+            "     pip install \"lemory[local]\"   (또는 pipx inject lemory fastembed)"
+        )
+        raise typer.Exit(1)
+    console.print("   [dim]검색·색인·콘솔은 전부 되고, ask(답변 생성)만 키가 필요합니다.[/dim]")
+    return 'provider = "local"\n'
 
 
 @app.command()

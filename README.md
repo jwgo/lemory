@@ -173,10 +173,19 @@ What Lemory actually consumes:
 Hitting the limit never bills you — Lemory rate-limits itself, waits out 429s,
 and falls back to `gemini-2.5-flash-lite` under load.
 
-**2. No key at all** — `pip install "lemory[local]"` switches to local
-multilingual embeddings automatically (one 220 MB download). Indexing, search,
-the whole web console and knowledge explorer run **fully offline**; only
-`ask()`'s answer generation needs an LLM key.
+**2. No key at all — two local modes**, both one keypress in `lemory setup`:
+
+- **Fully local (Ollama)** — Gemma 3n E4B (4-bit, ~5.6 GB) generates answers,
+  Qwen3-Embedding-0.6B (~640 MB, 1024d) does retrieval. *Everything* including
+  `ask()` runs offline; nothing ever leaves your machine. Needs 8 GB+ RAM.
+- **Search-only local (fastembed)** — multilingual MiniLM (220 MB, 4 GB RAM is
+  plenty). Indexing, search, console, knowledge explorer all offline; only
+  `ask()`'s generation wants a key. Mixed mode works too: local embeddings +
+  API generation — only the few retrieved chunks are ever sent out.
+
+Switching embedding models is detected automatically and triggers a one-time
+full re-embed (different models = different vector spaces; stale vectors would
+silently corrupt search). The cache is per-model, so switching *back* is free.
 
 ## Why it performs — mechanism, not magic
 
