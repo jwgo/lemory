@@ -78,8 +78,13 @@ class LemoryConfig(BaseSettings):
     rrf_k: int = 60
     w_vector: float = 1.0
     w_bm25: float = 0.8
-    keyword_bm25_boost: float = 1.8  # lexical weight multiplier for short keyword queries
-    verbatim_gate: float = 0.75  # query-token coverage in top BM25 chunks that flips to lexical lean
+    # lexical lean for keyword/verbatim queries. Swept on KorQuAD with
+    # multihop + robustness guards (benchmarks/sweep_verbatim.py): 0.60/2.4
+    # gains +1.2pt recall@1 on quote-the-document questions with zero guard
+    # regression; pushing further (boost 3.0) starts costing paraphrase
+    # robustness, so this is the knee of the curve.
+    keyword_bm25_boost: float = 2.4  # lexical weight multiplier when verbatim/keyword detected
+    verbatim_gate: float = 0.60  # query-token coverage in top BM25 chunks that flips to lexical lean
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions

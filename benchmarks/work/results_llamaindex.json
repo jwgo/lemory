@@ -1,0 +1,10 @@
+{
+  "answer_in_context@8": 0.6491228070175439,
+  "aic_1hop": 1.0,
+  "aic_2hop": 0.5238095238095238,
+  "full_support@8": 0.5964912280701754,
+  "p50_latency_ms": 648.9095539999994,
+  "n": 57,
+  "note": "llama-index-core VectorStoreIndex, default SentenceSplitter, same gemini-embedding-001@768d as all other rows",
+  "p50_local_ms": 1.784860000043409
+}

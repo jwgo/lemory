@@ -54,7 +54,7 @@ articles, 400 human-written questions (sampled from dev 5,774):
 
 | System | Recall@1 | Recall@5 | MRR@10 | e2e answer EM (40q) |
 |---|---|---|---|---|
-| **Lemory** (hybrid+graph) | 0.888 | 0.985 | 0.930 | 0.875 |
+| **Lemory** (hybrid+graph) | 0.908 | 0.985 | 0.943 | 0.900 |
 | Vector-only RAG | 0.855 | 0.968 | 0.902 | 0.925 |
 | BM25 | **0.923** | **0.993** | **0.952** | **0.950** |
 
@@ -86,32 +86,35 @@ English notes / keyword shorthand / typos; full-support@8):
 **Against the field** — same corpus, same embedding/generator/judge models
 wherever the system allows it ([full methodology](BENCHMARKS.md)):
 
-| | **Lemory** | mem0 | cognee | supermemory | qmd |
-|---|---|---|---|---|---|
-| Multi-hop full-support@8 | **1.000** | 0.579 | 0.561 | 0.579 | 0.526 |
-| [LOCOMO](https://github.com/snap-research/locomo) LLM-judge | **0.706** | 0.669¹ | — | — | — |
-| Retrieval latency (p50) | **~3 ms** | 212 ms | ~5 s | 327 ms | 0.6–59 s |
+| | **Lemory** | mem0 | cognee | supermemory | LlamaIndex | qmd |
+|---|---|---|---|---|---|---|
+| Multi-hop answer-in-context@8 | **1.000** | 0.579 | 0.561 | 0.579 | 0.649 | 0.526² |
+| [LOCOMO](https://github.com/snap-research/locomo) LLM-judge | **0.706** | 0.669¹ | — | — | — | — |
+| Retrieval latency (p50) | **~3 ms** | 212 ms | ~5 s | 327 ms | 649 ms³ | 0.6–59 s |
 
 <sub>¹ mem0's own published number. LongMemEval_S: 0.76 (GPT-4o full-context
-baseline ≈ 0.60). DMR (500 q): 0.694 vs 0.648 same-harness naive RAG.</sub>
+baseline ≈ 0.60). DMR (500 q): 0.694 vs 0.648 same-harness naive RAG.
+² qmd reports full-support@8. ³ LlamaIndex embeds every query via API,
+uncached; its local-only retrieval is ~2 ms — the quality gap is
+architectural, not compute.</sub>
 
 ### How that translates product-to-product
 
 Only systems we ran ourselves, same corpus/models wherever their design allows
 ([methodology](BENCHMARKS.md)):
 
-| | **Lemory** | mem0 OSS | cognee | supermemory |
-|---|---|---|---|---|
-| Runs as | 1 process, 1 SQLite file | + Qdrant vector store | + LanceDB & Kuzu stores | hosted API |
-| Knowledge graph from | your `[[wikilinks]]`, free | LLM fact extraction | LLM graph build (~45 min / 54 notes) | — |
-| Ingest LLM calls (54 notes) | **0** | 1–2 per note | many per note | 0 (API-side) |
-| Multi-hop full-support@8 | **1.000** | 0.579 | 0.561 | 0.579 |
-| Retrieval p50 | **~3 ms** | 212 ms | ~5 s | 327 ms |
-| 100% offline mode | yes (Ollama / fastembed) | no (LLM on ingest) | no (LLM on ingest) | no |
-| Korean retrieval | Hangul-bigram FTS, benchmarked | untested by us | untested by us | untested by us |
-| Data location | your disk only | your disk | your disk | their cloud |
+| | **Lemory** | mem0 OSS | cognee | supermemory | LlamaIndex |
+|---|---|---|---|---|---|
+| Runs as | 1 process, 1 SQLite file | + Qdrant vector store | + LanceDB & Kuzu stores | hosted API | library in your app |
+| Knowledge graph from | your `[[wikilinks]]`, free | LLM fact extraction | LLM graph build (~45 min / 54 notes) | — | — |
+| Ingest LLM calls (54 notes) | **0** | 1–2 per note | many per note | 0 (API-side) | 0 |
+| Multi-hop answer-in-context@8 | **1.000** | 0.579 | 0.561 | 0.579 | 0.649 |
+| Retrieval p50 | **~3 ms** | 212 ms | ~5 s | 327 ms | 649 ms (2 ms local) |
+| 100% offline mode | yes (Ollama / fastembed) | no (LLM on ingest) | no (LLM on ingest) | no | with a local embedder |
+| Korean retrieval | Hangul-bigram FTS, benchmarked | untested by us | untested by us | untested by us | untested by us |
+| Data location | your disk only | your disk | your disk | their cloud | your disk |
 
-mem0 and supermemory are conversational-memory products first — this table
+Five externally measured systems. mem0 and supermemory are conversational-memory products first — this table
 measures them on the personal-document-KB job Lemory is built for, which is
 exactly the design difference it quantifies. cognee targets the same job.
 

@@ -17,10 +17,10 @@ the precondition for a correct multi-hop answer.
 
 | System | Full-support@8 (2-hop) | Full-support@8 (all) | Recall@1 | MRR@10 | ms/query* |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 2.512 |
-| Lemory w/o graph (ablation) | 0.381 | 0.544 | 1.000 | 1.000 | 1.750 |
-| Vector-only (naive RAG) | 0.381 | 0.544 | 0.965 | 0.982 | 0.436 |
-| BM25 (lexical) | 0.429 | 0.579 | 0.825 | 0.912 | 0.817 |
+| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 | 2.139 |
+| Lemory w/o graph (ablation) | 0.357 | 0.526 | 1.000 | 1.000 | 1.396 |
+| Vector-only (naive RAG) | 0.381 | 0.544 | 0.965 | 0.982 | 0.249 |
+| BM25 (lexical) | 0.429 | 0.579 | 0.825 | 0.912 | 0.761 |
 
 ## 2. Single-hop retrieval (SQuAD v2 dev, real external data)
 
@@ -29,10 +29,10 @@ Hit = retrieved chunk is from the gold article and contains a gold answer.
 
 | System | Recall@1 | Recall@3 | Recall@5 | Recall@8 | MRR@10 | ms/query* |
 |---|---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 0.847 | 0.960 | 0.967 | 0.970 | 0.897 | 7.766 |
-| Lemory w/o graph (ablation) | 0.863 | 0.960 | 0.967 | 0.970 | 0.908 | 6.626 |
-| Vector-only (naive RAG) | 0.813 | 0.950 | 0.973 | 0.980 | 0.881 | 8.124 |
-| BM25 (lexical) | 0.830 | 0.920 | 0.950 | 0.970 | 0.881 | 7.449 |
+| **Lemory** (hybrid + graph) | 0.812 | 0.955 | 0.965 | 0.968 | 0.881 | 7.001 |
+| Lemory w/o graph (ablation) | 0.840 | 0.955 | 0.970 | 0.970 | 0.897 | 5.675 |
+| Vector-only (naive RAG) | 0.777 | 0.927 | 0.965 | 0.985 | 0.855 | 5.991 |
+| BM25 (lexical) | 0.818 | 0.948 | 0.968 | 0.973 | 0.881 | 6.424 |
 
 ## 3. End-to-end QA — LemoryBench (synthetic multi-hop)
 
@@ -69,6 +69,7 @@ answer string appears in the top-8 retrieved texts (LemoryBench, 57 q).
 | Vector-only (naive RAG) | 0.561 |
 | BM25 (lexical) | 0.667 |
 | mem0 OSS (Gemini backend) | 0.579 |
+| LlamaIndex (VectorStoreIndex, same embeddings) | 0.649 |
 
 mem0 by hops: 1-hop 0.667, 2-hop 0.548 · 212 ms/query (p50) · ingestion ran its
 LLM fact-extraction once per note (rate-limited; resumable state file).
@@ -89,7 +90,24 @@ generator/prompt as every other row (LemoryBench, 57 q / e2e 30 q).
 
 cognee retrieval p50 latency: 4994 ms/query (Lemory: ~2 ms local + one cached embedding call). cognify ingest of the 54-note vault took ~45 min under free-tier rate limits vs ~30 s for Lemory's index.
 
-## 4c. Query robustness (real-world phrasings)
+## 4c. External system: LlamaIndex (OSS framework)
+
+The 'build it yourself' path most teams take first: `llama-index-core`
+VectorStoreIndex over the same 54-note vault, default SentenceSplitter
+chunking, cosine top-8 — with the SAME gemini-embedding-001 @768d as every
+other row (custom adapter over Lemory's batched client). Fifth externally
+measured system (`benchmarks/run_llamaindex.py`).
+
+| System | Answer-in-context@8 | 1-hop | 2-hop | Full-support@8 |
+|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 1.000 |
+| LlamaIndex VectorStoreIndex | 0.649 | 1.000 | 0.524 | 0.596 |
+
+Latency p50: 649 ms as shipped (its retrieval embeds every query via the API,
+uncached); 1.8 ms local-only with a pre-embedded query — the gap to Lemory is
+architectural (no cache, no lexical leg, no graph), not compute.
+
+## 4d. Query robustness (real-world phrasings)
 
 The multi-hop questions re-asked as committed variants: an English
 paraphrase, a natural Korean phrasing (Korean query → English notes),
@@ -144,13 +162,22 @@ Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers 
 
 140 real Korean Wikipedia articles as notes; 400 human-written dev questions (seeded sample of 5,774). Hit = chunk from the gold article containing a gold answer span.
 
-**BM25 wins here and we report it**: SQuAD-family questions quote the passage vocabulary (written while reading it), which is BM25's best case. The robustness section shows what happens when the same kind of content is asked in the user's own words — BM25 0.25–0.48, Lemory 0.95+.
+**BM25 still wins here and we report it**: SQuAD-family questions quote the passage vocabulary (written while reading it), which is BM25's best case. The robustness section shows what happens when the same kind of content is asked in the user's own words — BM25 0.25–0.48, Lemory 0.95+.
 
 | System | Recall@1 | Recall@5 | MRR@10 | e2e EM (40q) |
 |---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 0.887 | 0.985 | 0.930 | 0.875 |
+| **Lemory** (hybrid + graph) | 0.908 | 0.985 | 0.943 | 0.900 |
 | Vector-only (naive RAG) | 0.855 | 0.968 | 0.902 | 0.925 |
-| BM25 (lexical) | 0.922 | 0.993 | 0.952 | 0.950 |
+| BM25 (lexical) | 0.923 | 0.993 | 0.952 | 0.950 |
+
+The Lemory row reflects the verbatim-lean tuning pass
+(`benchmarks/sweep_verbatim.py`): the per-query verbatim detector now flips to
+a stronger lexical weight (gate 0.75→0.60, boost 1.8→2.4), lifting recall@1
+0.895→0.908 and e2e EM 0.875→0.900 on this corpus and **halving the gap to
+BM25 (3.6→1.5 pt)** — while the multi-hop (1.000) and robustness
+(0.946/0.975/0.982/0.965) guards stayed exactly unchanged. Pushing the boost
+further (3.0) starts costing paraphrase robustness, so this is the knee of
+the curve, not the end of it.
 
 ## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
