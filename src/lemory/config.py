@@ -84,7 +84,10 @@ class LemoryConfig(BaseSettings):
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
     context_style: str = "full"   # "full" chunks or "compact" fact-sheet context for ask()
-    context_order: str = "curriculum"  # "curriculum" (CDS-inspired smooth ordering) or "rank"
+    # "rank" (fusion order) or "curriculum" — CDS-inspired smooth ordering
+    # (arXiv:2605.13511). Measured on KorQuAD e2e A/B: no gain over rank
+    # (contain-EM tied, F1 -3pt), so it stays opt-in. See BENCHMARKS.md §13.
+    context_order: str = "rank"
     recency_half_life_days: float = 21.0
     graph_expansion: bool = True
     graph_top_docs: int = 6

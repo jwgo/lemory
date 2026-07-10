@@ -268,6 +268,27 @@ Synthetic Zipfian corpus, 50 queries, exact cosine + SQLite FTS5.
 benchmark machine; the query embedding round-trip (~100–300 ms, identical for
 all embedding-based systems) is excluded.
 
+## 13. Context ordering — CDS-inspired curriculum (negative result)
+
+"Many-Shot CoT-ICL" (Chung et al., ICML 2026, arXiv:2605.13511) shows that
+ordering in-context *demonstrations* as a smooth low-curvature trajectory in
+embedding space improves reasoning. We tested the analogous idea on ask()'s
+*retrieved evidence*: same hits, same generator/prompt, only the presentation
+order differs (`benchmarks/run_context_order.py`; KorQuAD, k=12, 39 paired
+questions — one dropped by the API safety filter for both arms).
+
+| Order | contain-EM | token-F1 | mean path smoothness |
+|---|---|---|---|
+| rank (fusion order, default) | 0.872 | **0.520** | 0.682 |
+| curriculum (greedy TSP + curvature penalty) | 0.872 | 0.489 | 0.728 |
+
+The reordering does what it promises geometrically (smoothness ↑) but buys
+no answer quality: containment ties, token-F1 slips ~3 pt. Consistent with
+the paper's own scaling story — its gains appear at 16–128 demonstrations,
+while a grounded answer here reads 8–12 evidence blocks. So `context_order`
+defaults to `"rank"` and `"curriculum"` remains an opt-in experiment, same
+policy as LLM query expansion (§4c): measured, not adopted.
+
 ## Reproduce
 
 ```bash
