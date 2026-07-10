@@ -504,6 +504,7 @@ const SETTINGS_META = [
   ]],
   ["답변 생성", [
     ["context_style", "컨텍스트 스타일", "full: 청크 원문 그대로 / compact: 팩트시트 압축", "select", ["full", "compact"]],
+    ["context_order", "증거 배열 순서", "curriculum: 임베딩 궤적이 매끄러운 커리큘럼 순 (CDS, arXiv:2605.13511) / rank: 검색 점수순", "select", ["curriculum", "rank"]],
   ]],
   ["색인", [
     ["mention_links", "언급 링크", "위키링크가 없어도 제목 언급을 그래프 간선으로", "bool"],

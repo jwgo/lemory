@@ -84,6 +84,7 @@ class LemoryConfig(BaseSettings):
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
     context_style: str = "full"   # "full" chunks or "compact" fact-sheet context for ask()
+    context_order: str = "curriculum"  # "curriculum" (CDS-inspired smooth ordering) or "rank"
     recency_half_life_days: float = 21.0
     graph_expansion: bool = True
     graph_top_docs: int = 6

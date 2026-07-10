@@ -46,6 +46,7 @@ TUNABLE_FIELDS: dict[str, type] = {
     "rerank": bool,
     "enrich_entities": bool,
     "context_style": str,       # "full" | "compact"
+    "context_order": str,       # "curriculum" | "rank"
     "title_boost": float,
     "recency_boost": float,
     "recency_half_life_days": float,
@@ -251,6 +252,8 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                 raise HTTPException(400, f"bad value for {key}: {value!r}")
             if key == "context_style" and coerced not in ("full", "compact"):
                 raise HTTPException(400, "context_style must be 'full' or 'compact'")
+            if key == "context_order" and coerced not in ("curriculum", "rank"):
+                raise HTTPException(400, "context_order must be 'curriculum' or 'rank'")
             setattr(engine.cfg, key, coerced)
             changed[key] = coerced
         if changed:

@@ -67,6 +67,18 @@ def answer(engine: "Engine", question: str, k: int = 8) -> Answer:
     hits = engine.search(question, k=k)
     if not hits:
         return Answer(text="I couldn't find anything relevant in the vault.", sources=[])
+    if engine.cfg.context_order == "curriculum":
+        # CDS-inspired (arXiv:2605.13511): present evidence as a smooth
+        # embedding-space trajectory instead of fusion-rank order — selection
+        # is unchanged, only the reading order of the context. The query
+        # vector is already cached from the search above.
+        from .curriculum import curriculum_order
+
+        try:
+            qv = engine.embed_query_cached(question)
+        except Exception:
+            qv = None
+        hits = curriculum_order(engine, qv, hits)
     if engine.cfg.context_style == "compact":
         from .compact import build_compact_context
 

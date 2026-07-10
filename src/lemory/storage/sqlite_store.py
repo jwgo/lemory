@@ -583,6 +583,11 @@ class Store:
         top = top[np.argsort(-sims[top])]
         return [(int(ids[i]), float(sims[i])) for i in top]
 
+    def chunk_vectors(self, chunk_ids: list[int]) -> dict[int, "np.ndarray"]:
+        """Raw stored vectors for specific chunks (unit-norm rows of the matrix)."""
+        matrix, _ids, pos = self._ensure_matrix()
+        return {cid: matrix[pos[cid]] for cid in chunk_ids if cid in pos}
+
     def chunk_sims(self, query_vec: np.ndarray, chunk_ids: list[int]) -> dict[int, float]:
         """Cosine similarity of specific chunks against a query vector."""
         matrix, _ids, pos = self._ensure_matrix()
