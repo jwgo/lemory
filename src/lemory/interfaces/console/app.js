@@ -365,14 +365,31 @@ async function drawNoteDetail(path) {
 }
 
 /* ----------------------------------------------------------------- search */
+// what people actually ask their vault — rotated so the empty state teaches range
+const EXAMPLE_QUERIES = [
+  "3분기 킥오프에서 예산 얼마로 잡았지?",
+  "재택근무 정책, 작년이랑 지금이랑 뭐가 달라졌지?",
+  "데이터플랫폼팀 리드가 누구고 무슨 일 하는 팀이지?",
+  "자바스크립트 이벤트 루프 뭐였지? 내 노트 기준으로",
+  "카오스 벨룸 가기 전에 준비물 뭐라고 적어놨더라?",
+  "알러지 올라올 때 대처 순서 뭐였지?",
+  "전세 갱신 거절당하면 뭐부터 한다고 정리해놨지?",
+  "그 프로젝트 리드가 좋아하는 DB가 뭐더라?",
+  "오사카에서 갔던 그 라멘집 이름이 뭐였지?",
+  "사피엔스 읽으면서 밑줄 친 문장 뭐가 있었지?",
+  "김치찌개 황금비율, 내 레시피 노트 기준으로",
+  "요새 내가 하던 그거 뭐였지?",
+];
+
 async function renderSearch() {
   const Q = S.search;
   const m = $("#main");
+  const ph = EXAMPLE_QUERIES[Math.floor(Math.random() * EXAMPLE_QUERIES.length)];
   m.innerHTML = `<div class="view">
     <div class="view-head"><div class="view-title">검색</div>
       <div class="view-sub">하이브리드 검색은 로컬에서 수 ms — 질문은 LLM으로 출처 달린 답변</div></div>
     <div class="search-box">
-      <input id="q" type="text" placeholder="요새 내가 하던 그거 뭐였지?" value="${esc(Q.q)}" autocomplete="off">
+      <input id="q" type="text" placeholder="${esc(ph)}" value="${esc(Q.q)}" autocomplete="off">
       <button class="btn primary" id="btnAsk">질문</button>
       <button class="btn" id="btnSearch">검색만</button>
     </div>
@@ -396,6 +413,11 @@ async function renderSearch() {
 
   const input = $("#q");
   input.focus();
+  // rotate example questions while the box is empty — the empty state is the tutorial
+  const rot = setInterval(() => {
+    if (!document.body.contains(input)) { clearInterval(rot); return; }
+    if (!input.value) input.placeholder = EXAMPLE_QUERIES[Math.floor(Math.random() * EXAMPLE_QUERIES.length)];
+  }, 4000);
   input.addEventListener("keydown", e => { if (e.key === "Enter") doAsk(); });
   $("#btnAsk").onclick = doAsk;
   $("#btnSearch").onclick = doSearch;

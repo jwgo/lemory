@@ -97,21 +97,36 @@ baseline ≈ 0.60). DMR (500 q): 0.694 vs 0.648 same-harness naive RAG.</sub>
 
 ## What it feels like
 
+Anything you ever wrote down becomes askable — work, study, games, life:
+
 ```
+$ lemory ask "3분기 킥오프에서 예산 얼마로 잡았지?"                 # meetings
+$ lemory ask "데이터플랫폼팀 리드가 누구고 무슨 일 하는 팀이지?"      # org / people
+$ lemory ask "재택근무 정책, 작년이랑 지금이랑 뭐가 달라졌지?"        # policy diff over time
+$ lemory ask "자바스크립트 이벤트 루프 뭐였지? 내 노트 기준으로"      # study notes
+$ lemory ask "카오스 벨룸 가기 전에 준비물 뭐라고 적어놨더라?"        # game prep notes
+$ lemory ask "알러지 올라올 때 대처 순서 뭐였지?"                    # health protocols
+$ lemory ask "전세 갱신 거절당하면 뭐부터 한다고 정리해놨지?"         # legal/admin notes
+$ lemory ask "오사카에서 갔던 그 라멘집 이름이 뭐였지?"              # travel log
+```
+
+The ones plain RAG structurally can't do:
+
+```
+$ lemory ask "프로젝트 아틀라스 리드가 좋아하는 DB가 뭐더라?"
+# multi-hop: Atlas note → [[lead]] wikilink → that person's note has the answer
+
 $ lemory ask "요새 내가 읽던 책 뭐였지?"
-요즘 읽는 책은 어스시의 마법사이다 [1, 3].          # ← 넉 달 전 책이 아니라 지금 책
+요즘 읽는 책은 어스시의 마법사이다 [1, 3].     # temporal: the *current* book,
+$ lemory ask "3월에 읽던 책은?"                # …but asking about March reaches history
 
-$ lemory ask "어제 회의에서 뭐 결정했지?"
-정산 배치를 새벽 4시로 옮기기로 결정했다 [1].
-
-$ lemory recent          # 요새 내가 뭐 만졌지? (LLM 없이, 즉시)
-$ lemory doctor          # 뭔가 이상하면: 볼트/키/API/인덱스 원샷 진단
+$ lemory recent          # what was I touching lately? (no LLM, instant)
+$ lemory doctor          # one-shot diagnosis: vault / key / API / index
 ```
 
 Typos are repaired against your vault's own vocabulary (no API). List questions
-("읽은 책 전부?") auto-widen retrieval. Facts that changed resolve to the newest,
-while *"3월에 읽던 책은?"* still reaches history. Renames, deletes, aliases,
-Korean filenames — the watcher keeps up live.
+("읽은 책 전부?") auto-widen retrieval. Renames, deletes, aliases, Korean
+filenames — the watcher keeps up live.
 
 ## Quickstart — 2 minutes, 1 free key (or none)
 
@@ -135,9 +150,82 @@ search box:
 
 <img src="docs/assets/console-knowledge.png" alt="지식 계층 — 폴더 트리, 노트, 백링크" width="820">
 
-No API key at all? `pip install "lemory[local]"` — search runs fully offline on
-local multilingual embeddings (220 MB once). Re-indexing an unchanged vault
-costs zero API calls, ever (content-hash + embedding cache).
+**New here? The step-by-step guide (설치 → 무료 키 → 첫 질문) is
+[docs/GUIDE.ko.md](docs/GUIDE.ko.md).**
+
+## Running it for free
+
+Two fully-free paths, pick one:
+
+**1. Gemini free tier (recommended)** — a key from
+[aistudio.google.com](https://aistudio.google.com) takes 2 minutes and needs no
+credit card; without a billing account there is nothing to accidentally spend.
+What Lemory actually consumes:
+
+| Action | Cost | Free-tier headroom |
+|---|---|---|
+| First index of 1,000 notes (~3,000 chunks) | ~47 embedding calls | ~5% of one day's quota |
+| Re-index after editing a note | only that note's chunks | negligible |
+| Full re-index, unchanged vault | **0 calls** (content-hash cache) | unlimited |
+| Search | 1 embedding call (cached per query) | hundreds/day |
+| `ask()` — answer with citations | 1 embed + 1 generation | **~250 questions/day** |
+
+Hitting the limit never bills you — Lemory rate-limits itself, waits out 429s,
+and falls back to `gemini-2.5-flash-lite` under load.
+
+**2. No key at all** — `pip install "lemory[local]"` switches to local
+multilingual embeddings automatically (one 220 MB download). Indexing, search,
+the whole web console and knowledge explorer run **fully offline**; only
+`ask()`'s answer generation needs an LLM key.
+
+## Why it performs — mechanism, not magic
+
+Each headline number above traces to one specific design choice:
+
+- **Multi-hop 1.000 vs 0.53–0.58 (everyone else)** — your `[[wikilinks]]` and
+  unlinked title mentions *are* the knowledge graph. Retrieval expands 1 hop
+  along them, gated by query similarity and capped below direct evidence, so
+  "Atlas의 리드가 좋아하는 DB는?" hops Atlas → 리드 → answer. Vector search
+  can't find a note that shares no words with the question; Lemory follows the
+  edge you drew. And because the graph is mined at index time without an LLM,
+  it costs nothing — cognee pays ~45 min of LLM calls to build a graph for a
+  54-note vault; Lemory's graph on the same vault is free and scored higher.
+- **Robustness 0.95+ vs 0.25–0.54 on paraphrase/한국어/typo/keyword queries** —
+  dense vectors and BM25 fail in *different* ways, so weighted RRF fusion
+  covers both; Korean gets Hangul-bigram FTS (agglutinative morphology breaks
+  word-token BM25); unknown query words are repaired against the vault's own
+  lexicon before search, with zero API calls.
+- **Latency ms not seconds** — no vector-DB server round trip: exact numpy
+  cosine + SQLite FTS5 in-process. Measured scaling (hybrid+graph, full
+  pipeline): 2k chunks → 7 ms · 10k → 19 ms · 50k → 79 ms. On the real
+  33k-chunk 나무위키 corpus with bigram FTS: ~0.2 s/query — still 25× faster
+  than cognee's 5 s.
+- **Cost that rounds to zero** — embeddings are content-addressed
+  (`sha256(model|dim|task|text)`), so nothing is ever embedded twice;
+  `context_style="compact"` packs retrieved evidence into ~550-token dated
+  fact sheets, supermemory-style, with no extra LLM calls.
+- **Time awareness** — "지난주", "요새", "3월에" parse to date ranges; changed
+  facts resolve to the newest note unless you ask about the past.
+
+## Big vaults are fine
+
+The largest corpus in our benchmarks is real: **1,469 나무위키 documents,
+33,375 chunks, 24,850 real wikilink edges** — one SQLite file, searched at
+~0.2 s/query with recall@8 1.00. Embedding a corpus that size once takes a
+while on a free tier (the cache makes it a one-time cost); everything local —
+parsing, link mining, FTS, graph — is seconds. Indexing is incremental: a
+10,000-note vault that changes 5 notes today re-processes 5 notes. The
+synthetic scaling test holds full hybrid+graph search under 80 ms at 50k
+chunks, and giant single documents are fine — the chunker splits along
+heading structure.
+
+Honest ceiling: a whole life + whole job is typically 10k–50k notes
+(50k–300k chunks) — inside the design envelope (100k chunks ≈ 300 MB RAM for
+the vector matrix, 0.1–0.2 s queries), though first-time embedding at that
+scale wants a paid tier (a few dollars, once). **Millions** of chunks — a
+whole company's document store — is beyond the comfortable range of the
+exact-search architecture; an ANN index option is on the roadmap, as is
+PDF/attachment indexing (today it's `.md` only).
 
 <details>
 <summary><b>Obsidian</b> — sidebar panel, click a citation to open the note</summary>
