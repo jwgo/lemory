@@ -41,12 +41,22 @@ class Engine:
             else:
                 missing_idx.append(i)
         if missing_idx:
+            import time as _time
+
+            t0 = _time.monotonic()
             fresh = self.llm.embed([texts[i] for i in missing_idx], task_type="RETRIEVAL_DOCUMENT")
+            elapsed = _time.monotonic() - t0
             put = {}
             for j, i in enumerate(missing_idx):
                 out[i] = fresh[j]
                 put[keys[i]] = fresh[j]
             self.store.cache_put_many(put)
+            # remember observed embed throughput → index-time estimates (EMA)
+            if elapsed > 0.05 and len(missing_idx) >= 8:
+                rate = len(missing_idx) / elapsed
+                old = self.store.get_meta("embed_rate_ema")
+                ema = rate if old is None else 0.7 * float(old) + 0.3 * rate
+                self.store.set_meta("embed_rate_ema", f"{ema:.2f}")
         return out, len(missing_idx)
 
     def embed_query_cached(self, query: str) -> np.ndarray:
@@ -59,6 +69,15 @@ class Engine:
         return vec
 
     # ----------------------------------------------------------------- verbs
+    def index_plan(self, full: bool = False):
+        """Dry-run: what would index() process, and roughly how long?"""
+        from .ingestion import Indexer
+
+        with self._index_lock:
+            if self._indexer is None:
+                self._indexer = Indexer(self)
+            return self._indexer.plan(full=full)
+
     def index(self, full: bool = False, progress=None, paths: Optional[set] = None):
         from .ingestion import Indexer
 

@@ -86,3 +86,31 @@ def test_console_ui_served(engine):
         assert client.get("/assets/app.css").status_code == 200
         assert client.get("/assets/app.js").status_code == 200
         assert client.get("/assets/evil.py").status_code == 404
+
+
+def test_index_plan_endpoint(engine, vault):
+    app = build_app(engine, watch=False)
+    with TestClient(app) as client:
+        # lifespan already indexed: nothing pending
+        p = client.get("/api/index_plan").json()
+        assert p["to_process"] == 0 and p["embeds_needed"] == 0
+        assert "즉시" in p["eta"]
+
+        # full re-index re-chunks everything, but cache absorbs the embeds
+        p = client.get("/api/index_plan", params={"full": True}).json()
+        assert p["to_process"] == engine.store.doc_count()
+        assert p["embeds_needed"] == 0
+
+        # a new note needs real embedding work
+        (engine.cfg.resolved_vault() / "Planned Note.md").write_text("fresh content here")
+        p = client.get("/api/index_plan").json()
+        assert p["to_process"] == 1 and p["embeds_needed"] >= 1
+        assert p["est_seconds"] > 0 and p["rate_chunks_per_s"] > 0
+
+
+def test_config_persist_keeps_vault_key(engine):
+    app = build_app(engine, watch=False)
+    with TestClient(app) as client:
+        client.patch("/api/config", json={"title_boost": 0.2})
+        toml = (engine.cfg.resolved_vault() / "lemory.toml").read_text()
+        assert "vault = " in toml and "title_boost = 0.2" in toml

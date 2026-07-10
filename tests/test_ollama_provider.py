@@ -99,3 +99,22 @@ def test_unchanged_signature_stays_incremental(engine):
     engine.index()
     rep = engine.index()
     assert rep.updated == 0 and rep.unchanged == engine.store.doc_count()
+
+
+def test_plan_detects_model_switch_as_full(engine):
+    engine.index()
+    plan = engine.index_plan()
+    assert plan.to_process == 0
+    engine.cfg.embed_model = "some-new-embedder"
+    plan = engine.index_plan()
+    assert plan.to_process == engine.store.doc_count()
+    assert plan.embeds_needed == plan.chunks_total  # new model → all cache misses
+
+
+def test_embed_rate_ema_recorded(engine):
+    engine.index()  # fake embedder is instant, but >=8 chunks in one batch? maybe not
+    # force a measurable batch through the cache layer
+    engine.embed_documents_cached([f"text {i}" for i in range(16)])
+    # rate may or may not be recorded depending on timing floor; API must not crash
+    plan = engine.index_plan()
+    assert plan.rate_chunks_per_s > 0

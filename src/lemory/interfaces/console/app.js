@@ -161,6 +161,19 @@ async function runIndex(full) {
   const btn = full ? $("#btnFull") : $("#btnSync");
   const orig = btn.innerHTML;
   btn.disabled = true;
+  btn.innerHTML = `${icoRefresh("spin-ico")} 예상 계산…`;
+  try {
+    const plan = await api(`/api/index_plan?full=${full}`);
+    if (full || plan.to_process > 0) {
+      const msg = `노트 ${plan.to_process}개 · 청크 ${plan.chunks_total}개 `
+        + `(임베딩 필요 ${plan.embeds_needed}개)\n예상 시간: ${plan.eta}`
+        + (plan.rate_measured ? "" : " (기본값 추정 — 첫 실행 후 실측치로 보정됩니다)");
+      if (full && !confirm(`전체 재색인을 실행할까요?\n\n${msg}`)) {
+        btn.disabled = false; btn.innerHTML = orig; return;
+      }
+      if (plan.embeds_needed > 0) toast(`색인 시작 — ${plan.eta} 예상`, "");
+    }
+  } catch { /* plan is best-effort; indexing proceeds regardless */ }
   btn.innerHTML = `${icoRefresh("spin-ico")} 색인 중…`;
   try {
     const r = await jpost("/index", { full });

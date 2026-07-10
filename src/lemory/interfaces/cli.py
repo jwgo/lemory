@@ -287,6 +287,17 @@ def index(
 ):
     """Index the vault incrementally."""
     eng = _engine(vault)
+    plan = eng.index_plan(full=full)
+    if plan.to_process or plan.to_remove:
+        src = "실측 속도" if plan.rate_measured else "예상 속도"
+        console.print(
+            f"노트 {plan.to_process}개 처리 예정"
+            + (f", {plan.to_remove}개 삭제" if plan.to_remove else "")
+            + f" · 청크 {plan.chunks_total}개 (임베딩 필요 {plan.embeds_needed}개)"
+            f" · 예상 시간: [bold]{plan.human_eta()}[/bold] ({src} {plan.rate_chunks_per_s:.0f}청크/s)"
+        )
+    else:
+        console.print("변경 없음 — 색인이 이미 최신입니다.")
     with console.status("indexing..."):
         rep = eng.index(full=full, progress=lambda m: console.log(m))
     console.print(

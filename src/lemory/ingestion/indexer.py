@@ -26,6 +26,32 @@ log = logging.getLogger("lemory.ingest")
 
 
 @dataclass
+class IndexPlan:
+    """Dry-run answer to "what would indexing do, and how long will it take?"."""
+
+    files_total: int = 0
+    to_process: int = 0        # notes that would be (re)chunked
+    to_remove: int = 0
+    chunks_total: int = 0      # chunks across to-be-processed notes
+    embeds_needed: int = 0     # chunks that would actually hit the embedder
+    est_seconds: float = 0.0
+    rate_chunks_per_s: float = 0.0
+    rate_measured: bool = False  # False → provider default, not observed speed
+
+    def human_eta(self) -> str:
+        s = self.est_seconds
+        if self.embeds_needed == 0:
+            return "즉시 (임베딩 캐시 적중)"
+        if s < 5:
+            return "몇 초"
+        if s < 90:
+            return f"약 {int(round(s / 5) * 5)}초"
+        if s < 5400:
+            return f"약 {int(round(s / 60))}분"
+        return f"약 {s / 3600:.1f}시간"
+
+
+@dataclass
 class SyncReport:
     added: int = 0
     updated: int = 0
@@ -63,6 +89,72 @@ class Indexer:
         self.engine = engine
         self.cfg = engine.cfg
         self.store: Store = engine.store
+
+    # ------------------------------------------------------------------ plan
+    # provider defaults (chunks/s) used until a real rate has been observed
+    _DEFAULT_RATES = {"gemini": 40.0, "openai": 40.0, "local": 20.0, "ollama": 6.0}
+
+    def plan(self, full: bool = False) -> IndexPlan:
+        """Estimate what sync() would do — no writes, no API calls.
+
+        Chunks changed notes locally (fast) and checks the embedding cache to
+        count real API/model work, then divides by the observed embed rate
+        (persisted EMA from previous runs) or a provider default.
+        """
+        p = IndexPlan()
+        vault = self.cfg.resolved_vault()
+        files = iter_vault_files(vault, self.cfg.include_globs, self.cfg.exclude_dirs)
+        p.files_total = len(files)
+        seen: set[str] = set()
+
+        model = self.cfg.active_embed_model()
+        dim = self.cfg.active_embed_dim()
+        # a pending model switch makes the next sync a full re-embed
+        stored_sig = self.store.get_meta("embed_signature")
+        if stored_sig is not None and stored_sig != f"{model}|{dim}" and self.store.chunk_count() > 0:
+            full = True
+
+        embed_keys: list[str] = []
+        for f in files:
+            rel = str(f.relative_to(vault))
+            seen.add(rel)
+            try:
+                raw = f.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            content_hash = hashlib.sha256(raw.encode()).hexdigest()
+            existing = self.store.get_doc_by_path(rel)
+            if existing and existing.content_hash == content_hash and not full:
+                continue
+            p.to_process += 1
+            title = note_title(f)
+            note = parse_note(raw, title)
+            chunks = chunk_note(
+                note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
+                self.cfg.min_chunk_chars,
+            )
+            if not chunks:
+                plain = render_plain(note.body)
+                chunks = [("", plain)] if plain else [("", title)]
+            p.chunks_total += len(chunks)
+            embed_keys.extend(
+                Store.cache_key(model, dim, "doc", embed_text_for_chunk(title, h, t))
+                for h, t in chunks
+            )
+
+        p.to_remove = sum(1 for d in self.store.all_docs() if d.path not in seen)
+        cached = self.store.cache_get_many(embed_keys)
+        p.embeds_needed = sum(1 for k in embed_keys if k not in cached)
+
+        rate_meta = self.store.get_meta("embed_rate_ema")
+        if rate_meta:
+            p.rate_chunks_per_s = max(0.5, float(rate_meta))
+            p.rate_measured = True
+        else:
+            provider = self.cfg.resolved_provider()
+            p.rate_chunks_per_s = self._DEFAULT_RATES.get(provider, 20.0)
+        p.est_seconds = p.embeds_needed / p.rate_chunks_per_s + p.chunks_total * 0.002 + 1.0
+        return p
 
     # ------------------------------------------------------------------ sync
     def sync(

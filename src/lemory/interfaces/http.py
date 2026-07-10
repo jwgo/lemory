@@ -195,6 +195,18 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             "activity": activity,
         }
 
+    @app.get("/api/index_plan")
+    def index_plan(full: bool = False):
+        p = engine.index_plan(full=full)
+        return {
+            "files_total": p.files_total, "to_process": p.to_process,
+            "to_remove": p.to_remove, "chunks_total": p.chunks_total,
+            "embeds_needed": p.embeds_needed,
+            "est_seconds": round(p.est_seconds, 1), "eta": p.human_eta(),
+            "rate_chunks_per_s": round(p.rate_chunks_per_s, 1),
+            "rate_measured": p.rate_measured,
+        }
+
     @app.get("/api/notes")
     def notes():
         return engine.store.doc_overview_rows()
@@ -273,6 +285,9 @@ def _persist_config(engine: Engine, changed: dict[str, Any]) -> None:
             log.warning("could not parse %s; not persisting settings", path)
             return
     existing.update(changed)
+    # the file must stay self-sufficient: without the vault key, running the
+    # CLI next to this toml would lose track of which vault it belongs to
+    existing.setdefault("vault", str(vault))
     lines = ["[lemory]"]
     for k, v in existing.items():
         if isinstance(v, bool):
