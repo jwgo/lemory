@@ -396,6 +396,89 @@ class Store:
     def link_count(self) -> int:
         return int(self.conn().execute("SELECT COUNT(*) AS n FROM links").fetchone()["n"])
 
+    # ------------------------------------------------------- console queries
+    def doc_overview_rows(self) -> list[dict]:
+        """Per-note console row: path, title, tags, mtime, chunk/link counts."""
+        c = self.conn()
+        chunks = {r["d"]: r["n"] for r in c.execute(
+            "SELECT doc_id AS d, COUNT(*) AS n FROM chunks GROUP BY doc_id")}
+        outl = {r["d"]: r["n"] for r in c.execute(
+            "SELECT src_doc AS d, COUNT(*) AS n FROM links GROUP BY src_doc")}
+        inl = {r["d"]: r["n"] for r in c.execute(
+            "SELECT dst_doc AS d, COUNT(*) AS n FROM links GROUP BY dst_doc")}
+        rows = []
+        for r in c.execute("SELECT id, path, title, tags, mtime FROM documents"):
+            try:
+                tags = json.loads(r["tags"])
+            except json.JSONDecodeError:
+                tags = []
+            rows.append({
+                "path": r["path"], "title": r["title"], "tags": tags,
+                "mtime": r["mtime"], "chunks": chunks.get(r["id"], 0),
+                "links_out": outl.get(r["id"], 0), "links_in": inl.get(r["id"], 0),
+            })
+        return rows
+
+    def doc_detail(self, path: str) -> Optional[dict]:
+        """Full note detail for the console: meta, chunks, in/out links."""
+        c = self.conn()
+        r = c.execute(
+            "SELECT id, path, title, tags, frontmatter, mtime, indexed_at "
+            "FROM documents WHERE path=?", (path,)
+        ).fetchone()
+        if not r:
+            return None
+        doc_id = r["id"]
+
+        def _links(where: str, join_on: str):
+            return [
+                {"path": x["path"], "title": x["title"], "kind": x["kind"],
+                 "weight": x["weight"]}
+                for x in c.execute(
+                    f"SELECT d.path, d.title, l.kind, l.weight FROM links l "
+                    f"JOIN documents d ON d.id = l.{join_on} WHERE l.{where}=? "
+                    f"ORDER BY l.weight DESC, d.title", (doc_id,))
+            ]
+
+        chunks = [
+            {"heading": x["heading"], "text": x["text"]}
+            for x in c.execute(
+                "SELECT heading, text FROM chunks WHERE doc_id=? ORDER BY ord",
+                (doc_id,))
+        ]
+        try:
+            tags = json.loads(r["tags"])
+        except json.JSONDecodeError:
+            tags = []
+        try:
+            frontmatter = json.loads(r["frontmatter"])
+        except json.JSONDecodeError:
+            frontmatter = {}
+        return {
+            "path": r["path"], "title": r["title"], "tags": tags,
+            "frontmatter": frontmatter, "mtime": r["mtime"],
+            "indexed_at": r["indexed_at"], "chunks": chunks,
+            "links_out": _links("src_doc", "dst_doc"),
+            "links_in": _links("dst_doc", "src_doc"),
+        }
+
+    def tag_counts(self) -> list[dict]:
+        out: dict[str, int] = {}
+        for r in self.conn().execute("SELECT tags FROM documents"):
+            try:
+                for t in json.loads(r["tags"]):
+                    out[t] = out.get(t, 0) + 1
+            except json.JSONDecodeError:
+                pass
+        return [
+            {"tag": t, "count": n}
+            for t, n in sorted(out.items(), key=lambda x: (-x[1], x[0]))
+        ]
+
+    def embed_cache_count(self) -> int:
+        return int(self.conn().execute(
+            "SELECT COUNT(*) AS n FROM embed_cache").fetchone()["n"])
+
     def doc_wikilinks(self) -> dict[int, list[str]]:
         """doc_id -> raw wikilink targets, as stored at index time."""
         out: dict[int, list[str]] = {}

@@ -119,8 +119,21 @@ Korean filenames — the watcher keeps up live.
 pipx install "git+https://github.com/jwgo/lemory"
 lemory setup      # vault path + free Gemini key → health check + first index
 lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"
-lemory serve      # web UI (screenshot above) + live vault watcher
+lemory serve      # web console (screenshot above) + live vault watcher
 ```
+
+`lemory serve` ships a full **web console** at `127.0.0.1:8377` — not just a
+search box:
+
+- **현황** — index stats, sync activity feed, models/storage, one-click reindex
+- **지식** — your vault as a browsable hierarchy: folder tree, tags, per-note
+  chunks, outgoing links & backlinks (wiki/mention/entity)
+- **검색** — hybrid/vector/BM25 playground with graph toggle, score bars,
+  latency readout, and LLM answers with citations
+- **설정** — retrieval knobs with live apply, persisted to `lemory.toml`
+- <kbd>⌘K</kbd> command palette to jump anywhere or fuzzy-find a note
+
+<img src="docs/assets/console-knowledge.png" alt="지식 계층 — 폴더 트리, 노트, 백링크" width="820">
 
 No API key at all? `pip install "lemory[local]"` — search runs fully offline on
 local multilingual embeddings (220 MB once). Re-indexing an unchanged vault

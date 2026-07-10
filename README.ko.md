@@ -79,8 +79,16 @@ $ lemory doctor    # 볼트/키/API/인덱스 원샷 진단
 pipx install "git+https://github.com/jwgo/lemory"
 lemory setup      # 볼트 + 무료 Gemini 키 → 진단 + 첫 인덱싱
 lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"
-lemory serve      # 웹 UI + 실시간 볼트 감시
+lemory serve      # 웹 콘솔 + 실시간 볼트 감시
 ```
+
+`lemory serve`는 검색창 하나가 아니라 **웹 콘솔**을 띄웁니다
+(`127.0.0.1:8377`): **현황**(색인 통계·활동 피드·원클릭 재색인), **지식**(폴더
+트리·태그·노트별 청크·백링크 탐색), **검색**(하이브리드/벡터/BM25 플레이그라운드
++ 출처 달린 답변), **설정**(검색 파라미터 즉시 적용, `lemory.toml`에 저장),
+그리고 <kbd>⌘K</kbd> 팔레트로 어디든 점프.
+
+<img src="docs/assets/console-knowledge.png" alt="지식 계층 — 폴더 트리, 노트, 백링크" width="820">
 
 키가 아예 없어도: `pip install "lemory[local]"` → 로컬 다국어 임베딩으로 완전
 오프라인 검색. **옵시디언**은 플러그인 3파일 복사, **Claude Code/VS Code**는

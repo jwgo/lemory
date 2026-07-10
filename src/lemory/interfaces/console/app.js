@@ -1,0 +1,648 @@
+/* Lemory console — vanilla JS SPA, no build step, no external deps. */
+"use strict";
+
+const $ = (sel, el = document) => el.querySelector(sel);
+const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error((await r.text()) || r.statusText);
+  return r.json();
+}
+const jpost = (url, body, method = "POST") => api(url, {
+  method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+});
+
+function toast(msg, cls = "") {
+  const el = document.createElement("div");
+  el.className = `toast ${cls}`;
+  el.textContent = msg;
+  $("#toasts").appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .25s"; }, 2600);
+  setTimeout(() => el.remove(), 2950);
+}
+
+function rel(ts) {
+  if (!ts) return "—";
+  const s = Date.now() / 1000 - ts;
+  if (s < 60) return "방금 전";
+  if (s < 3600) return `${Math.floor(s / 60)}분 전`;
+  if (s < 86400) return `${Math.floor(s / 3600)}시간 전`;
+  if (s < 86400 * 30) return `${Math.floor(s / 86400)}일 전`;
+  return new Date(ts * 1000).toLocaleDateString("ko-KR");
+}
+const fmtBytes = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB"
+  : b > 1024 ? (b / 1024).toFixed(0) + " KB" : b + " B";
+const fmtN = n => (n ?? 0).toLocaleString("ko-KR");
+// headings are stored as "Note Title > Section" breadcrumbs; showing the
+// title twice next to the note name reads as noise — strip the prefix
+const subHeading = (title, heading) => {
+  if (!heading || heading === title) return "";
+  return heading.startsWith(title + " > ") ? heading.slice(title.length + 3) : heading;
+};
+
+/* ------------------------------------------------------------------ state */
+const S = {
+  overview: null,
+  notes: null,          // /api/notes rows
+  tags: null,
+  vaultPath: null,
+  knowledge: { folder: "", filter: "", sort: "mtime", sel: null, open: new Set([""]) },
+  search: { q: "", mode: "hybrid", graph: true, k: 8 },
+};
+
+async function loadNotes(force = false) {
+  if (!S.notes || force) S.notes = await api("/api/notes");
+  return S.notes;
+}
+
+/* ----------------------------------------------------------------- router */
+const routes = {
+  overview: renderOverview,
+  knowledge: renderKnowledge,
+  search: renderSearch,
+  settings: renderSettings,
+};
+
+function nav() {
+  const h = location.hash.replace(/^#\/?/, "");
+  const [view, ...rest] = h.split("/");
+  const name = routes[view] ? view : "overview";
+  $$(".nav-item").forEach(a => a.classList.toggle("active", a.dataset.view === name));
+  routes[name](decodeURIComponent(rest.join("/") || ""));
+}
+window.addEventListener("hashchange", nav);
+
+function go(hash) { if (location.hash === hash) nav(); else location.hash = hash; }
+
+/* --------------------------------------------------------------- overview */
+async function renderOverview() {
+  const m = $("#main");
+  m.innerHTML = `<div class="view">
+    <div class="view-head">
+      <div class="view-title">현황</div>
+      <div class="view-sub" id="ovSub"></div>
+      <div class="spacer"></div>
+      <button class="btn" id="btnSync">${icoRefresh()} 증분 색인</button>
+      <button class="btn ghost" id="btnFull">전체 재색인</button>
+    </div>
+    <div class="tiles" id="tiles">${'<div class="tile"><div class="skel" style="height:24px;width:70px"></div><div class="skel" style="height:12px;width:44px;margin-top:8px"></div></div>'.repeat(4)}</div>
+    <div class="cols-2">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card"><div class="card-head">색인 활동</div><div class="act-list" id="acts"><div class="empty">불러오는 중…</div></div></div>
+        <div class="card"><div class="card-head">최근 수정된 노트</div><div class="act-list" id="recent"></div></div>
+      </div>
+      <div class="card"><div class="card-head">시스템</div><div class="kv" id="sys"></div></div>
+    </div>
+  </div>`;
+
+  $("#btnSync").onclick = () => runIndex(false);
+  $("#btnFull").onclick = () => runIndex(true);
+
+  let o;
+  try { o = await api("/api/overview"); } catch (e) {
+    m.querySelector(".view").innerHTML += `<div class="empty">서버에 연결할 수 없습니다 — ${esc(e.message)}</div>`;
+    return;
+  }
+  S.overview = o;
+  S.vaultPath = o.vault;
+  $("#vaultName").textContent = (o.vault || "").split("/").filter(Boolean).pop() || "볼트 미설정";
+  setWatch(o.watcher_alive);
+  $("#ovSub").textContent = o.last_sync ? `마지막 동기화 ${rel(+o.last_sync)}` : "";
+
+  $("#tiles").innerHTML = [
+    { n: fmtN(o.documents), l: "노트", s: `${fmtN(o.tags)}개 태그` },
+    { n: fmtN(o.chunks), l: "청크", s: `임베딩 캐시 ${fmtN(o.cached_embeddings)}` },
+    { n: fmtN(o.links), l: "그래프 링크", s: o.graph_expansion ? "그래프 확장 켜짐" : "그래프 확장 꺼짐" },
+    { n: fmtBytes(o.db_bytes), l: "저장소", s: "SQLite 단일 파일" },
+  ].map(t => `<div class="tile"><div class="num">${t.n}</div><div class="lbl">${t.l}</div><div class="sub">${esc(t.s)}</div></div>`).join("");
+
+  $("#acts").innerHTML = o.activity.length ? o.activity.map(a => `
+    <div class="act-row">
+      <span class="act-kind ${a.kind}">${{ startup: "시작", watch: "자동", manual: "수동" }[a.kind] || a.kind}</span>
+      <span class="act-delta">+${a.added} ~${a.updated} −${a.removed}</span>
+      <span class="act-delta" style="color:var(--text-3)">${a.chunks}청크 · ${a.embedded}임베딩 · ${a.seconds}s</span>
+      <span class="act-time" title="${new Date(a.ts * 1000).toLocaleString("ko-KR")}">${rel(a.ts)}</span>
+    </div>`).join("")
+    : `<div class="empty">아직 색인 활동이 없습니다</div>`;
+
+  loadNotes().then(notes => {
+    const rec = [...notes].sort((a, b) => b.mtime - a.mtime).slice(0, 6);
+    $("#recent").innerHTML = rec.length ? rec.map(n => `
+      <div class="act-row" style="cursor:pointer" data-path="${esc(n.path)}">
+        <span style="font-weight:550">${esc(n.title)}</span>
+        ${n.tags.slice(0, 2).map(t => `<span class="chip">#${esc(t)}</span>`).join("")}
+        <span class="act-time">${rel(n.mtime)}</span>
+      </div>`).join("") : `<div class="empty">노트가 없습니다</div>`;
+    $$("#recent .act-row").forEach(r =>
+      r.onclick = () => go("#/knowledge/" + encodeURIComponent(r.dataset.path)));
+  }).catch(() => {});
+
+  $("#sys").innerHTML = [
+    ["프로바이더", esc(o.provider || "—")],
+    ["LLM", esc(o.llm_model || "—")],
+    ["임베딩", esc(o.embed_model || "—")],
+    ["볼트", `<span class="kv-v mono">${esc(o.vault || "—")}</span>`],
+    ["DB", `<span class="kv-v mono">${esc(o.db || "—")}</span>`],
+    ["볼트 감시", o.watcher_alive ? '<span style="color:var(--ok)">실시간 동기화 중</span>' : '<span style="color:var(--warn)">꺼짐</span>'],
+    ["업타임", uptime(o.uptime_s)],
+  ].map(([k, v]) => `<div class="kv-row"><span class="kv-k">${k}</span><span class="kv-v">${v}</span></div>`).join("");
+}
+
+function uptime(s) {
+  if (s < 3600) return `${Math.floor(s / 60)}분`;
+  if (s < 86400) return `${Math.floor(s / 3600)}시간 ${Math.floor(s % 3600 / 60)}분`;
+  return `${Math.floor(s / 86400)}일 ${Math.floor(s % 86400 / 3600)}시간`;
+}
+
+async function runIndex(full) {
+  const btn = full ? $("#btnFull") : $("#btnSync");
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `${icoRefresh("spin-ico")} 색인 중…`;
+  try {
+    const r = await jpost("/index", { full });
+    toast(`색인 완료 — +${r.added} ~${r.updated} −${r.removed} (${r.seconds.toFixed(1)}s)`, "ok");
+    S.notes = null;
+    renderOverview();
+  } catch (e) {
+    toast(`색인 실패: ${e.message}`, "err");
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+
+function setWatch(alive) {
+  $("#watchDot").className = `dot ${alive ? "ok" : "warn"}`;
+  $("#watchLabel").textContent = alive ? "볼트 실시간 감시 중" : "감시 꺼짐";
+}
+
+/* -------------------------------------------------------------- knowledge */
+async function renderKnowledge(selPath) {
+  const K = S.knowledge;
+  if (selPath) K.sel = selPath;
+  const m = $("#main");
+  m.innerHTML = `<div class="view wide"><div class="kn" id="kn">
+    <div class="kn-pane tree-pane">
+      <div class="kn-pane-head"><span class="kn-pane-title">지식 계층</span></div>
+      <div class="tree" id="tree"></div>
+    </div>
+    <div class="kn-pane list-pane">
+      <div class="kn-pane-head">
+        <input class="note-filter" id="noteFilter" type="text" placeholder="필터…" value="${esc(K.filter)}">
+        <select class="note-sort" id="noteSort">
+          <option value="mtime">최근 수정</option>
+          <option value="title">제목</option>
+          <option value="links">연결 많은 순</option>
+          <option value="chunks">분량</option>
+        </select>
+      </div>
+      <div class="note-rows" id="noteRows"></div>
+    </div>
+    <div class="kn-pane detail-pane" id="notePane">
+      <div class="empty">${icoDoc()} 노트를 선택하세요</div>
+    </div>
+  </div></div>`;
+
+  $("#noteSort").value = K.sort;
+  $("#noteFilter").oninput = e => { K.filter = e.target.value; drawNoteRows(); };
+  $("#noteSort").onchange = e => { K.sort = e.target.value; drawNoteRows(); };
+
+  try { await loadNotes(); } catch (e) {
+    $("#noteRows").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+    return;
+  }
+  if (!S.tags) { try { S.tags = await api("/api/tags"); } catch { S.tags = []; } }
+
+  drawTree();
+  drawNoteRows();
+  if (K.sel) drawNoteDetail(K.sel);
+}
+
+function buildTree(notes) {
+  const root = { name: "", children: new Map(), count: 0 };
+  for (const n of notes) {
+    root.count++;
+    const parts = n.path.split("/").slice(0, -1);
+    let cur = root, acc = "";
+    for (const p of parts) {
+      acc = acc ? `${acc}/${p}` : p;
+      if (!cur.children.has(p)) cur.children.set(p, { name: p, full: acc, children: new Map(), count: 0 });
+      cur = cur.children.get(p);
+      cur.count++;
+    }
+  }
+  return root;
+}
+
+function drawTree() {
+  const K = S.knowledge;
+  const tree = buildTree(S.notes);
+  const el = $("#tree");
+  let html = `<div class="tree-item ${K.folder === "" && !K.tag ? "active" : ""}" data-folder="">
+    ${icoHome()}<span class="name">모든 노트</span><span class="cnt">${tree.count}</span></div>`;
+
+  const walk = (node, depth) => {
+    const kids = [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name, "ko"));
+    let s = "";
+    for (const k of kids) {
+      const open = K.open.has(k.full);
+      const hasKids = k.children.size > 0;
+      s += `<div class="tree-item ${K.folder === k.full && !K.tag ? "active" : ""}" data-folder="${esc(k.full)}">
+        <span class="tw ${open ? "open" : ""}" data-toggle="${esc(k.full)}" style="${hasKids ? "" : "visibility:hidden"}">${icoChev()}</span>
+        ${icoFolder()}<span class="name">${esc(k.name)}</span><span class="cnt">${k.count}</span></div>`;
+      if (hasKids && open) s += `<div class="tree-children">${walk(k, depth + 1)}</div>`;
+    }
+    return s;
+  };
+  html += walk(tree, 0);
+
+  if (S.tags?.length) {
+    html += `<div class="tree-sec">태그</div>`;
+    for (const t of S.tags.slice(0, 30)) {
+      html += `<div class="tree-item ${K.tag === t.tag ? "active" : ""}" data-tag="${esc(t.tag)}">
+        ${icoTag()}<span class="name">#${esc(t.tag)}</span><span class="cnt">${t.count}</span></div>`;
+    }
+  }
+  el.innerHTML = html;
+
+  $$(".tree-item", el).forEach(item => {
+    item.onclick = e => {
+      const tg = e.target.closest("[data-toggle]");
+      if (tg) {
+        const f = tg.dataset.toggle;
+        K.open.has(f) ? K.open.delete(f) : K.open.add(f);
+        drawTree(); return;
+      }
+      if (item.dataset.tag !== undefined) { K.tag = item.dataset.tag; K.folder = ""; }
+      else { K.folder = item.dataset.folder; K.tag = null; }
+      drawTree(); drawNoteRows();
+    };
+  });
+}
+
+function drawNoteRows() {
+  const K = S.knowledge;
+  let rows = S.notes;
+  if (K.tag) rows = rows.filter(n => n.tags.includes(K.tag));
+  else if (K.folder) rows = rows.filter(n => n.path.startsWith(K.folder + "/"));
+  if (K.filter) {
+    const f = K.filter.toLowerCase();
+    rows = rows.filter(n => n.title.toLowerCase().includes(f) || n.path.toLowerCase().includes(f));
+  }
+  const sorters = {
+    mtime: (a, b) => b.mtime - a.mtime,
+    title: (a, b) => a.title.localeCompare(b.title, "ko"),
+    links: (a, b) => (b.links_in + b.links_out) - (a.links_in + a.links_out),
+    chunks: (a, b) => b.chunks - a.chunks,
+  };
+  rows = [...rows].sort(sorters[K.sort]);
+
+  $("#noteRows").innerHTML = rows.length ? rows.map(n => `
+    <div class="note-row ${K.sel === n.path ? "active" : ""}" data-path="${esc(n.path)}">
+      <div class="t">${esc(n.title)}</div>
+      <div class="meta">
+        <span>${rel(n.mtime)}</span><span>${n.chunks}청크</span>
+        <span>↗${n.links_out} ↘${n.links_in}</span>
+        ${n.tags.slice(0, 2).map(t => `<span>#${esc(t)}</span>`).join("")}
+      </div>
+    </div>`).join("")
+    : `<div class="empty">해당하는 노트가 없습니다</div>`;
+
+  $$("#noteRows .note-row").forEach(r => r.onclick = () => {
+    K.sel = r.dataset.path;
+    $$("#noteRows .note-row").forEach(x => x.classList.toggle("active", x === r));
+    drawNoteDetail(K.sel);
+  });
+}
+
+async function drawNoteDetail(path) {
+  const pane = $("#notePane");
+  if (!pane) return;
+  pane.innerHTML = `<div class="note-detail"><div class="skel" style="height:22px;width:220px"></div>
+    <div class="skel" style="height:12px;width:320px;margin-top:10px"></div></div>`;
+  let d;
+  try { d = await api("/api/note?path=" + encodeURIComponent(path)); }
+  catch (e) { pane.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+
+  const obsidian = S.vaultPath
+    ? `obsidian://open?path=${encodeURIComponent(S.vaultPath.replace(/\/$/, "") + "/" + d.path)}`
+    : `obsidian://open?file=${encodeURIComponent(d.path)}`;
+
+  const linkPill = l => `<span class="link-pill" data-goto="${esc(l.path)}">
+      <span class="k ${l.kind}">${{ wiki: "링크", mention: "언급", entity: "개체" }[l.kind] || l.kind}</span>${esc(l.title)}</span>`;
+
+  pane.innerHTML = `<div class="note-detail">
+    <div class="nd-title">${esc(d.title)}</div>
+    <div class="nd-path">${esc(d.path)}
+      <a class="btn ghost" style="height:24px;padding:0 8px;font-size:11.5px" href="${obsidian}">${icoExt()} Obsidian에서 열기</a>
+    </div>
+    ${d.tags.length ? `<div class="nd-tags">${d.tags.map(t => `<span class="chip brand">#${esc(t)}</span>`).join("")}</div>` : ""}
+    <div class="nd-meta">
+      <span>수정 ${rel(d.mtime)}</span><span>색인 ${rel(d.indexed_at)}</span>
+      <span>청크 ${d.chunks.length}</span>
+    </div>
+    <div class="nd-sec"><div class="nd-sec-title">나가는 연결 · ${d.links_out.length}</div>
+      ${d.links_out.length ? `<div class="link-grid">${d.links_out.map(linkPill).join("")}</div>` : `<div class="view-sub">없음</div>`}</div>
+    <div class="nd-sec"><div class="nd-sec-title">들어오는 연결 (백링크) · ${d.links_in.length}</div>
+      ${d.links_in.length ? `<div class="link-grid">${d.links_in.map(linkPill).join("")}</div>` : `<div class="view-sub">없음</div>`}</div>
+    <div class="nd-sec"><div class="nd-sec-title">색인된 내용</div>
+      ${d.chunks.map(c => `<div class="chunk">${subHeading(d.title, c.heading) ? `<div class="h">${esc(subHeading(d.title, c.heading))}</div>` : ""}
+        <div class="x">${esc(c.text)}</div>
+        ${c.text.length > 400 ? `<div class="more">더 보기</div>` : ""}</div>`).join("")}</div>
+  </div>`;
+
+  $$("[data-goto]", pane).forEach(p => p.onclick = () => {
+    S.knowledge.sel = p.dataset.goto;
+    drawNoteRows();
+    drawNoteDetail(p.dataset.goto);
+  });
+  $$(".chunk .more", pane).forEach(btn => btn.onclick = () => {
+    btn.previousElementSibling.classList.add("open");
+    btn.remove();
+  });
+}
+
+/* ----------------------------------------------------------------- search */
+async function renderSearch() {
+  const Q = S.search;
+  const m = $("#main");
+  m.innerHTML = `<div class="view">
+    <div class="view-head"><div class="view-title">검색</div>
+      <div class="view-sub">하이브리드 검색은 로컬에서 수 ms — 질문은 LLM으로 출처 달린 답변</div></div>
+    <div class="search-box">
+      <input id="q" type="text" placeholder="요새 내가 하던 그거 뭐였지?" value="${esc(Q.q)}" autocomplete="off">
+      <button class="btn primary" id="btnAsk">질문</button>
+      <button class="btn" id="btnSearch">검색만</button>
+    </div>
+    <div class="search-ctl">
+      <div class="grp"><span>모드</span><div class="seg" id="segMode">
+        <button data-v="hybrid">하이브리드</button><button data-v="vector">벡터</button><button data-v="bm25">BM25</button></div></div>
+      <div class="grp"><span>그래프 확장</span><span class="switch ${Q.graph ? "on" : ""}" id="swGraph"></span></div>
+      <div class="grp"><span>결과 수</span><div class="seg" id="segK">
+        <button data-v="4">4</button><button data-v="8">8</button><button data-v="16">16</button></div></div>
+      <span class="chip lat-chip" id="lat" hidden></span>
+    </div>
+    <div id="answerBox"></div>
+    <div class="hits" id="hits"></div>
+  </div>`;
+
+  const syncSeg = (id, val) => $$(`#${id} button`).forEach(b => b.classList.toggle("active", b.dataset.v === String(val)));
+  syncSeg("segMode", Q.mode); syncSeg("segK", Q.k);
+  $$("#segMode button").forEach(b => b.onclick = () => { Q.mode = b.dataset.v; syncSeg("segMode", Q.mode); });
+  $$("#segK button").forEach(b => b.onclick = () => { Q.k = +b.dataset.v; syncSeg("segK", Q.k); });
+  $("#swGraph").onclick = e => { Q.graph = !Q.graph; e.target.classList.toggle("on", Q.graph); };
+
+  const input = $("#q");
+  input.focus();
+  input.addEventListener("keydown", e => { if (e.key === "Enter") doAsk(); });
+  $("#btnAsk").onclick = doAsk;
+  $("#btnSearch").onclick = doSearch;
+
+  async function doSearch() {
+    Q.q = input.value.trim(); if (!Q.q) return;
+    $("#answerBox").innerHTML = "";
+    $("#hits").innerHTML = `<div class="skel" style="height:64px"></div><div class="skel" style="height:64px"></div>`;
+    const t0 = performance.now();
+    try {
+      const hits = await api(`/search?q=${encodeURIComponent(Q.q)}&k=${Q.k}&mode=${Q.mode}&graph=${Q.graph}`);
+      const ms = performance.now() - t0;
+      $("#lat").hidden = false;
+      $("#lat").textContent = `${hits.length}건 · ${ms < 100 ? ms.toFixed(0) : (ms / 1000).toFixed(2) + "s로 표기됨"}${ms < 100 ? "ms" : ""} · ${Q.mode}${Q.graph && Q.mode === "hybrid" ? "+그래프" : ""}`;
+      drawHits(hits);
+    } catch (e) { $("#hits").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  }
+
+  async function doAsk() {
+    Q.q = input.value.trim(); if (!Q.q) return;
+    $("#answerBox").innerHTML = `<div class="answer-card"><div class="al">답변</div>
+      <div class="skel" style="height:14px;width:80%"></div><div class="skel" style="height:14px;width:60%;margin-top:8px"></div></div>`;
+    $("#hits").innerHTML = "";
+    $("#lat").hidden = true;
+    try {
+      const r = await jpost("/ask", { question: Q.q, k: Q.k });
+      $("#answerBox").innerHTML = `<div class="answer-card"><div class="al">답변</div>
+        <div class="at">${esc(r.answer)}</div></div>`;
+      drawHits(r.sources, true);
+    } catch (e) {
+      $("#answerBox").innerHTML = "";
+      $("#hits").innerHTML = `<div class="empty">답변 실패 — ${esc(e.message)}</div>`;
+    }
+  }
+
+  function drawHits(hits, cited = false) {
+    if (!hits.length) { $("#hits").innerHTML = `<div class="empty">결과가 없습니다</div>`; return; }
+    const max = Math.max(...hits.map(h => h.score), 1e-9);
+    $("#hits").innerHTML = hits.map((h, i) => `
+      <div class="hit" data-path="${esc(h.path)}">
+        <div class="row1">
+          <span class="rank">${cited ? "[" + (i + 1) + "]" : String(i + 1).padStart(2, "0")}</span>
+          <span class="title">${esc(h.title)}</span>
+          ${subHeading(h.title, h.heading) ? `<span class="hd">› ${esc(subHeading(h.title, h.heading))}</span>` : ""}
+          ${h.date ? `<span class="chip date">${esc(h.date)}</span>` : ""}
+        </div>
+        <div class="snippet">${esc((h.text || "").slice(0, 300))}</div>
+        <div class="scorebar"><i style="width:${Math.max(4, h.score / max * 100)}%"></i></div>
+      </div>`).join("");
+    $$("#hits .hit").forEach(el => el.onclick = () => go("#/knowledge/" + encodeURIComponent(el.dataset.path)));
+  }
+}
+
+/* --------------------------------------------------------------- settings */
+const SETTINGS_META = [
+  ["검색 품질", [
+    ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
+    ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 — 높을수록 연결 노트가 잘 올라옵니다", "float"],
+    ["graph_sim_floor", "그래프 유사도 하한", "질의와 이 유사도 미만인 이웃은 무시 (노이즈 차단)", "float"],
+    ["title_boost", "제목 부스트", "질의가 노트 제목과 겹치면 가산점", "float"],
+    ["per_doc_cap", "노트당 결과 상한", "한 노트가 결과를 독점하지 않게 다양성 확보", "int"],
+    ["k_vector", "벡터 후보 수", "융합 전 벡터 검색이 뽑는 후보 개수", "int"],
+    ["k_bm25", "BM25 후보 수", "융합 전 키워드 검색이 뽑는 후보 개수", "int"],
+  ]],
+  ["질의 처리", [
+    ["typo_correction", "오타 보정", "볼트 어휘 기반 로컬 did-you-mean (API 호출 없음)", "bool"],
+    ["query_expansion", "질의 확장", "LLM으로 질의 변형 생성 — 질의당 LLM 1회 소모", "bool"],
+    ["rerank", "LLM 리랭크", "상위 후보를 LLM으로 재채점 — 정밀도↑ 지연↑", "bool"],
+    ["recency_boost", "최신성 부스트", "시간성 질의(\"지난주 회의\")에서 최근 노트 가중", "float"],
+    ["recency_half_life_days", "최신성 반감기(일)", "최신성 가중치가 절반이 되는 기간", "float"],
+  ]],
+  ["답변 생성", [
+    ["context_style", "컨텍스트 스타일", "full: 청크 원문 그대로 / compact: 팩트시트 압축", "select", ["full", "compact"]],
+  ]],
+  ["색인", [
+    ["mention_links", "언급 링크", "위키링크가 없어도 제목 언급을 그래프 간선으로", "bool"],
+    ["enrich_entities", "LLM 개체 추출", "cognee식 개체 그래프 보강 — LLM 쿼터 소모", "bool"],
+    ["chunk_chars", "청크 크기(자)", "재색인 후 적용", "int"],
+    ["chunk_overlap", "청크 겹침(자)", "재색인 후 적용", "int"],
+  ]],
+];
+
+async function renderSettings() {
+  const m = $("#main");
+  m.innerHTML = `<div class="view"><div class="view-head">
+    <div class="view-title">설정</div>
+    <div class="view-sub">변경은 즉시 적용되고 볼트의 lemory.toml에 저장됩니다</div></div>
+    <div class="set-grid" id="setGrid"></div>
+    <div class="savebar" id="savebar">
+      <span class="msg" id="saveMsg"></span><span class="spacer"></span>
+      <button class="btn ghost" id="btnRevert">되돌리기</button>
+      <button class="btn primary" id="btnSave">변경사항 저장</button>
+    </div>
+  </div>`;
+
+  let cfg;
+  try { cfg = await api("/api/config"); }
+  catch (e) { $("#setGrid").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+
+  const orig = { ...cfg.tunable };
+  const cur = { ...cfg.tunable };
+
+  const grid = $("#setGrid");
+  let html = "";
+  for (const [section, rows] of SETTINGS_META) {
+    html += `<div class="card"><div class="card-head">${section}</div>`;
+    for (const [key, name, desc, type, options] of rows) {
+      const v = cur[key];
+      let ctl;
+      if (type === "bool") ctl = `<span class="switch ${v ? "on" : ""}" data-key="${key}"></span>`;
+      else if (type === "select") ctl = `<select data-key="${key}">${options.map(o =>
+        `<option ${o === v ? "selected" : ""}>${o}</option>`).join("")}</select>`;
+      else ctl = `<input type="number" data-key="${key}" value="${v}" step="${type === "float" ? "0.05" : "1"}">`;
+      html += `<div class="set-row"><div class="set-info">
+        <div class="set-name">${name} <span style="color:var(--text-3);font-size:11px;font-family:ui-monospace,monospace">${key}</span></div>
+        <div class="set-desc">${desc}</div></div><div class="set-ctl">${ctl}</div></div>`;
+    }
+    html += `</div>`;
+  }
+  html += `<div class="card"><div class="card-head">읽기 전용 — 변경은 .env / lemory.toml 수정 후 재시작</div><div class="kv">${
+    Object.entries(cfg.readonly).map(([k, v]) =>
+      `<div class="kv-row"><span class="kv-k">${esc(k)}</span><span class="kv-v mono">${esc(v ?? "—")}</span></div>`).join("")
+  }</div></div>`;
+  grid.innerHTML = html;
+
+  const dirty = () => Object.keys(cur).filter(k => String(cur[k]) !== String(orig[k]));
+  const syncBar = () => {
+    const d = dirty();
+    $("#savebar").classList.toggle("show", d.length > 0);
+    $("#saveMsg").textContent = d.length ? `${d.length}개 설정 변경됨: ${d.join(", ")}` : "";
+  };
+
+  $$(".switch[data-key]", grid).forEach(sw => sw.onclick = () => {
+    cur[sw.dataset.key] = !cur[sw.dataset.key];
+    sw.classList.toggle("on", cur[sw.dataset.key]);
+    syncBar();
+  });
+  $$("input[data-key], select[data-key]", grid).forEach(el => el.onchange = () => {
+    cur[el.dataset.key] = el.type === "number" ? +el.value : el.value;
+    syncBar();
+  });
+
+  $("#btnRevert").onclick = () => renderSettings();
+  $("#btnSave").onclick = async () => {
+    const patch = Object.fromEntries(dirty().map(k => [k, cur[k]]));
+    try {
+      await jpost("/api/config", patch, "PATCH");
+      toast("저장됨 — 볼트의 lemory.toml에 기록했습니다", "ok");
+      renderSettings();
+    } catch (e) { toast(`저장 실패: ${e.message}`, "err"); }
+  };
+}
+
+/* ---------------------------------------------------------------- palette */
+const PAL_VIEWS = [
+  ["overview", "현황으로 이동", icoHome],
+  ["knowledge", "지식으로 이동", icoFolder],
+  ["search", "검색으로 이동", icoSearch],
+  ["settings", "설정으로 이동", icoGear],
+];
+let palSel = 0, palItems = [];
+
+function openPalette() {
+  $("#palette").hidden = false;
+  const inp = $("#paletteInput");
+  inp.value = ""; palSel = 0;
+  drawPalette("");
+  inp.focus();
+}
+function closePalette() { $("#palette").hidden = true; }
+
+async function drawPalette(q) {
+  q = q.trim().toLowerCase();
+  palItems = [];
+  for (const [view, label, ico] of PAL_VIEWS)
+    if (!q || label.toLowerCase().includes(q))
+      palItems.push({ label, ico, sub: "메뉴", act: () => go("#/" + view) });
+  try {
+    const notes = await loadNotes();
+    const matches = q
+      ? notes.filter(n => n.title.toLowerCase().includes(q) || n.path.toLowerCase().includes(q))
+      : [...notes].sort((a, b) => b.mtime - a.mtime);
+    for (const n of matches.slice(0, 9))
+      palItems.push({
+        label: n.title, ico: icoDoc, sub: n.path,
+        act: () => go("#/knowledge/" + encodeURIComponent(n.path)),
+      });
+  } catch { /* server down — views only */ }
+
+  palSel = Math.min(palSel, Math.max(0, palItems.length - 1));
+  $("#paletteResults").innerHTML = palItems.length ? palItems.map((it, i) => `
+    <div class="pal-item ${i === palSel ? "sel" : ""}" data-i="${i}">
+      ${it.ico()}<span>${esc(it.label)}</span><span class="sub">${esc(it.sub)}</span></div>`).join("")
+    : `<div class="pal-empty">결과 없음</div>`;
+  $$(".pal-item").forEach(el => {
+    el.onclick = () => { closePalette(); palItems[+el.dataset.i].act(); };
+    el.onmousemove = () => { palSel = +el.dataset.i; markPal(); };
+  });
+}
+function markPal() {
+  $$(".pal-item").forEach((el, i) => el.classList.toggle("sel", i === palSel));
+}
+
+$("#paletteInput").addEventListener("input", e => drawPalette(e.target.value));
+$("#paletteInput").addEventListener("keydown", e => {
+  if (e.key === "ArrowDown") { e.preventDefault(); palSel = Math.min(palSel + 1, palItems.length - 1); markPal(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); palSel = Math.max(palSel - 1, 0); markPal(); }
+  else if (e.key === "Enter" && palItems[palSel]) { closePalette(); palItems[palSel].act(); }
+  else if (e.key === "Escape") closePalette();
+});
+$("#palette").addEventListener("mousedown", e => { if (e.target === $("#palette")) closePalette(); });
+$("#paletteHint").onclick = openPalette;
+
+document.addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); $("#palette").hidden ? openPalette() : closePalette(); }
+  else if (e.key === "Escape" && !$("#palette").hidden) closePalette();
+  else if (e.key === "/" && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== "INPUT"
+           && document.activeElement.tagName !== "SELECT") { e.preventDefault(); go("#/search"); }
+});
+
+/* ------------------------------------------------------------------ icons */
+function svg(d, extra = "") {
+  return `<svg viewBox="0 0 16 16" ${extra} style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round">${d}</svg>`;
+}
+function icoHome() { return svg('<path d="M2 8.5 8 2.5l6 6M3.5 7.5v6h9v-6"/>'); }
+function icoFolder() { return svg('<path d="M1.8 4.2a1 1 0 0 1 1-1h3l1.4 1.6h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1z"/>'); }
+function icoDoc() { return svg('<path d="M4 1.8h5.5L12.5 5v9.2h-8.5zM9.2 1.8V5h3.3M6 8h4M6 10.5h4"/>'); }
+function icoTag() { return svg('<path d="M2 2h5.5L14 8.5 8.5 14 2 7.5zM5.5 5.5h.01"/>'); }
+function icoSearch() { return svg('<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/>'); }
+function icoGear() { return svg('<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6 5 5M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4"/>'); }
+function icoExt() { return svg('<path d="M6.5 3.5H3v9.5h9.5V9M9 2.5h4.5V7M13 3 7.5 8.5"/>'); }
+function icoChev() { return svg('<path d="m6 3.5 4.5 4.5L6 12.5"/>'); }
+function icoRefresh(cls = "") { return svg('<path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.8v2.7h-2.7"/>', `class="${cls}"`); }
+
+/* ------------------------------------------------------------------- boot */
+async function boot() {
+  nav();
+  // sidebar vault name + watcher dot even when landing on a non-overview view
+  try {
+    const o = await api("/api/overview");
+    S.overview = o; S.vaultPath = o.vault;
+    $("#vaultName").textContent = (o.vault || "").split("/").filter(Boolean).pop() || "볼트 미설정";
+    setWatch(o.watcher_alive);
+  } catch { $("#watchLabel").textContent = "서버 연결 안 됨"; }
+  setInterval(async () => {
+    try { const o = await api("/api/overview"); setWatch(o.watcher_alive); S.overview = o; }
+    catch { $("#watchDot").className = "dot"; $("#watchLabel").textContent = "서버 연결 안 됨"; }
+  }, 30000);
+}
+boot();
