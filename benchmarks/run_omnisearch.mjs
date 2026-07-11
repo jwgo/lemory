@@ -160,6 +160,26 @@ const out = {}
     out[`robust_${key}`] = evalSet(ms, vq, q => q.q)
   }
 }
+// KorMapleQA (doc-level: gold doc in top-8; twohop = both docs)
+if (process.argv.includes('--kormapleqa')) {
+  const vault = `${REPO}/benchmarks/data/maple_real/vault`
+  const ms = buildIndex(vault)
+  const lines = readFileSync(`${REPO}/benchmarks/data/kormapleqa/questions.jsonl`, 'utf-8')
+    .split('\n').filter(Boolean).map(JSON.parse)
+  const byType = {}
+  for (const q of lines) {
+    if (q.answerable === false) continue
+    ;(byType[q.type] ||= []).push(q)
+  }
+  const res = {}
+  for (const [t, qs] of Object.entries(byType)) {
+    res[t] = evalSet(ms, qs, q => q.q)
+  }
+  res.all = evalSet(ms, lines.filter(q => q.answerable !== false), q => q.q)
+  console.log(JSON.stringify(res, null, 2))
+  process.exit(0)
+}
+
 // Korean corpora
 for (const name of ['maple', 'law', 'kepano']) {
   const vault = `${REPO}/benchmarks/data/${name}/vault`
