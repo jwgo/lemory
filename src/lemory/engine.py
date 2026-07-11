@@ -114,18 +114,26 @@ class Engine:
 
     def search(
         self, query: str, k: int = 8, graph: bool | None = None, mode: str = "hybrid",
-        expand: bool | None = None, rerank: bool | None = None,
+        expand: bool | None = None, rerank: bool | None = None, record: bool = False,
     ) -> list[ChunkHit]:
         from .retrieval import hybrid_search
 
-        return hybrid_search(
+        hits = hybrid_search(
             self, query, k=k, graph=graph, mode=mode, expand=expand, rerank=rerank
         ).hits
+        # hit stats are opt-in per call site: the server and CLI record real
+        # usage; library calls, tests and benchmarks stay invisible
+        if record and hits:
+            self.store.record_hits([h.doc_id for h in hits])
+        return hits
 
-    def ask(self, question: str, k: int = 8) -> "Answer":
+    def ask(self, question: str, k: int = 8, record: bool = False) -> "Answer":
         from .retrieval import answer
 
-        return answer(self, question, k=k)
+        ans = answer(self, question, k=k)
+        if record and ans.sources:
+            self.store.record_hits([h.doc_id for h in ans.sources])
+        return ans
 
     def status(self) -> dict[str, Any]:
         # status is a purely local verb — it must work without any API key

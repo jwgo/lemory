@@ -327,7 +327,7 @@ def search(
 ):
     """Hybrid search over the indexed vault."""
     eng = _engine(vault)
-    hits = eng.search(query, k=k, mode=mode, expand=expand or None, rerank=rerank or None)
+    hits = eng.search(query, k=k, mode=mode, expand=expand or None, rerank=rerank or None, record=True)
     table = Table(show_lines=True)
     table.add_column("#", width=3)
     table.add_column("note")
@@ -347,7 +347,7 @@ def ask(
 ):
     """Ask a question; the answer is grounded in your notes with citations."""
     eng = _engine(vault)
-    ans = eng.ask(question, k=k)
+    ans = eng.ask(question, k=k, record=True)
     console.print(ans.text)
     console.print("\n[dim]" + ans.render_sources() + "[/dim]")
 

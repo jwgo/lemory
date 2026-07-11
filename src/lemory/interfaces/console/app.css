@@ -378,3 +378,9 @@ input::placeholder { color: var(--text-3); }
   .kn.show-detail .list-pane { display: none; }
   .kn.show-detail .detail-pane { display: block; }
 }
+
+/* ------------------------------------------------------------- local graph */
+.local-graph svg text { user-select: none; }
+.local-graph .lg-node:hover circle { r: 7; }
+.lg-legend { display: flex; gap: 14px; padding: 4px 10px 8px; font-size: 11px;
+  color: var(--text-3); flex-wrap: wrap; }

@@ -93,6 +93,7 @@ async function renderOverview() {
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="card"><div class="card-head">색인 활동</div><div class="act-list" id="acts"><div class="empty">불러오는 중…</div></div></div>
         <div class="card"><div class="card-head">최근 수정된 노트</div><div class="act-list" id="recent"></div></div>
+        <div class="card" id="hotCard" hidden><div class="card-head">자주 참조되는 노트 <span style="font-weight:400;color:var(--text-3)">검색·질문에 오른 횟수</span></div><div class="act-list" id="hot"></div></div>
       </div>
       <div class="card"><div class="card-head">시스템</div><div class="kv" id="sys"></div></div>
     </div>
@@ -129,6 +130,18 @@ async function renderOverview() {
     : `<div class="empty">아직 색인 활동이 없습니다</div>`;
 
   loadNotes().then(notes => {
+    const hot = [...notes].filter(n => n.hits > 0).sort((a, b) => b.hits - a.hits).slice(0, 6);
+    if (hot.length) {
+      $("#hotCard").hidden = false;
+      $("#hot").innerHTML = hot.map(n => `
+        <div class="act-row" style="cursor:pointer" data-path="${esc(n.path)}">
+          <span style="font-weight:550">${esc(n.title)}</span>
+          <span class="chip brand">🔥 ${n.hits}</span>
+          <span class="act-time">${rel(n.last_hit)}</span>
+        </div>`).join("");
+      $$("#hot .act-row").forEach(r =>
+        r.onclick = () => go("#/knowledge/" + encodeURIComponent(r.dataset.path)));
+    }
     const rec = [...notes].sort((a, b) => b.mtime - a.mtime).slice(0, 6);
     $("#recent").innerHTML = rec.length ? rec.map(n => `
       <div class="act-row" style="cursor:pointer" data-path="${esc(n.path)}">
@@ -209,6 +222,7 @@ async function renderKnowledge(selPath) {
           <option value="title">제목</option>
           <option value="links">연결 많은 순</option>
           <option value="chunks">분량</option>
+          <option value="hits">많이 찾은 순</option>
         </select>
       </div>
       <div class="note-rows" id="noteRows"></div>
@@ -309,6 +323,7 @@ function drawNoteRows() {
     title: (a, b) => a.title.localeCompare(b.title, "ko"),
     links: (a, b) => (b.links_in + b.links_out) - (a.links_in + a.links_out),
     chunks: (a, b) => b.chunks - a.chunks,
+    hits: (a, b) => (b.hits || 0) - (a.hits || 0),
   };
   rows = [...rows].sort(sorters[K.sort]);
 
@@ -318,6 +333,7 @@ function drawNoteRows() {
       <div class="meta">
         <span>${rel(n.mtime)}</span><span>${n.chunks}청크</span>
         <span>↗${n.links_out} ↘${n.links_in}</span>
+        ${n.hits ? `<span title="검색/질문에서 참조된 횟수">🔥${n.hits}</span>` : ""}
         ${n.tags.slice(0, 2).map(t => `<span>#${esc(t)}</span>`).join("")}
       </div>
     </div>`).join("")
@@ -355,7 +371,9 @@ async function drawNoteDetail(path) {
     <div class="nd-meta">
       <span>수정 ${rel(d.mtime)}</span><span>색인 ${rel(d.indexed_at)}</span>
       <span>청크 ${d.chunks.length}</span>
+      <span title="이 노트가 검색·질문 결과에 오른 횟수">참조 ${d.hits || 0}회${d.hits ? " · 마지막 " + rel(d.last_hit) : ""}</span>
     </div>
+    ${localGraphSVG(d)}
     <div class="nd-sec"><div class="nd-sec-title">나가는 연결 · ${d.links_out.length}</div>
       ${d.links_out.length ? `<div class="link-grid">${d.links_out.map(linkPill).join("")}</div>` : `<div class="view-sub">없음</div>`}</div>
     <div class="nd-sec"><div class="nd-sec-title">들어오는 연결 (백링크) · ${d.links_in.length}</div>
@@ -651,6 +669,55 @@ document.addEventListener("keydown", e => {
   else if (e.key === "/" && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== "INPUT"
            && document.activeElement.tagName !== "SELECT") { e.preventDefault(); go("#/search"); }
 });
+
+/* ------------------------------------------------------- local ego graph */
+// Obsidian's global graph is decoration; this is the RETRIEVAL graph — the
+// edges (incl. unlinked mentions Obsidian can't see) that expansion walks.
+function localGraphSVG(d) {
+  // merge by note: the same neighbor can be both an out-link and a backlink
+  const byPath = new Map();
+  for (const l of d.links_out) byPath.set(l.path, { ...l, out: true, in: false });
+  for (const l of d.links_in) {
+    const e = byPath.get(l.path);
+    if (e) { e.in = true; if (e.kind === "mention" && l.kind === "wiki") e.kind = "wiki"; }
+    else byPath.set(l.path, { ...l, out: false, in: true });
+  }
+  const nbrs = [...byPath.values()].slice(0, 14).map(l => ({ ...l, dir: l.in ? "in" : "out" }));
+  if (!nbrs.length) return "";
+  const W = 560, H = Math.max(200, 60 + nbrs.length * 16), cx = W / 2, cy = H / 2;
+  const R = Math.min(cx - 130, cy - 26);
+  const kindColor = { wiki: "#7ea6ff", mention: "#c6a5ff", entity: "#7fd8c3" };
+  let nodes = "", edges = "";
+  nbrs.forEach((l, i) => {
+    const ang = (2 * Math.PI * i) / nbrs.length - Math.PI / 2;
+    const x = cx + R * Math.cos(ang), y = cy + R * Math.sin(ang);
+    const col = kindColor[l.kind] || "#8a8f98";
+    const dash = l.kind === "mention" ? 'stroke-dasharray="4 3"' : "";
+    edges += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${col}" stroke-opacity="0.45" stroke-width="1.2" ${dash}/>`;
+    if (l.dir === "in") {
+      const mx = cx + (x - cx) * 0.28, my = cy + (y - cy) * 0.28;
+      const a2 = Math.atan2(cy - y, cx - x);
+      edges += `<path d="M ${mx} ${my} l ${8*Math.cos(a2+2.6)} ${8*Math.sin(a2+2.6)} M ${mx} ${my} l ${8*Math.cos(a2-2.6)} ${8*Math.sin(a2-2.6)}" stroke="${col}" stroke-opacity="0.6" stroke-width="1.2" fill="none"/>`;
+    }
+    const anchor = x < cx - 10 ? "end" : x > cx + 10 ? "start" : "middle";
+    const tx = x + (anchor === "end" ? -8 : anchor === "start" ? 8 : 0);
+    const ty = y + (Math.abs(x - cx) <= 10 ? (y < cy ? -10 : 16) : 4);
+    nodes += `<g class="lg-node" data-goto="${esc(l.path)}" style="cursor:pointer">
+      <circle cx="${x}" cy="${y}" r="5" fill="${col}"/>
+      <text x="${tx}" y="${ty}" text-anchor="${anchor}" fill="var(--text-2)" font-size="11">${esc(l.title.length > 24 ? l.title.slice(0, 23) + "…" : l.title)}</text>
+    </g>`;
+  });
+  const center = `<circle cx="${cx}" cy="${cy}" r="7" fill="var(--brand)"/>
+    <text x="${cx}" y="${cy - 14}" text-anchor="middle" fill="var(--text)" font-size="12" font-weight="600">${esc(d.title.length > 30 ? d.title.slice(0, 29) + "…" : d.title)}</text>`;
+  return `<div class="nd-sec"><div class="nd-sec-title">로컬 그래프 · 검색이 실제로 걷는 간선</div>
+    <div class="local-graph card" style="padding:6px">
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">${edges}${center}${nodes}</svg>
+      <div class="lg-legend"><span style="color:#7ea6ff">— 위키링크</span>
+        <span style="color:#c6a5ff">┄ 언급(옵시디언엔 없음)</span>
+        <span style="color:#7fd8c3">— 개체</span>
+        <span style="color:var(--text-3)">화살표 = 들어오는 링크</span></div>
+    </div></div>`;
+}
 
 /* ------------------------------------------------------------------ icons */
 function svg(d, extra = "") {

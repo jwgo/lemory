@@ -114,3 +114,25 @@ def test_config_persist_keeps_vault_key(engine):
         client.patch("/api/config", json={"title_boost": 0.2})
         toml = (engine.cfg.resolved_vault() / "lemory.toml").read_text()
         assert "vault = " in toml and "title_boost = 0.2" in toml
+
+
+def test_hit_recording_via_server_only(engine):
+    app = build_app(engine, watch=False)
+    with TestClient(app) as client:
+        # library-level search must NOT record
+        engine.search("pricing decision")
+        rows = client.get("/api/notes").json()
+        assert all(r["hits"] == 0 for r in rows)
+
+        # server search + ask DO record
+        client.get("/search", params={"q": "pricing decision", "k": 3})
+        client.post("/ask", json={"question": "what is atlas?"})
+        rows = client.get("/api/notes").json()
+        hit_rows = [r for r in rows if r["hits"] > 0]
+        assert hit_rows, "server usage should record hits"
+        assert all(r["last_hit"] > 0 for r in hit_rows)
+
+        # note detail carries the counter
+        top = max(rows, key=lambda r: r["hits"])
+        d = client.get("/api/note", params={"path": top["path"]}).json()
+        assert d["hits"] >= 1

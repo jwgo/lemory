@@ -165,12 +165,12 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                expand: bool | None = None, rerank: bool | None = None):
         if not q.strip():
             raise HTTPException(400, "empty query")
-        hits = engine.search(q, k=k, mode=mode, graph=graph, expand=expand, rerank=rerank)
+        hits = engine.search(q, k=k, mode=mode, graph=graph, expand=expand, rerank=rerank, record=True)
         return [_hit_json(h, text=True) for h in hits]
 
     @app.post("/ask")
     def ask(body: AskBody):
-        ans = engine.ask(body.question, k=body.k)
+        ans = engine.ask(body.question, k=body.k, record=True)
         return {
             "answer": ans.text,
             "sources": [_hit_json(h, text=True) for h in ans.sources],

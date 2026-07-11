@@ -83,6 +83,12 @@ CREATE TABLE IF NOT EXISTS embed_cache (
 );
 
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+
+CREATE TABLE IF NOT EXISTS note_hits (
+    doc_id INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+    hits INTEGER NOT NULL DEFAULT 0,
+    last_hit REAL NOT NULL DEFAULT 0
+);
 """
 
 
@@ -406,16 +412,19 @@ class Store:
             "SELECT src_doc AS d, COUNT(*) AS n FROM links GROUP BY src_doc")}
         inl = {r["d"]: r["n"] for r in c.execute(
             "SELECT dst_doc AS d, COUNT(*) AS n FROM links GROUP BY dst_doc")}
+        hits = self.hit_stats()
         rows = []
         for r in c.execute("SELECT id, path, title, tags, mtime FROM documents"):
             try:
                 tags = json.loads(r["tags"])
             except json.JSONDecodeError:
                 tags = []
+            h = hits.get(r["id"], (0, 0.0))
             rows.append({
                 "path": r["path"], "title": r["title"], "tags": tags,
                 "mtime": r["mtime"], "chunks": chunks.get(r["id"], 0),
                 "links_out": outl.get(r["id"], 0), "links_in": inl.get(r["id"], 0),
+                "hits": h[0], "last_hit": h[1],
             })
         return rows
 
@@ -454,12 +463,16 @@ class Store:
             frontmatter = json.loads(r["frontmatter"])
         except json.JSONDecodeError:
             frontmatter = {}
+        hit_row = c.execute(
+            "SELECT hits, last_hit FROM note_hits WHERE doc_id=?", (doc_id,)).fetchone()
         return {
             "path": r["path"], "title": r["title"], "tags": tags,
             "frontmatter": frontmatter, "mtime": r["mtime"],
             "indexed_at": r["indexed_at"], "chunks": chunks,
             "links_out": _links("src_doc", "dst_doc"),
             "links_in": _links("dst_doc", "src_doc"),
+            "hits": hit_row["hits"] if hit_row else 0,
+            "last_hit": hit_row["last_hit"] if hit_row else 0.0,
         }
 
     def tag_counts(self) -> list[dict]:
@@ -611,6 +624,30 @@ class Store:
                 (int(cur.lastrowid), fts_index_text(text), fts_index_text(title), ""))
         c.commit()
         self._mark_dirty()
+
+    # -------------------------------------------------------------- hit stats
+    def record_hits(self, doc_ids: list[int]) -> None:
+        """Count real retrievals per note (console 'working knowledge' stats).
+
+        Only interface layers (server/CLI) record — library calls and
+        benchmarks never pollute the numbers."""
+        if not doc_ids:
+            return
+        import time as _t
+
+        now = _t.time()
+        c = self.conn()
+        c.executemany(
+            "INSERT INTO note_hits(doc_id, hits, last_hit) VALUES(?, 1, ?) "
+            "ON CONFLICT(doc_id) DO UPDATE SET hits = hits + 1, last_hit = ?",
+            [(d, now, now) for d in set(doc_ids)],
+        )
+        c.commit()
+
+    def hit_stats(self) -> dict[int, tuple[int, float]]:
+        """doc_id -> (hits, last_hit)."""
+        return {r["doc_id"]: (r["hits"], r["last_hit"]) for r in self.conn().execute(
+            "SELECT doc_id, hits, last_hit FROM note_hits")}
 
     def doc_body_len(self) -> dict[int, int]:
         """doc_id -> total chars of content chunks (enrichment excluded)."""
