@@ -72,6 +72,18 @@ class IndexBody(BaseModel):
     full: bool = False
 
 
+class MemoryBody(BaseModel):
+    content: str
+    title: str = ""
+    folder: str = "memories"
+    tags: list[str] = []
+
+
+class AppendBody(BaseModel):
+    path: str
+    content: str
+
+
 def _console_file(name: str) -> Path:
     return Path(str(resources.files("lemory.interfaces").joinpath("console", name)))
 
@@ -175,6 +187,37 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             "answer": ans.text,
             "sources": [_hit_json(h, text=True) for h in ans.sources],
         }
+
+    @app.get("/context")
+    def context(max_chars: int = 2400):
+        """Pre-assembled vault context (Zep-style): stats, recent activity,
+        frequently referenced notes, hubs, tags — one cheap local call."""
+        from ..ingestion.memory import context_block
+
+        return {"context": context_block(engine, max_chars=max_chars)}
+
+    @app.post("/memory")
+    def memory(body: MemoryBody):
+        """Write path: persist a memory as a new Markdown note in the vault."""
+        from ..ingestion.memory import save_memory
+
+        try:
+            path = save_memory(engine, body.content, title=body.title,
+                               folder=body.folder, tags=body.tags)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"saved": path}
+
+    @app.post("/append")
+    def append(body: AppendBody):
+        """Append-only write to an existing note (creates it if missing)."""
+        from ..ingestion.memory import append_to_note
+
+        try:
+            rel = append_to_note(engine, body.path, body.content)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"appended": rel}
 
     # ----------------------------------------------------------- console API
     @app.get("/api/overview")

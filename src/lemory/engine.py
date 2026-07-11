@@ -15,7 +15,11 @@ from .storage import ChunkHit, Store
 class Engine:
     def __init__(self, cfg: LemoryConfig, llm=None, store: Optional[Store] = None):
         self.cfg = cfg
-        self.store = store or Store(cfg.resolved_data_dir() / "lemory.db")
+        self.store = store or Store(
+            cfg.resolved_data_dir() / "lemory.db",
+            ann_threshold=cfg.ann_threshold if cfg.ann_threshold > 0 else 2**62,
+            ann_nprobe=cfg.ann_nprobe,
+        )
         self._llm = llm
         self._indexer = None
         # serializes sync runs: the server's watcher thread and POST /index
@@ -148,6 +152,7 @@ class Engine:
             "documents": self.store.doc_count(),
             "chunks": self.store.chunk_count(),
             "links": self.store.link_count(),
+            "vector_index": self.store.vector_index_kind(),
             "embed_model": embed_model,
             "llm_model": llm_model,
             "last_sync": self.store.get_meta("last_sync"),

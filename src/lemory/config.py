@@ -72,6 +72,13 @@ class LemoryConfig(BaseSettings):
     chunk_overlap: int = 180
     min_chunk_chars: int = 120
 
+    # --- vector index scale-out ---
+    # below the threshold: exact float32 scan (zero accuracy loss). Above it:
+    # int8 IVF index — 4× less RAM, sublinear query time, recall vs exact
+    # measured in BENCHMARKS.md §scale. 0 disables ANN entirely.
+    ann_threshold: int = 20_000
+    ann_nprobe: int = 48
+
     # --- retrieval ---
     k_vector: int = 48
     k_bm25: int = 48

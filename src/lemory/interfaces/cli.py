@@ -281,6 +281,37 @@ def recent(
 
 
 @app.command()
+def context(
+    vault: Optional[Path] = typer.Option(None),
+    max_chars: int = typer.Option(2400, help="Budget for the context block"),
+):
+    """Pre-assembled vault context (stats, recent, hot, hubs, tags) — pipe
+    this into any agent for instant situational awareness."""
+    from ..ingestion.memory import context_block
+
+    eng = _engine(vault)
+    eng.index()
+    print(context_block(eng, max_chars=max_chars))
+
+
+@app.command()
+def remember(
+    content: str = typer.Argument(..., help="What to remember"),
+    title: str = typer.Option("", help="Note title (default: first line)"),
+    folder: str = typer.Option("memories", help="Vault folder for the note"),
+    tags: str = typer.Option("", help="Comma-separated tags"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """Save a memory as a new Markdown note in the vault (indexed instantly)."""
+    from ..ingestion.memory import save_memory
+
+    eng = _engine(vault)
+    tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
+    path = save_memory(eng, content, title=title, folder=folder, tags=tag_list)
+    console.print(f"[green]saved[/green] {path}")
+
+
+@app.command()
 def index(
     vault: Optional[Path] = typer.Option(None, help="Vault path (else lemory.toml / LEMORY_VAULT)"),
     full: bool = typer.Option(False, help="Re-chunk everything (embeddings still cached)"),

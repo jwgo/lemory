@@ -158,9 +158,16 @@ def _fts_escape(query: str) -> str:
 
 
 class Store:
-    def __init__(self, db_path: Path | str):
+    def __init__(self, db_path: Path | str,
+                 ann_threshold: int = 20_000, ann_nprobe: int = 48):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # above `ann_threshold` embedded chunks, vector search switches from
+        # the exact float32 scan to an int8 IVF index (storage/ann.py):
+        # small vaults keep exact behaviour, huge vaults keep flat latency
+        self.ann_threshold = ann_threshold
+        self.ann_nprobe = ann_nprobe
+        self._ann = None  # Optional[IVFFlatIndex], built lazily
         self._local = threading.local()
         self._matrix_lock = threading.Lock()
         self._matrix: Optional[np.ndarray] = None  # [n, dim] float32, L2-normalized
@@ -226,6 +233,7 @@ class Store:
         invalidation can never be lost."""
         with self._matrix_lock:
             self._dirty = True
+            self._ann = None
             self._lexicon = None
             self._doc_dates = None
 
@@ -401,6 +409,15 @@ class Store:
 
     def link_count(self) -> int:
         return int(self.conn().execute("SELECT COUNT(*) AS n FROM links").fetchone()["n"])
+
+    def link_degrees(self) -> dict[int, int]:
+        """doc_id -> total link degree (in + out), for hub detection."""
+        out: dict[int, int] = {}
+        for r in self.conn().execute(
+                "SELECT src_doc AS a, dst_doc AS b FROM links"):
+            out[r["a"]] = out.get(r["a"], 0) + 1
+            out[r["b"]] = out.get(r["b"], 0) + 1
+        return out
 
     # ------------------------------------------------------- console queries
     def doc_overview_rows(self) -> list[dict]:
@@ -585,7 +602,96 @@ class Store:
             self._dirty = False
             return self._matrix, self._matrix_chunk_ids, self._matrix_pos
 
+    def _embedded_count(self) -> int:
+        return self.conn().execute(
+            "SELECT COUNT(*) AS n FROM chunks WHERE vec IS NOT NULL").fetchone()["n"]
+
+    def _ann_path(self) -> Path:
+        return self.db_path.parent / "ann-index.npz"
+
+    def _ann_fingerprint(self) -> str:
+        r = self.conn().execute(
+            "SELECT COUNT(*) AS n, COALESCE(MAX(id),0) AS mx, COALESCE(SUM(id),0) AS sm "
+            "FROM chunks WHERE vec IS NOT NULL").fetchone()
+        return f"{r['n']}|{r['mx']}|{r['sm']}"
+
+    def _ensure_ann(self):
+        """IVF index for big vaults, or None below the threshold (exact scan).
+
+        Persisted next to the DB and fingerprinted against the chunk table, so
+        restarts skip the k-means build. When the corpus drifted (incremental
+        sync), centroids from the previous build are reused and only the
+        assignment pass reruns — the expensive training is a rare event."""
+        from .ann import IVFFlatIndex
+
+        with self._matrix_lock:
+            if self._ann is not None:
+                return self._ann
+            n = self._embedded_count()
+            if n < self.ann_threshold:
+                return None
+            fp = self._ann_fingerprint()
+            idx = IVFFlatIndex.load(self._ann_path(), fp)
+            if idx is None:
+                prev = IVFFlatIndex.load_any(self._ann_path())
+                reuse = (prev is not None
+                         and 0.5 <= prev.size / max(n, 1) <= 1.5
+                         and prev.vectors.shape[1] == self._embedded_dim())
+                log.info("building IVF vector index for %d chunks%s", n,
+                         " (reusing centroids)" if reuse else "")
+                idx = IVFFlatIndex.build(
+                    self._iter_vec_blocks(), total=n, dim=self._embedded_dim(),
+                    centroids=prev.centroids if reuse else None,
+                    scale=prev.scale if reuse else None,
+                )
+                try:
+                    idx.save(self._ann_path(), fp)
+                except OSError:
+                    log.warning("could not persist ANN index; it will rebuild next run")
+            self._ann = idx
+            return idx
+
+    def _embedded_dim(self) -> int:
+        r = self.conn().execute(
+            "SELECT LENGTH(vec) AS b FROM chunks WHERE vec IS NOT NULL LIMIT 1").fetchone()
+        return (r["b"] // 4) if r else 0
+
+    def _iter_vec_blocks(self, block: int = 20_000):
+        cur = self.conn().execute(
+            "SELECT id, vec FROM chunks WHERE vec IS NOT NULL ORDER BY id")
+        while True:
+            rows = cur.fetchmany(block)
+            if not rows:
+                return
+            yield (np.vstack([np.frombuffer(r["vec"], dtype=np.float32) for r in rows]),
+                   np.array([r["id"] for r in rows], dtype=np.int64))
+
+    def vector_index_kind(self) -> str:
+        """'ivf-int8' | 'exact' — what the next vector query will use."""
+        if self._ann is not None or self._embedded_count() >= self.ann_threshold:
+            return "ivf-int8"
+        return "exact"
+
     def vector_search(self, query_vec: np.ndarray, k: int) -> list[tuple[int, float]]:
+        ann = self._ensure_ann()
+        if ann is not None:
+            # over-fetch from the int8 index, then rescore candidates with
+            # their true float32 vectors (a handful of PK lookups): recovers
+            # quantization near-tie flips — measured recall@10 0.965 → 0.995
+            cand = ann.search(query_vec, max(k + 16, 2 * k), nprobe=self.ann_nprobe)
+            if not cand:
+                return []
+            q = query_vec.astype(np.float32)
+            marks = ",".join("?" * len(cand))
+            rows = self.conn().execute(
+                f"SELECT id, vec FROM chunks WHERE id IN ({marks})",
+                [cid for cid, _ in cand]).fetchall()
+            rescored = [
+                (r["id"], float(np.frombuffer(r["vec"], dtype=np.float32) @ q))
+                for r in rows if r["vec"] is not None
+            ]
+            rescored.sort(key=lambda t: -t[1])
+            return rescored[:k]
         matrix, ids, _pos = self._ensure_matrix()
         if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0]:
             # dim mismatch = embed model/provider changed without `index --full`
@@ -656,14 +762,29 @@ class Store:
             "WHERE heading != ? GROUP BY doc_id", (self.ENRICH_HEADING,))}
 
     def chunk_vectors(self, chunk_ids: list[int]) -> dict[int, "np.ndarray"]:
-        """Raw stored vectors for specific chunks (unit-norm rows of the matrix)."""
+        """Raw stored vectors for specific chunks (unit-norm rows of the matrix).
+
+        In ANN mode the float32 matrix is never materialized (that's the whole
+        point) — rows come dequantized from the int8 index instead."""
+        ann = self._ensure_ann()
+        if ann is not None:
+            return ann.rows_for(chunk_ids)
         matrix, _ids, pos = self._ensure_matrix()
         return {cid: matrix[pos[cid]] for cid in chunk_ids if cid in pos}
 
     def chunk_sims(self, query_vec: np.ndarray, chunk_ids: list[int]) -> dict[int, float]:
         """Cosine similarity of specific chunks against a query vector."""
+        if not chunk_ids:
+            return {}
+        ann = self._ensure_ann()
+        if ann is not None:
+            vecs = ann.rows_for(chunk_ids)
+            q = query_vec.astype(np.float32)
+            if not vecs or next(iter(vecs.values())).shape[0] != q.shape[0]:
+                return {}
+            return {cid: float(v @ q) for cid, v in vecs.items()}
         matrix, _ids, pos = self._ensure_matrix()
-        if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0] or not chunk_ids:
+        if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0]:
             return {}
         wanted = [(cid, pos[cid]) for cid in chunk_ids if cid in pos]
         if not wanted:

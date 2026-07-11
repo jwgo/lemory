@@ -6,9 +6,12 @@ Claude Desktop config:
 
     {"mcpServers": {"lemory": {"command": "lemory", "args": ["mcp", "--vault", "~/Obsidian/MyVault"]}}}
 
-Tools: search_notes (hybrid retrieval), ask_notes (grounded answer with
-citations), vault_status. The index refreshes incrementally before each call
-if the vault changed, so results are always live.
+Read tools: search_notes, ask_notes, recent_notes, read_note, list_notes,
+vault_status, vault_context (pre-assembled session context).
+Write tools: save_memory (new Markdown note, never overwrites), append_note
+(append-only). Memories live as plain Markdown in the user's vault — visible
+in Obsidian, versionable, no lock-in. The index refreshes incrementally
+before each call if the vault changed, so results are always live.
 """
 
 from __future__ import annotations
@@ -105,5 +108,45 @@ def run_mcp(engine: Engine) -> None:
     def vault_status() -> str:
         """Index statistics for the connected vault."""
         return json.dumps(engine.status())
+
+    @mcp.tool()
+    def vault_context(max_chars: int = 2400) -> str:
+        """Pre-assembled situational context for this vault in one cheap call
+        (no search round-trip): stats, recent notes, frequently referenced
+        notes, hub notes, top tags. Call this at the START of a session to
+        know what the user has been working on."""
+        from ..ingestion.memory import context_block
+
+        engine.index()
+        return context_block(engine, max_chars=max_chars)
+
+    @mcp.tool()
+    def save_memory(content: str, title: str = "", folder: str = "memories",
+                    tags: str = "") -> str:
+        """Persist a memory as a NEW Markdown note in the user's vault (facts,
+        decisions, preferences worth remembering across sessions). The note is
+        immediately indexed and searchable, and visible in Obsidian. Never
+        overwrites existing notes. `tags` is comma-separated."""
+        from ..ingestion.memory import save_memory as _save
+
+        tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
+        try:
+            path = _save(engine, content, title=title, folder=folder, tags=tag_list)
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
+        return json.dumps({"saved": path}, ensure_ascii=False)
+
+    @mcp.tool()
+    def append_note(path: str, content: str) -> str:
+        """Append a timestamped section to an existing vault note (running
+        logs, decision records). Creates the note if missing. Cannot modify
+        existing content — append-only by design."""
+        from ..ingestion.memory import append_to_note
+
+        try:
+            rel = append_to_note(engine, path, content)
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
+        return json.dumps({"appended": rel}, ensure_ascii=False)
 
     mcp.run()
