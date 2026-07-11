@@ -403,6 +403,59 @@ def suggest_links_cmd(
     console.print(table)
 
 
+@app.command("graph")
+def graph_cmd(
+    out: Path = typer.Option(Path("graph.html"), help="Output HTML file"),
+    vault: Optional[Path] = typer.Option(None),
+    open_after: bool = typer.Option(False, "--open", help="Open in the default browser"),
+):
+    """볼트 지식그래프를 자체완결 인터랙티브 HTML 한 파일로 내보낸다.
+
+    LLM 0회 — 위키링크·멘션 그래프는 인덱스에 이미 있다. Graphify류가
+    LLM 파이프라인으로 몇 분 걸려 만드는 graph.html을 밀리초에 만든다."""
+    from .graph_html import render_graph_html
+
+    eng = _engine(vault)
+    eng.index()
+    html = render_graph_html(eng)
+    out = out.expanduser()
+    out.write_text(html, encoding="utf-8")
+    st = eng.status()
+    console.print(f"[green]✔[/green] {out}  ({st['documents']} notes, {st['links']} links)")
+    if open_after:
+        import webbrowser
+
+        webbrowser.open(out.resolve().as_uri())
+
+
+@app.command("skill")
+def skill_cmd(
+    action: str = typer.Argument(..., help="install | show"),
+    assistant: str = typer.Argument("claude-code", help="claude-code | codex | cursor"),
+    vault: Optional[Path] = typer.Option(None),
+    global_install: bool = typer.Option(False, "--global", help="Install to the user-level skills dir"),
+):
+    """AI 어시스턴트에 Lemory 스킬을 설치한다 (Graphify/qmd 스타일 원커맨드).
+
+    스킬은 어시스턴트에게 lemory CLI/MCP 사용법(검색 연산자, 기억 저장
+    에티켓, 링크 제안)을 가르치는 마크다운 — 설치 후 어시스턴트가 볼트를
+    기억처럼 다룬다."""
+    from .skills import render_skill, skill_target
+
+    eng = _engine(vault)
+    v = str(eng.cfg.resolved_vault())
+    content = render_skill(assistant, v)
+    if action == "show":
+        console.print(content)
+        return
+    target = skill_target(assistant, Path.cwd(), global_install)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    console.print(f"[green]✔[/green] skill installed: {target}")
+    if assistant == "claude-code":
+        console.print("  Claude Code가 다음 세션부터 자동으로 로드합니다.")
+
+
 @app.command("import-chats")
 def import_chats(
     file: Path = typer.Argument(..., help="ChatGPT/Claude export conversations.json"),

@@ -499,6 +499,13 @@ class Store:
             out.add(r["id"])
         return out
 
+    def all_links(self) -> list[tuple[int, int, str, float]]:
+        """Every graph edge (src, dst, kind, weight) — the `lemory graph`
+        export and any future whole-graph consumer."""
+        return [(r["src_doc"], r["dst_doc"], r["kind"], r["weight"])
+                for r in self.conn().execute(
+                    "SELECT src_doc, dst_doc, kind, weight FROM links")]
+
     def mention_edges(self, doc_id: int | None = None) -> list[tuple[int, int, float]]:
         """Unlinked-mention edges (src, dst, weight). These exist ONLY where
         no wiki edge covers the same pair (indexer merge rule), so every row
