@@ -174,6 +174,51 @@ to 0.350 (Lemory's Hangul-bigram FTS + cross-lingual fusion: 0.975).
 
 Optional LLM query expansion (`--expand`) was also measured: paraphrase 0.911, korean 0.950, typo 0.825 — no better than the LLM-free pipeline on this corpus, which is why it stays off by default (saves one LLM call per query).
 
+## 4g. Obsidian-native rivals: Omnisearch (BM25 plugin) · Smart Connections (semantic plugin)
+
+The two search tools an Obsidian user most likely already has. Both measured
+2026-07-11 on the same corpora and metrics as every other row.
+
+**Omnisearch v1.29.3** — headless harness (`benchmarks/run_omnisearch.mjs`)
+built from the plugin's own cloned source: the real MiniSearch library, its
+exact SEPARATORS regex (loaded from `src/globals.ts` at bench time, not
+transcribed), its OR-of-AND-groups query combination, default weights
+(basename 10 / directory 7 / H1-3 6/5/4 / tags 2), default fuzziness 0.1,
+prefix≥3, document-level index — everything except the Obsidian UI around it.
+
+| full-support@8 | natural question | 2-hop | korean | keyword | typo | maple | law |
+|---|---|---|---|---|---|---|---|
+| Omnisearch | 0.000 | 0.000 | 0.000 | 0.232¹ | 0.000 | 0.000 | 0.000 |
+| **Lemory** (local) | **0.860** | **0.810** | **0.850** | **0.893** | **0.772** | **1.000** | **1.000** |
+
+<sub>¹ keyword 1-hop is Omnisearch's home turf and it is genuinely good there
+(0.867 hops-1); the 0.232 overall reflects 2-hop keyword queries (0.000).</sub>
+
+Honest read: this is not a "gotcha" — Omnisearch is a quick-switcher-style
+lookup tool and doesn't claim to answer questions. That's the point: its AND
+semantics return **zero results** for any natural-language phrasing, every
+Korean question (조사-carrying tokens never match), and every typo'd query
+despite its fuzzy matching. A vault search that answers questions, Korean,
+typos AND keyword lookups is a different category of tool.
+
+**Smart Connections (2.4.x)** — measured as its retrieval core: the default
+local embedding model it ships (`TaylorAI/bge-micro-v2`, confirmed from
+smart-embed-model's models.json), pure cosine over the same chunks, no
+lexical leg, no graph (`benchmarks/bench_smartconn.py` runs it through the
+same fastembed runtime as Lemory's local mode — same chunking, so this
+isolates model + architecture, which favors it if anything).
+
+| full-support@8 | multihop | 2-hop | paraphrase | korean | typo | maple | law | kepano |
+|---|---|---|---|---|---|---|---|---|
+| SC-class (bge-micro-v2, cosine) | 0.456 | 0.262 | 0.446 | 0.475 | 0.404 | 0.727 | 0.842 | **1.000** |
+| **Lemory** (local MiniLM) | **0.860** | **0.810** | **0.821** | **0.850** | **0.772** | **1.000** | **1.000** | 0.955 |
+
+Honest read: on the small English personal vault (kepano) dense-only
+saturates and edges Lemory by one question — consistent with §5d. Everywhere
+else the missing lexical leg and missing graph cost it 2-4x on multi-hop and
+~2x on Korean/typo robustness, with an **English-only** embedding model as
+the default for a tool whose users write in every language.
+
 ## 5. Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
 
 All documents categorized under 메이플스토리 in the public namuwiki 2021-03-01 dump (867k docs scanned): 33,375 chunks, 24,850 real wikilink edges. QA drafted by LLM, kept only if code-verified: answer appears ONLY in the gold note, no title leakage (see gen_maple_real_qa.py).
