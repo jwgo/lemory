@@ -326,6 +326,34 @@ pre-change; paraphrase *improved* 0.804 → 0.821 (high-coverage paraphrases
 are lexically close to gold, so the pin helps them too). Gate 0.60 starts
 costing multihop/korean/keyword, which is why 0.65 ships.
 
+**Korean latency at namuwiki scale.** On the real 1,469-note / 33k-chunk
+maple_real corpus, the OR-query's single-syllable grams ('이/은/의') matched
+nearly every row and forced FTS5 to score the whole table: 272 ms/query for
+the BM25 leg, 303 ms for hybrid. Multi-syllable words are already covered by
+their bigrams, so the query now keeps unigrams only for single-syllable runs,
+re-emitting the stem for 2-syllable noun+조사 / verb+어미 forms ('윌의'→'윌',
+'읽던'→'읽' — the forms whose stems bigrams can't see). The index side is
+unchanged (no reindex):
+
+| maple_real (33k chunks, local) | before | after |
+|---|---|---|
+| BM25 leg ms/query | 272 | **48** (5.6×) |
+| hybrid ms/query | 303 | **68** (4.5×) |
+| hybrid recall@1 | 0.700 | **0.720** |
+| KorQuAD recall@1 / ms | 0.825 / 8.3 | **0.845 / 3.4** |
+
+Every guard (multihop / robustness / law / maple / kepano / SQuAD / temporal)
+stayed flat — the dropped unigram matches were noise BM25's IDF already
+scored ≈0; what changed is that FTS5 no longer has to *evaluate* them.
+
+One honest local-regime note: on maple_real with the weak local embedder,
+graph expansion currently *costs* full-support at ranks 5-8 (no-graph 0.660
+vs 0.600) — its relevance gate leans on cosine estimates that are close to
+noise on this corpus (vector-only recall@1 is 0.200 here vs 0.700 for the
+Gemini regime). With Gemini embeddings the same expansion is worth +12 pt
+(§5). Weak-embedder graph gating is an open item; the numbers above are the
+default configuration either way.
+
 ## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
 The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for every system; adversarial category excluded (mem0 protocol). mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini).
