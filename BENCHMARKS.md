@@ -338,14 +338,22 @@ is covered by the corpora above on real embeddings).
 
 ## 12. Local retrieval latency at scale (`perf_local.py`)
 
-Synthetic Zipfian corpus, 50 queries, exact cosine + SQLite FTS5.
+Synthetic Zipfian corpus, 50 queries, SQLite FTS5 + the auto-selected vector
+index (exact below 20k chunks, IVF-int8 above — §12b).
 50k chunks ≈ an 8,000-note vault — well past typical personal vaults.
 
 | Index size | hybrid+graph | hybrid | vector | bm25 |
 |---|---|---|---|---|
-| 2,000 chunks | 5.5 ms | 4.3 ms | 0.41 ms | 3.1 ms |
-| 10,000 chunks | 17.1 ms | 14.9 ms | 0.82 ms | 12.9 ms |
-| 50,000 chunks | 69.9 ms | 69.4 ms | 4.4 ms | 60.0 ms |
+| 2,000 chunks | 6.6 ms | 4.0 ms | 0.5 ms | 2.9 ms |
+| 10,000 chunks | 19.2 ms | 13.4 ms | 2.6 ms | 9.6 ms |
+| 50,000 chunks | 48.2 ms | 40.1 ms | 1.5 ms | 36.8 ms |
+
+At 50k the vector leg went from 4.4 ms (exact) to 1.5 ms (IVF), which made
+FTS5 the bottleneck (60 ms): an OR-query over common words scores nearly
+every row. `bm25_search` now runs an implicit-AND pass first and only falls
+back to the OR+Hangul-bigram query when AND can't fill k — 60 → 36.8 ms with
+bit-identical guard results (multihop 1.000, robustness 0.964/0.975/1.000,
+KorQuAD recall@1 0.908, temporal 1.000).
 
 \* ms/query is local compute only (vector/BM25/graph math), measured on the
 benchmark machine; the query embedding round-trip (~100–300 ms, identical for

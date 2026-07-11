@@ -816,16 +816,34 @@ class Store:
         return {cid: float(s) for (cid, _), s in zip(wanted, sims)}
 
     # ----------------------------------------------------------------- BM25
-    def bm25_search(self, query: str, k: int) -> list[tuple[int, float]]:
-        match = _fts_escape(query)
+    def _fts_query(self, match: str, k: int) -> Optional[list]:
         try:
-            rows = self.conn().execute(
+            return self.conn().execute(
                 """SELECT rowid, bm25(chunks_fts, 1.0, 0.6, 0.4) AS s
                    FROM chunks_fts WHERE chunks_fts MATCH ?
                    ORDER BY s LIMIT ?""",
                 (match, k),
             ).fetchall()
         except sqlite3.OperationalError:
+            return None
+
+    def bm25_search(self, query: str, k: int) -> list[tuple[int, float]]:
+        # Phase 1 — implicit AND of the raw words: on big corpora the OR query
+        # below matches (and scores) nearly every row when the query contains
+        # common words, which dominates hybrid latency (~60 ms at 50k chunks).
+        # AND restricts the scored set to docs containing every term; when that
+        # already yields k docs they are strictly better candidates than any
+        # OR-only match, so the OR pass can be skipped. Queries that AND can't
+        # satisfy (Korean 조사 variants, paraphrases, typos) fall through to
+        # the OR+bigram pass unchanged — a cheap failed AND, not a recall loss.
+        terms = [t.replace('"', "") for t in query.split() if t.strip()][:16]
+        if len(terms) >= 2:
+            rows = self._fts_query(" ".join(f'"{t}"' for t in terms), k)
+            if rows is not None and len(rows) >= k:
+                return [(int(r["rowid"]), -float(r["s"])) for r in rows]
+        # Phase 2 — the recall-oriented OR of terms + Hangul bigrams
+        rows = self._fts_query(_fts_escape(query), k)
+        if rows is None:
             return []
         # bm25() returns lower-is-better; flip sign so higher is better
         return [(int(r["rowid"]), -float(r["s"])) for r in rows]

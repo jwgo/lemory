@@ -157,6 +157,9 @@ async function renderOverview() {
     ["프로바이더", esc(o.provider || "—")],
     ["LLM", esc(o.llm_model || "—")],
     ["임베딩", esc(o.embed_model || "—")],
+    ["벡터 인덱스", o.vector_index === "ivf-int8"
+      ? 'IVF-int8 <span style="color:var(--text-3)">(대규모 자동 전환)</span>'
+      : '정확 검색 <span style="color:var(--text-3)">(소규모 볼트 기본)</span>'],
     ["볼트", `<span class="kv-v mono">${esc(o.vault || "—")}</span>`],
     ["DB", `<span class="kv-v mono">${esc(o.db || "—")}</span>`],
     ["볼트 감시", o.watcher_alive ? '<span style="color:var(--ok)">실시간 동기화 중</span>' : '<span style="color:var(--warn)">꺼짐</span>'],
