@@ -734,7 +734,11 @@ def _graph_expand(
                 # the (weak-embedder) cosine pick
                 best_lex_cid = min((c for c in chunk_ids_by_doc.get(dst, ())
                                     if c in bm25_rank), key=bm25_rank.get)
-                if lex_rel >= sim:
+                # redirect only to chunks the fusion HASN'T ranked: expansion
+                # exists to surface invisible evidence — re-boosting a chunk
+                # that already holds a direct score just reshuffles the head
+                # of the ranking (measured: keyword rank-1 precision loss)
+                if lex_rel >= sim and best_lex_cid not in fused:
                     best_cid = best_lex_cid
         if sim < cfg.graph_sim_floor and lex_rel == 0.0:
             # neighbor's content has nothing to do with the query: linked-but-
@@ -746,11 +750,16 @@ def _graph_expand(
 
     expanded = []
     for add, dst, best_cid, sims in sorted(candidates, reverse=True)[: cfg.graph_expand_budget]:
-        fused[best_cid] = min(fused.get(best_cid, 0.0) + add, cap)
+        # a boost may never LOWER a chunk: a direct hit already scoring above
+        # the cap must keep its own score (min() alone clamped it DOWN when
+        # the neighbor's best chunk was itself a strong direct hit)
+        cur = fused.get(best_cid, 0.0)
+        fused[best_cid] = max(cur, min(cur + add, cap))
         # runner-up chunk at half strength (long notes may hold the fact deeper)
         rest = {c: s for c, s in sims.items() if c != best_cid}
         if rest:
             second = max(rest, key=rest.get)
-            fused[second] = min(fused.get(second, 0.0) + add * 0.5, cap)
+            cur2 = fused.get(second, 0.0)
+            fused[second] = max(cur2, min(cur2 + add * 0.5, cap))
         expanded.append(dst)
     return expanded
