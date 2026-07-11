@@ -126,9 +126,12 @@ def test_verbatim_pin_gate_configurable(engine):
 def test_jamo_matching_survives_korean_spacing():
     from lemory.retrieval.search import _to_jamo, _token_in_text
 
-    # 띄어쓰기 variation: '이루어져있는가' (query) vs '이루어져 있다' (note)
-    text = "제1차 민법전초안은 총 5개 편으로 이루어져 있다"
-    assert _token_in_text("이루어져있는가", text, _to_jamo(text))
+    # 띄어쓰기 variation: query writes the compound solid ('민법전초안은'),
+    # the note spaces it ('민법전 초안은') — jamo containment ignores spaces
+    text = "제1차 민법전 초안은 총 5개 편으로 이루어져 있다"
+    assert _token_in_text("민법전초안은", text, _to_jamo(text))
+    # unrelated compound must not match
+    assert not _token_in_text("형법전초안은", text, _to_jamo(text))
 
 
 def test_short_korean_verbatim_questions_reach_coverage(engine, vault):
