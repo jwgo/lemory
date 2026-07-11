@@ -78,12 +78,15 @@ claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault --client claude-d
 The `--client` name is how each app shows up in the dashboard's per-client
 usage — you always know who is reading and writing your memory.
 
-Ten tools (with MCP behavior annotations, so clients know what's read-only).
-Read: `search_notes` · `ask_notes` · `recent_notes` · `read_note` ·
-`list_notes` · `related_notes` · `vault_status` · `vault_context` (one-call
-session context: recent activity, hot notes, hubs, tags — Zep-style, ~ms,
-zero LLM). Write: `save_memory` · `append_note` — never overwrites, can't
-escape the vault, append-only edits.
+Eleven tools (with MCP behavior annotations, so clients know what's
+read-only). Read: `search_notes` · `ask_notes` · `recent_notes` ·
+`read_note` · `list_notes` · `related_notes` · `suggest_links` (unlinked
+mentions as [[link]] proposals with the mention's sentence) · `vault_status`
+· `vault_context` (one-call session context: recent activity, hot notes,
+hubs, tags — Zep-style, ~ms, zero LLM). Write: `save_memory` (now with
+consolidation: related existing memories get linked, near-duplicates get
+flagged — mem0-style fact updating without the destructive rewrite) ·
+`append_note` — never overwrites, can't escape the vault, append-only edits.
 
 ### Automatic session memory (one command)
 

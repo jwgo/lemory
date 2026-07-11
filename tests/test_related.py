@@ -24,3 +24,39 @@ def test_related_http_endpoint(client):
         rows = r.json()
         assert rows and {"path", "title", "score"} <= set(rows[0])
         assert client.get("/api/related", params={"path": "nope.md"}).json() == []
+
+
+# --- link suggestions (unlinked mentions -> [[link]] proposals) ------------
+
+def test_suggest_links_surfaces_unlinked_mention(engine, vault):
+    (vault / "Quarterly Plan.md").write_text(
+        "Budget review with Dana Petrov next week. The Mercury Initiative "
+        "depends on it.\n")
+    engine.index()
+    from lemory.retrieval.links import suggest_links
+
+    rows = suggest_links(engine, path="Quarterly Plan.md", k=10)
+    targets = {r["to_title"] for r in rows}
+    assert "Dana Petrov" in targets or "Mercury Initiative" in targets
+    row = rows[0]
+    assert row["suggestion"].startswith("[[") and row["snippet"]
+
+
+def test_suggest_links_skips_already_linked(engine, vault):
+    (vault / "Linked Note.md").write_text(
+        "Already linked to [[Dana Petrov]] here.\n")
+    engine.index()
+    from lemory.retrieval.links import suggest_links
+
+    rows = suggest_links(engine, path="Linked Note.md", k=10)
+    assert all(r["to_title"] != "Dana Petrov" or r["from_title"] != "Linked Note"
+               for r in rows)
+
+
+def test_suggest_links_unknown_path_raises(engine):
+    engine.index()
+    from lemory.retrieval.links import suggest_links
+    import pytest
+
+    with pytest.raises(ValueError):
+        suggest_links(engine, path="no/such/note.md")

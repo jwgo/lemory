@@ -493,6 +493,21 @@ class Store:
             out.add(r["id"])
         return out
 
+    def mention_edges(self, doc_id: int | None = None) -> list[tuple[int, int, float]]:
+        """Unlinked-mention edges (src, dst, weight). These exist ONLY where
+        no wiki edge covers the same pair (indexer merge rule), so every row
+        is a live [[link]] suggestion. With doc_id: both directions for that
+        note."""
+        if doc_id is None:
+            q = "SELECT src_doc, dst_doc, weight FROM links WHERE kind='mention'"
+            args: tuple = ()
+        else:
+            q = ("SELECT src_doc, dst_doc, weight FROM links WHERE kind='mention' "
+                 "AND (src_doc=? OR dst_doc=?)")
+            args = (doc_id, doc_id)
+        return [(r["src_doc"], r["dst_doc"], r["weight"])
+                for r in self.conn().execute(q, args)]
+
     def link_degrees(self) -> dict[int, int]:
         """doc_id -> total link degree (in + out), for hub detection."""
         out: dict[int, int] = {}

@@ -453,7 +453,11 @@ class Indexer:
 
     def _find_mentions(self, doc_id: int, targets: list[tuple[re.Pattern, int]]) -> dict[int, float]:
         c = self.store.conn()
-        rows = c.execute("SELECT text FROM chunks WHERE doc_id=?", (doc_id,)).fetchall()
+        # scan the note's OWN text only: enrichment pseudo-chunks quote
+        # sentences from OTHER notes ("(A) ... mentions C"), and counting
+        # those would give this note mention edges its author never wrote
+        rows = c.execute("SELECT text FROM chunks WHERE doc_id=? AND heading != ?",
+                         (doc_id, self.store.ENRICH_HEADING)).fetchall()
         text = "\n".join(r["text"] for r in rows).lower()
         found: dict[int, float] = {}
         for pat, tid in targets:

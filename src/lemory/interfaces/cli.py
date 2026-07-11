@@ -374,6 +374,35 @@ def remember(
         console.print(f"  [dim]관련 기억:[/dim] [[{r['title']}]] sim={r['sim']}{flag}")
 
 
+@app.command("suggest-links")
+def suggest_links_cmd(
+    note: Optional[str] = typer.Argument(None, help="Vault-relative note path (omit for vault-wide top suggestions)"),
+    k: int = typer.Option(12, help="Max suggestions"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """Unlinked mentions as [[link]] suggestions — notes that reference each
+    other in text but were never linked. Zero LLM; reads the existing graph."""
+    from ..retrieval.links import suggest_links
+
+    eng = _engine(vault)
+    eng.index()
+    try:
+        rows = suggest_links(eng, path=note, k=k)
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    if not rows:
+        console.print("[dim]제안할 링크가 없습니다 — 언급되지만 연결 안 된 노트가 없어요.[/dim]")
+        return
+    table = Table(title=f"link suggestions ({len(rows)})")
+    table.add_column("from")
+    table.add_column("add link")
+    table.add_column("mention context")
+    for r in rows:
+        table.add_row(r["from_title"], r["suggestion"], r["snippet"][:80])
+    console.print(table)
+
+
 @app.command("import-chats")
 def import_chats(
     file: Path = typer.Argument(..., help="ChatGPT/Claude export conversations.json"),
