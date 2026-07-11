@@ -337,7 +337,11 @@ one generation call per `ask()`.
 
 ## Contributing
 
-`uv venv && uv pip install -e ".[dev]" && pytest` — 303 tests, fully offline.
+`uv venv && uv pip install -e ".[dev]" && pytest` — 315 tests, fully offline.
 [CONTRIBUTING.md](CONTRIBUTING.md) · 한국어 이슈/PR 환영합니다.
+
+Local-first by design — the trust model, the localhost server's guards
+(CORS + Host-allowlist against DNS-rebinding), and how to report a
+vulnerability are in [SECURITY.md](SECURITY.md).
 
 **[한국어 README](README.ko.md)** · MIT
