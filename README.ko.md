@@ -148,9 +148,15 @@ lemory serve      # 웹 콘솔 + 실시간 볼트 감시
 벤치마크 최대 코퍼스는 실데이터입니다: **나무위키 1,469편, 청크 33,375개,
 실제 위키링크 24,850개** — SQLite 파일 하나로 질의당 ~0.2초, recall@8 1.00.
 색인은 증분식이라 노트 1만 개 볼트에서 오늘 5개를 고쳤으면 5개만 다시
-처리합니다.
+처리합니다. 청크 2만 개를 넘으면 IVF-int8 인덱스로 자동 전환 — **청크 100만
+개에서 5.9ms/질의, 정확 검색 대비 recall 1.000, RAM 4분의 1** (실측,
+BENCHMARKS §12b). PDF 색인은 opt-in (`index_pdf = true`).
 
 **옵시디언**은 플러그인 3파일 복사, **Claude Code/VS Code**는
-`claude mcp add lemory -- lemory mcp` 한 줄.
+`claude mcp add lemory -- lemory mcp` 한 줄 — 읽기 8툴 + **쓰기 2툴**
+(save_memory·append_note): Claude가 결정·사실을 **볼트 안의 순수 마크다운
+노트로** 저장합니다. 잠금 없음, 덮어쓰기 없음, 다음 질문부터 검색됩니다.
+`tag:프로젝트 folder:회의록 예산` 같은 스코프 연산자, `lemory import-chats`
+(ChatGPT/Claude 대화 내보내기 → 검색 가능한 노트)도 됩니다.
 
 MIT · 이슈/PR 환영 · **[English README](README.md)**

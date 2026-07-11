@@ -259,13 +259,15 @@ synthetic scaling test holds full hybrid+graph search under 80 ms at 50k
 chunks, and giant single documents are fine — the chunker splits along
 heading structure.
 
-Honest ceiling: a whole life + whole job is typically 10k–50k notes
-(50k–300k chunks) — inside the design envelope (100k chunks ≈ 300 MB RAM for
-the vector matrix, 0.1–0.2 s queries), though first-time embedding at that
-scale wants a paid tier (a few dollars, once). **Millions** of chunks — a
-whole company's document store — is beyond the comfortable range of the
-exact-search architecture; an ANN index option is on the roadmap, as is
-PDF/attachment indexing (today it's `.md` only).
+And the old ceiling is gone: above 20k chunks Lemory automatically switches
+from the exact scan to an **IVF-int8 vector index** (still just numpy — no
+FAISS, no vector DB). Measured on real embedding distributions at **1M chunks
+(≈ a 150k-note vault): 5.9 ms/query, recall@10 = 1.000 vs exact search,
+732 MB RAM instead of 2.9 GB** ([BENCHMARKS §12b](BENCHMARKS.md)). Small
+vaults keep exact search bit-for-bit; the switch, threshold, and probe depth
+are all config. First-time embedding at huge scale still wants a paid tier
+(a few dollars, once) — after that the cache makes everything incremental.
+PDFs index too, opt-in: `index_pdf = true` + `pip install 'lemory[pdf]'`.
 
 <details>
 <summary><b>Obsidian</b> — sidebar panel, click a citation to open the note</summary>
@@ -277,12 +279,18 @@ Enable in Settings → Community plugins. Needs `lemory serve` running.
 </details>
 
 <details>
-<summary><b>Claude Code / Claude Desktop / VS Code</b> — MCP, six tools</summary>
+<summary><b>Claude Code / Claude Desktop / VS Code</b> — MCP, nine tools (reads AND writes)</summary>
 
 ```bash
 claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault
 ```
-`search_notes` · `ask_notes` · `recent_notes` · `read_note` · `list_notes` · `vault_status`
+Read: `search_notes` · `ask_notes` · `recent_notes` · `read_note` ·
+`list_notes` · `related_notes` · `vault_status` · `vault_context`
+(one-call session context: recent activity, hot notes, hubs, tags).
+Write: `save_memory` · `append_note` — Claude persists decisions and facts
+**as plain Markdown notes in your vault**: visible in Obsidian, versionable,
+searchable next question, zero lock-in. Never overwrites, can't escape the
+vault, append-only edits.
 </details>
 
 <details>
@@ -294,8 +302,16 @@ lemory.configure(vault="~/Obsidian/MyVault")
 lemory.index()
 print(lemory.ask("what did I decide about pricing?").text)
 ```
-REST: `GET /search`, `POST /ask`, `POST /index`, `GET /status` on `lemory serve`.
+REST: `GET /search`, `POST /ask`, `GET /context`, `POST /memory`,
+`POST /append`, `POST /index`, `GET /status` on `lemory serve`.
 </details>
+
+**Scoped search** works everywhere: `tag:프로젝트 folder:회의록 예산 결정`
+narrows retrieval before ranking (a bare `tag:x` lists that scope,
+newest first). **Chat history is knowledge too**: `lemory import-chats
+conversations.json` turns a ChatGPT or Claude export into dated, searchable
+vault notes — idempotent, so re-running on a newer export only adds new
+conversations.
 
 ## How it works
 
@@ -332,12 +348,14 @@ extra LLM calls.
 ## Roadmap
 
 - [ ] PyPI (`pip install lemory`) · [ ] Obsidian community plugin listing
-- [ ] PDF/attachment indexing · [ ] budget-aware entity-graph enrichment on by default
-- [ ] multi-vault profiles
+- [x] PDF indexing (opt-in) · [x] ANN index for 1M-chunk vaults
+- [x] MCP write path (save_memory/append_note) · [x] chat-export import
+- [ ] image OCR / audio transcription (opt-in extras) · [ ] web clipper
+- [ ] multi-vault profiles · [ ] budget-aware entity-graph enrichment on by default
 
 ## Contributing
 
-`uv venv && uv pip install -e ".[dev]" && pytest` — 236 tests, fully offline.
+`uv venv && uv pip install -e ".[dev]" && pytest` — 292 tests, fully offline.
 [CONTRIBUTING.md](CONTRIBUTING.md) · 한국어 이슈/PR 환영합니다.
 
 **[한국어 README](README.ko.md)** · MIT

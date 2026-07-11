@@ -351,6 +351,41 @@ Synthetic Zipfian corpus, 50 queries, exact cosine + SQLite FTS5.
 benchmark machine; the query embedding round-trip (~100–300 ms, identical for
 all embedding-based systems) is excluded.
 
+## 12b. Vector index at 1M chunks — the "SQLite가 발목 잡는다" question (`bench_scale.py`)
+
+The exact float32 scan above is memory-bandwidth bound: at 1M chunks every
+query streams ~3 GB. Above `ann_threshold` (default 20k embedded chunks)
+Lemory switches to an **IVF-int8** index (`storage/ann.py`, numpy only, zero
+new dependencies): spherical k-means cells, int8 vectors stored
+cluster-contiguously, candidates rescored with their true float32 rows via a
+handful of SQLite PK lookups. Below the threshold nothing changes — small
+vaults keep exact search bit-for-bit.
+
+Corpus: **real gemini-embedding-001 vectors** (pooled from the other
+benchmarks' embed caches), scaled up by SLERP between true nearest neighbors —
+random synthetic vectors are IVF's worst case and would *flatter* the exact
+scan, so we don't use them. recall@10 is measured against exact search on the
+same corpus. Defaults shown (`nprobe=48`); build is one-time and persisted.
+
+| Chunks | exact scan | exact RAM | IVF-int8 (shipping path) | IVF RAM | recall@10 | build |
+|---|---|---|---|---|---|---|
+| 50k | 2.8 ms | 146 MB | 1.3 ms | 37 MB | 0.993 | 2.1 s |
+| 200k | 16.6 ms | 586 MB | 2.6 ms | 146 MB | 1.000 | 6.4 s |
+| **1M** | **95.9 ms** | **2.9 GB** | **5.9 ms** | **732 MB** | **1.000** | 33 s |
+
+Pre-rescore recall plateaus at ~0.94-0.97 regardless of probe depth — the
+loss is int8 near-tie reordering, not missed clusters — which is exactly what
+the float32 rescore of the top ~26 candidates repairs (measured 0.965 → 0.995+
+at 24 candidates). 1M chunks ≈ a 150k-note vault; nobody's personal vault is
+bigger, and now neither the RAM nor the latency story breaks first.
+
+End-to-end integration check: forcing IVF on (threshold 50) for the §1
+multihop suite and §4d robustness suite reproduces the exact-search numbers
+bit-for-bit at the default `nprobe=48` (multihop full-support 1.000;
+robustness 0.964/0.975/1.000) — even on a 116-chunk corpus where IVF is
+pathologically mis-sized. Halving the probe depth to 16 there costs ~7 pt of
+paraphrase robustness, which is why 48 is the default, not 16.
+
 ## 13. Context ordering — CDS-inspired curriculum (negative result)
 
 "Many-Shot CoT-ICL" (Chung et al., ICML 2026, arXiv:2605.13511) shows that

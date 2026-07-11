@@ -149,14 +149,33 @@ lemory ask "what was I reading in March?"         # asking about the past reache
 lemory recent                                     # recently-touched notes, no LLM
 ```
 
+Scoped (khoj-style operators, all retrieval modes):
+
+```bash
+lemory search "tag:meetings budget decision"   # only inside #meetings
+lemory search "folder:projects deadline"       # only under that folder
+lemory search "tag:log"                        # bare filter = newest-first listing
+```
+
+Writing memories back (it's not a read-only index):
+
+```bash
+lemory remember "VPN renewal is every March, Kim owns it" --tags ops
+lemory context                            # one-call vault digest (pipe to any agent)
+lemory import-chats conversations.json    # ChatGPT/Claude export → searchable notes
+```
+
 ## Big vaults
 
 - Benchmarked on **1,469 real namuwiki documents (33,375 chunks, 24,850 real
   wikilink edges)**: recall@8 1.00 at ~0.2 s/query, one SQLite file.
 - Synthetic scaling: full hybrid+graph search in 70 ms at 50k chunks.
-- A whole life + whole job ≈ 10k–50k notes — inside the design envelope
-  (100k chunks ≈ 300 MB RAM). Millions of chunks needs the ANN index on the
-  roadmap; today's format is `.md` (PDF planned).
+- A whole life + whole job ≈ 10k–50k notes — comfortably inside the envelope.
+- Past 20k chunks Lemory auto-switches to an IVF-int8 vector index (numpy
+  only): measured **1M chunks at 5.9 ms/query, recall@10 = 1.000 vs exact,
+  732 MB RAM instead of 2.9 GB** (BENCHMARKS §12b). Small vaults keep exact
+  search unchanged.
+- PDFs index too, opt-in: `index_pdf = true` + `pip install 'lemory[pdf]'`.
 
 ## When something's off
 

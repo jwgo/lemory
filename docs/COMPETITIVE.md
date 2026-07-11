@@ -90,3 +90,68 @@ KorQuAD의 BM25 열세(0.908 vs 0.923)도 계속 공개 유지.
    opt-in으로만 제공. measured, not adopted.
 
 측정 결과(안 된 것 포함)는 BENCHMARKS.md §5d에.
+
+---
+
+# 3차: 상용 솔루션 정면 비교 (2026-07-11)
+
+2026년 7월 기준 상용/활발한 제품들을 다시 조사했다 (supermemory 셀프호스트
+바이너리·mem0 4월 알고리즘 리라이트·Zep Smart Context Assembly·cognee 1.0
+Postgres 단일화·Khoj Cloud 종료·Rewind/Limitless 메타 인수 후 셧다운·Claude
+메모리 무료화). 결론 두 가지:
+
+1. **검색 품질은 이제 테이블 스테이크다.** 2025-26 승자들(mem0, supermemory,
+   basic-memory, Letta)은 전부 대화에서 기억을 **자동으로 쓰는(write)** 쪽으로
+   이동했다. 읽기 전용 인덱스는 반쪽짜리다.
+2. **로컬-퍼스트가 다시 차별화 요소가 됐다.** Rewind 사망, Khoj Cloud 사망,
+   메타의 인수 — 프라이버시 사용자들이 갈 곳을 잃었고, 클라우드-네이티브인
+   supermemory조차 로컬 바이너리를 냈다.
+
+## 이번 라운드에 이식한 것 (전부 로컬-퍼스트 재해석)
+
+| 갭 (원조) | Lemory 구현 | 차별점 |
+|---|---|---|
+| 쓰기 경로 (mem0 add / basic-memory write_note) | save_memory·append_note (MCP/HTTP/CLI) | 기억이 독점 저장소의 행이 아니라 **볼트 안의 순수 마크다운** — Obsidian에서 보이고, 버전 관리되고, 락인 없음 |
+| 사전 조립 컨텍스트 (Zep get_user_context, ~50ms) | vault_context / GET /context / `lemory context` | LLM 0회·결정적·로컬 ~ms. 세션 시작 시 한 콜 |
+| 질의 연산자 (khoj date:/file:) | tag:/folder:/path: + 기존 시간 연산 | 전 모드(vector/bm25 포함) 동작, 빈 질의 = 스코프 목록 |
+| 관련 노트 (reor) | /api/related + MCP + 콘솔 관련 노트 | 노트 자체가 질의 — LLM 0, 신규 임베딩 0 |
+| 대화 이력 자산화 (Claude Memory Import 역방향) | `lemory import-chats` (ChatGPT/Claude 내보내기) | 멱등 재실행, 날짜 보존 → 시간 질의로 검색 가능 |
+| 멀티모달 (supermemory/mymind) | PDF 인덱싱 opt-in (`lemory[pdf]`) | 이미지 OCR·오디오는 로드맵 (의존성 무게 때문에 opt-in 원칙) |
+| 사용신호 자기개선 (cognee memify) | usage_prior 설정 (기본 OFF) | 개인 사용 신호는 오프라인 벤치마크가 불가능 — 정직하게 기본 꺼짐 |
+| 대규모 스케일 (전용 벡터DB들) | IVF-int8 자동 전환 (§12b) | numpy만으로 1M 청크 5.9ms·recall 1.000·RAM 4분의 1 — "SQLite가 발목" 반박을 실측으로 |
+
+## "시장 3위 안"이라는 질문에 대한 정직한 답
+
+전체 "AI 메모리" 시장(mem0 60k스타·supermemory 28k스타·SaaS 매출)에서
+스타 수나 매출로 3위라고 주장하는 건 거짓말이다. 그건 유통(distribution)의
+게임이고 Lemory는 아직 PyPI에도 없다.
+
+측정 가능한 것으로 좁히면 얘기가 다르다. **"내 마크다운 볼트를 그대로 답하게
+만드는 로컬-퍼스트 백엔드"** 세그먼트(경쟁: basic-memory, khoj(셀프호스트),
+Smart Connections/Copilot, qmd, memory-vault류 MCP 서버들)에서:
+
+- **검색 품질**: 같은 하네스에서 실측한 6개 시스템 중 멀티홉·강건성·시간
+  인지 전부 1위 (mem0 0.579 / cognee 0.561 / supermemory 0.579 / qmd 0.526 /
+  LlamaIndex 0.649 vs **1.000**). 세그먼트 밖 상용까지 포함해도 이 수치를
+  같은 조건에서 이기는 공개 측정은 없다.
+- **기능 커버리지**: 위 표 이후 읽기+쓰기+컨텍스트+연산자+관련노트+가져오기
+  +PDF+시각화+히트추적 — basic-memory(쓰기 중심, 검색 약함)와
+  khoj(검색+챗, 쓰기 없음)의 합집합에 해당. 빠진 것: 이미지 OCR, 웹클리퍼,
+  스케줄 자동화.
+- **운영 단순성**: SQLite 1파일+numpy로 1M 청크까지 실측 완주. 경쟁 제품 중
+  이 풋프린트로 이 수치를 내는 것 없음 (cognee=Postgres, mem0=벡터DB,
+  supermemory=바이너리+외부 임베딩).
+
+이 세그먼트 기준 기술 지표로는 1-2위 주장이 가능하고, 그 근거 전부가 이
+저장소 안에서 재현 가능하다. **아직 아닌 것**: PyPI/옵시디언 스토어 등록,
+커뮤니티, 데모 영상 — 유통 갭은 코드로 못 메운다 (외부 절차, 로드맵 최상단).
+
+## 이번 라운드에 하지 않은 것 (근거 포함)
+
+- **호스티드 클라우드/모바일 동기화** — Khoj Cloud의 죽음이 경제성을 증언.
+  Obsidian Sync/Syncthing 문서화가 80%를 커버.
+- **풀 챗 어시스턴트 UI** — 시장은 Claude/ChatGPT **안의** 메모리로 이동했다.
+  Lemory는 MCP로 그 안에 들어가는 쪽.
+- **바이-템포럴 사실 무효화 (Graphiti)** — 노트 기반 볼트에는 "사실 행"이
+  없다. 시간 질의 이해 + 최신값 우선(§10)이 같은 사용자 문제를 푼다.
+  사실 단위 스토어를 도입하는 순간 "순수 마크다운" 포지셔닝이 죽는다.
