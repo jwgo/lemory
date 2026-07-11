@@ -22,7 +22,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import DATA, WORK, make_engine, prewarm_queries, save_json
+from common import DATA, WORK, load_env, make_engine, prewarm_queries, save_json
 
 from lemory.retrieval.search import hybrid_search
 
@@ -91,6 +91,7 @@ def evaluate(eng, questions: list[dict], mode: str, graph: bool) -> dict:
 
 
 def main() -> None:
+    load_env()
     questions = [json.loads(l) for l in QFILE.read_text().splitlines()]
     arms = dict(ARMS)
     if "--arm" in sys.argv:
