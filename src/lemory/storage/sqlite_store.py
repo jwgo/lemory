@@ -136,6 +136,11 @@ class DocRecord:
 
 _HANGUL_RUN = re.compile(r"[가-힣]+")
 
+# high-frequency single-syllable suffixes: 조사 that attach to single-syllable
+# nouns ('윌의', '책은') and verbal 어미 on 2-syllable conjugations ('읽던' /
+# '읽는' share only the stem syllable, which bigrams can't see)
+_SINGLE_PARTICLES = set("의은는이가를을에와과도만로써서던고기다지요며자게니")
+
 
 def hangul_bigrams(text: str) -> list[str]:
     """Character unigrams + bigrams of every Hangul run (CJK-analyzer style).
@@ -165,12 +170,39 @@ def fts_index_text(text: str) -> str:
     return text if not grams else f"{text}\n{' '.join(grams)}"
 
 
+def query_hangul_grams(text: str) -> list[str]:
+    """Query-side Hangul grams: bigrams for multi-syllable runs, the unigram
+    only for single-syllable runs ('책').
+
+    The index stores unigrams AND bigrams (`hangul_bigrams`), but putting
+    unigrams in the OR-query is what melts big Korean corpora: '이'/'은'/'의'
+    match nearly every row, forcing BM25 to score the whole table (~270 ms on
+    the 33k-chunk namuwiki corpus). Every occurrence of a multi-syllable word
+    already contains that word's bigrams, so dropping its unigrams from the
+    QUERY loses only single-shared-syllable noise matches whose IDF weight
+    was ~0 anyway."""
+    grams: list[str] = []
+    for run in _HANGUL_RUN.findall(text):
+        if len(run) == 1:
+            grams.append(run)
+        else:
+            grams.extend(run[i : i + 2] for i in range(len(run) - 1))
+            if len(run) == 2 and run[1] in _SINGLE_PARTICLES:
+                # '윌의'/'책은': a single-syllable noun + 조사 — the stem
+                # unigram is the only token that can reach the noun's own
+                # mentions ('윌'). Bounded reintroduction: only 2-syllable
+                # runs ending in a particle, so interior syllables of long
+                # words (the row-melters '이/은/의') stay out of the query.
+                grams.append(run[0])
+    return grams
+
+
 def _fts_escape(query: str) -> str:
     """Turn free text into a safe FTS5 OR-query of quoted terms
     (plus Hangul-bigram terms so 조사-suffixed words still match)."""
     terms = [t.replace('"', "") for t in query.split()]
     terms = [t for t in terms if t.strip()][:16]  # cap pathological queries
-    grams = hangul_bigrams(" ".join(terms))[:48]
+    grams = query_hangul_grams(" ".join(terms))[:48]
     all_terms = terms + grams
     if not all_terms:
         return '""'
