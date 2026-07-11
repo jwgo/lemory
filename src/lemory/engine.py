@@ -82,6 +82,17 @@ class Engine:
                 self._indexer = Indexer(self)
             return self._indexer.plan(full=full)
 
+    @property
+    def keyless(self) -> bool:
+        """True when no embedding provider is available — Lemory still runs
+        (BM25 + typo repair + boosts + operators), just without the vector leg.
+        Adding a key later upgrades in place: the next index embeds everything."""
+        try:
+            self.cfg.resolved_provider()
+            return False
+        except RuntimeError:
+            return True
+
     def index(self, full: bool = False, progress=None, paths: Optional[set] = None):
         from .ingestion import Indexer
 
@@ -90,23 +101,32 @@ class Engine:
             # comparing them silently returns garbage. Detect a model/dim switch
             # and force a full re-embed (old cache entries are keyed by model,
             # so switching BACK later is free).
-            sig = f"{self.cfg.active_embed_model()}|{self.cfg.active_embed_dim()}"
-            stored = self.store.get_meta("embed_signature")
-            if stored is not None and stored != sig and self.store.chunk_count() > 0:
-                import logging
+            if not self.keyless:
+                sig = f"{self.cfg.active_embed_model()}|{self.cfg.active_embed_dim()}"
+                stored = self.store.get_meta("embed_signature")
+                if stored is not None and stored != sig and self.store.chunk_count() > 0:
+                    import logging
 
-                logging.getLogger("lemory.engine").warning(
-                    "embedding model changed (%s -> %s): re-embedding the whole "
-                    "vault so search stays correct", stored, sig,
-                )
-                full = True
-                paths = None
+                    logging.getLogger("lemory.engine").warning(
+                        "embedding model changed (%s -> %s): re-embedding the whole "
+                        "vault so search stays correct", stored, sig,
+                    )
+                    full = True
+                    paths = None
+            else:
+                sig = None
+                stored = self.store.get_meta("embed_signature")
+                if stored is not None and self.store.chunk_count() > 0:
+                    # a key existed before and is gone now: keep the old vectors,
+                    # they are still valid — just don't claim a fresh signature
+                    sig = stored
 
             if self._indexer is None:
                 self._indexer = Indexer(self)
             rep = self._indexer.sync(full=full, progress=progress, paths=paths)
-            self.store.set_meta("embed_signature", sig)
-            if self.cfg.enrich_entities:
+            if sig is not None:
+                self.store.set_meta("embed_signature", sig)
+            if self.cfg.enrich_entities and not self.keyless:
                 self._indexer.enrich_entities()
             return rep
 

@@ -41,6 +41,65 @@ def init(vault: Path = typer.Argument(..., help="Path to your Obsidian vault")):
 
 
 @app.command()
+def up(
+    vault: Path = typer.Argument(..., help="Obsidian vault path"),
+    port: int = typer.Option(8377),
+    serve_after: bool = typer.Option(True, "--serve/--no-serve",
+                                     help="Start the server after indexing"),
+):
+    """딸깍 — zero questions asked: detect a key (env/.env/~/.lemory/env),
+    pick the best available mode, write config, index, and serve.
+
+    * Gemini key found        → full mode (answers + embeddings)
+    * no key, fastembed there → local search-only mode
+    * neither                 → keyless mode (BM25 + link graph; still useful)
+    """
+    from ..config import load_config
+
+    v = vault.expanduser().resolve()
+    if not v.is_dir():
+        console.print(f"[red]폴더가 없습니다:[/red] {v}")
+        raise typer.Exit(1)
+    n_md = sum(1 for _ in v.rglob("*.md"))
+
+    extra = ""
+    if load_config().resolved_gemini_key():
+        mode_desc = "Gemini (키 감지됨 — 질문·답변 포함)"
+    else:
+        try:
+            import fastembed  # noqa: F401
+
+            extra = 'provider = "local"\n'
+            mode_desc = "로컬 검색 전용 (fastembed — 키 없음)"
+        except ImportError:
+            mode_desc = "키 없음 — BM25+링크 그래프 검색 (키를 넣으면 자동 업그레이드)"
+
+    cfg_file = v / "lemory.toml"
+    if not cfg_file.exists():
+        cfg_file.write_text(f"[lemory]\nvault = {json.dumps(str(v))}\n{extra}")
+    console.print(f"[green]✔[/green] {v} ({n_md}개 노트) · 모드: {mode_desc}")
+
+    eng = _engine(v)
+    plan = eng.index_plan()
+    if plan.embeds_needed:
+        console.print(f"  첫 색인: 청크 {plan.chunks_total}개 · 예상 {plan.human_eta()}")
+    with console.status("색인 중..."):
+        rep = eng.index()
+    console.print(f"[green]✔[/green] 색인 완료: 노트 {rep.added + rep.updated}개, "
+                  f"청크 {rep.chunks}개 ({rep.seconds:.0f}s)")
+    console.print(
+        f"\n  대시보드  →  http://127.0.0.1:{port}\n"
+        f"  Claude 연결  →  claude mcp add lemory -- lemory mcp --vault {v}\n"
+        f"  질문  →  lemory ask \"요새 내가 하던 그거 뭐였지?\"\n")
+    if serve_after:
+        import uvicorn
+
+        from .http import build_app
+
+        uvicorn.run(build_app(eng, watch=True), host="127.0.0.1", port=port)
+
+
+@app.command()
 def setup(
     vault: Optional[Path] = typer.Option(None, help="Vault path (prompted if omitted)"),
     key: Optional[str] = typer.Option(None, help="Gemini API key (prompted if omitted)"),

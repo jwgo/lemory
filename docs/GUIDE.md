@@ -34,7 +34,14 @@ Without a billing account attached there is **no way to be charged** — hitting
 the free limit means waiting, not paying. Lemory rate-limits itself to stay
 inside it.
 
-## 3. Run the setup wizard
+## 3. Setup — one click is enough
+
+```bash
+lemory up ~/Obsidian/MyVault   # zero questions: detect key → pick mode → index → dashboard
+```
+
+Key in the environment → full mode; no key → local/keyless mode, upgraded in
+place when a key appears. Prefer choosing step by step? The wizard:
 
 ```bash
 lemory setup

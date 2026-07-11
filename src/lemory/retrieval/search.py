@@ -194,10 +194,16 @@ def hybrid_search(
         # legs must dig deeper to keep k results inside the scope
         depth = 4 if allowed_docs is not None else 1
         if mode in ("hybrid", "vector") and legs != "bm25":
-            v = engine.embed_query_cached(q_text)
-            if q_text == query:
-                qv = v
-            v_hits = store.vector_search(v, cfg.k_vector * depth)
+            try:
+                v = engine.embed_query_cached(q_text)
+            except RuntimeError:
+                # keyless: no embedding provider — the lexical leg carries the
+                # search (BM25 + typo repair + boosts + operators still work)
+                v = None
+            if v is not None:
+                if q_text == query:
+                    qv = v
+                v_hits = store.vector_search(v, cfg.k_vector * depth)
         if mode in ("hybrid", "bm25"):
             b_hits = store.bm25_search(q_text, cfg.k_bm25 * depth)
         if q_text == query:

@@ -133,12 +133,15 @@ class Indexer:
         p.files_total = len(files)
         seen: set[str] = set()
 
-        model = self.cfg.active_embed_model()
-        dim = self.cfg.active_embed_dim()
-        # a pending model switch makes the next sync a full re-embed
-        stored_sig = self.store.get_meta("embed_signature")
-        if stored_sig is not None and stored_sig != f"{model}|{dim}" and self.store.chunk_count() > 0:
-            full = True
+        keyless = self.engine.keyless
+        model = dim = None
+        if not keyless:
+            model = self.cfg.active_embed_model()
+            dim = self.cfg.active_embed_dim()
+            # a pending model switch makes the next sync a full re-embed
+            stored_sig = self.store.get_meta("embed_signature")
+            if stored_sig is not None and stored_sig != f"{model}|{dim}" and self.store.chunk_count() > 0:
+                full = True
 
         embed_keys: list[str] = []
         for f in files:
@@ -163,10 +166,11 @@ class Indexer:
                 plain = render_plain(note.body)
                 chunks = [("", plain)] if plain else [("", title)]
             p.chunks_total += len(chunks)
-            embed_keys.extend(
-                Store.cache_key(model, dim, "doc", embed_text_for_chunk(title, h, t))
-                for h, t in chunks
-            )
+            if not keyless:
+                embed_keys.extend(
+                    Store.cache_key(model, dim, "doc", embed_text_for_chunk(title, h, t))
+                    for h, t in chunks
+                )
 
         p.to_remove = sum(1 for d in self.store.all_docs() if d.path not in seen)
         cached = self.store.cache_get_many(embed_keys)
@@ -177,7 +181,7 @@ class Indexer:
             p.rate_chunks_per_s = max(0.5, float(rate_meta))
             p.rate_measured = True
         else:
-            provider = self.cfg.resolved_provider()
+            provider = "none" if keyless else self.cfg.resolved_provider()
             p.rate_chunks_per_s = self._DEFAULT_RATES.get(provider, 20.0)
         p.est_seconds = p.embeds_needed / p.rate_chunks_per_s + p.chunks_total * 0.002 + 1.0
         return p
@@ -238,8 +242,13 @@ class Indexer:
                 plain = render_plain(note.body)
                 chunks = [("", plain)] if plain else [("", title)]
 
-            embed_texts = [embed_text_for_chunk(title, h, t) for h, t in chunks]
-            vectors, misses = self.engine.embed_documents_cached(embed_texts)
+            if self.engine.keyless:
+                # no embedding provider: index lexically (BM25 + link graph
+                # still work); a key added later fills vectors on next sync
+                vectors, misses = None, 0
+            else:
+                embed_texts = [embed_text_for_chunk(title, h, t) for h, t in chunks]
+                vectors, misses = self.engine.embed_documents_cached(embed_texts)
             rep.embedded += misses
 
             doc_id = self.store.store_note(
@@ -391,10 +400,14 @@ class Indexer:
 
         if not to_embed:
             return 0
-        embed_texts = [embed_text_for_chunk(t, "", txt) for _, t, txt in to_embed]
-        vectors, misses = self.engine.embed_documents_cached(embed_texts)
+        if self.engine.keyless:
+            vectors, misses = None, 0
+        else:
+            embed_texts = [embed_text_for_chunk(t, "", txt) for _, t, txt in to_embed]
+            vectors, misses = self.engine.embed_documents_cached(embed_texts)
         for i, (doc_id, title, text) in enumerate(to_embed):
-            store.replace_enrichment_chunk(doc_id, title, text, vectors[i] if text else None)
+            vec = vectors[i] if vectors is not None and text else None
+            store.replace_enrichment_chunk(doc_id, title, text, vec)
         return misses
 
     def _cached_mention_targets(self, title_to_id: dict[str, int]) -> list[tuple[re.Pattern, int]]:
