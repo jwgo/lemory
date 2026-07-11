@@ -194,8 +194,16 @@ API calls" — 셀럽 창업자·벤치마크 논란 생존), **codebase-memory-
 | 낯선 사람 감사 | 신규 venv 설치→up→ask 전 과정 실검증, doctor 키리스 티어 수정 |
 | 런칭 플레이북 | [docs/LAUNCH.md](LAUNCH.md) — 저장소 설명 문구·채널 순서·Show HN 제목·논란 대응 |
 
+## 공인 벤치 헤드라인 확보
+
+LongMemEval **풀셋(500문항) 리트리벌**을 로컬 임베더(MiniLM, zero-API —
+MemPalace 헤드라인과 동일 조건)로 완주: **any-session Recall@5 = 0.972**
+(MemPalace가 내세우는 "96.6% R@5"와 같은 지표, 풀셋에서 그 수준),
+strict all-evidence@5 = 0.857 (BENCHMARKS §7d, 둘 다 공개). 이게 저장소
+설명에 박을 "공인 벤치 숫자 한 개"다 — MemPalace/mem0/supermemory 헤드라인과
+같은 통화(currency)로 대화에 참여할 티켓.
+
 ## 남은 것 (코드 밖)
 
-PyPI 등록 → 옵시디언 스토어 제출 → LAUNCH.md 순서로 유통 절차 실행.
-LongMemEval **풀셋(500문항) 리트리벌 벤치**가 로컬 임베더(zero-API,
-MemPalace와 동일 조건)로 진행 중 — 완료 시 저장소 설명의 헤드라인 숫자가 된다.
+PyPI 등록 → 옵시디언 스토어 제출 → LAUNCH.md 순서로 유통 절차 실행. 기술·증거
+절반은 저장소 안에서 끝났고, 남은 건 전부 외부 절차(계정·리뷰·커뮤니티)다.

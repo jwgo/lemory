@@ -308,6 +308,39 @@ Per-question ~50-session haystacks with dates; includes temporal reasoning, know
 | **Lemory** (hybrid + graph) | 1.000 | 0.812 | 0.480 | 1.000 | 0.667 | 0.867 | 0.741 | 0.730 |
 | Vector-only (naive RAG) | 1.000 | 0.875 | 0.520 | 1.000 | 0.833 | 1.000 | 0.667 | 0.760 |
 
+## 7d. LongMemEval_S retrieval — FULL 500 questions, zero API calls
+
+The field's headline currency is "R@5 on LongMemEval" measured with a local
+embedder and no API (MemPalace markets "96.6% R@5, zero API calls"). This is
+the identical protocol on the **entire cleaned S set** — no stratified
+sampling, no LLM generator/judge, so the number is directly comparable and
+reproducible on a laptop (`benchmarks/run_longmemeval_full.py`). Embedder:
+fastembed multilingual MiniLM (Lemory's `local` provider, CPU, fully offline).
+Metric is **session-level recall** over the 470 questions that have evidence
+sessions (the 30 abstention questions have none by construction and are
+excluded, per the LongMemEval retrieval protocol):
+
+| | Recall@5 (all evidence sessions) | Recall@5 (any) | Recall@10 (all) | Recall@10 (any) |
+|---|---|---|---|---|
+| **Lemory** (hybrid + graph) | **0.857** | **0.972** | **0.879** | **0.987** |
+| Vector-only (naive RAG) | 0.809 | 0.964 | 0.819 | 0.966 |
+
+Two definitions are reported because they answer different questions.
+**"any"** — at least one evidence session in the top-k — is what most "R@5"
+claims in this space measure; Lemory is **0.972** on the full set, in the
+neighborhood of the marketed headlines, with a local embedder and no API.
+**"all"** — *every* evidence session retrieved, the precondition for actually
+answering a multi-session question — is the stricter number we lead with:
+0.857. We publish both rather than quoting only the flattering one.
+
+By question type (strict all@5 / any@5, n): knowledge-update 0.972/1.000 (72),
+single-session-user 0.969/0.969 (64), single-session-assistant 0.964/0.964
+(56), single-session-preference 0.933/0.933 (30), multi-session 0.785/0.992
+(121), temporal-reasoning 0.740/0.953 (127). The gap between strict and any on
+multi-session / temporal is expected: those questions cite several sessions,
+so retrieving *all* of them in 5 is genuinely hard — and exactly why the two
+metrics are worth separating.
+
 ## 8. External tool: qmd (tobi/qmd, local-model markdown search)
 
 Same corpus (multihop vault) and metric (full-support@8 by gold note).

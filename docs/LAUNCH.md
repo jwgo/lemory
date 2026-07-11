@@ -8,7 +8,10 @@
 ## 저장소 설정 (GitHub UI에서, 5분)
 
 - [ ] **Description에 숫자를 박는다** — 이 카테고리의 2026년 문법:
-  > `Your Obsidian vault as every AI's memory. Multi-hop 1.000 vs mem0 0.579 (same harness) · ~3ms retrieval · 0 LLM calls to index · MCP read+write · local-first SQLite`
+  > `Your Obsidian vault as every AI's memory. LongMemEval R@5 0.97 (full set, 0 API calls) · multi-hop 1.000 vs mem0 0.579 (same harness) · ~3ms · 0 LLM calls to index · MCP read+write · local-first SQLite`
+
+  (LongMemEval 풀셋 any@5 0.972 = MemPalace 헤드라인 "96.6% R@5"와 같은 지표;
+  strict all@5 0.857도 BENCHMARKS §7d에 함께 공개 — 정직 섹션이 곧 논란 보험.)
 - [ ] Topics: `obsidian` `mcp` `ai-memory` `agent-memory` `local-first` `rag`
   `knowledge-base` `markdown` `korean` `sqlite`
 - [ ] Discussions 켜기 · `good first issue` 라벨로 이슈 3-4개 시딩

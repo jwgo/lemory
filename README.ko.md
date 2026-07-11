@@ -99,6 +99,11 @@ lemory up ~/Obsidian/MyVault    # 키 감지 → 모드 자동 선택 → 색인
 | 검색 지연 (p50) | **~3 ms** | 7.5 s | ~1 s | 212 ms | ~5 s | 327 ms | 649 ms | 0.6–59 s |
 | 한국어 질문 | **0.975** | — | 0.350 | — | — | — | — | — |
 
+**공인 벤치마크 풀셋도 API 0회로**: LongMemEval_S 전체 500문항 리트리벌을
+로컬 임베더(MiniLM)만으로 — Recall@5 = 0.972(any) / 0.857(전 근거세션 strict)
+([BENCHMARKS §7d](BENCHMARKS.md)). MemPalace가 내세우는 "96.6% R@5"와 같은
+지표(any)에서 풀셋·제로API로 그 수준입니다. strict 숫자까지 둘 다 공개합니다.
+
 **옵시디언 CEO의 실제 공개 볼트(kepano)** 에서도: 2-hop full-support
 **1.000** (스텁 보강 전 0.500 — 진짜 볼트는 3줄짜리 스텁 투성이라는 걸 여기서
 배웠습니다), 벡터 전용 대비 우위. KorQuAD처럼 BM25한테 지는 표도 그대로

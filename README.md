@@ -189,9 +189,11 @@ AND at query. ² Includes its per-query LLM keyword-extraction call under our
 free-tier rate limit; ~1–2 s on a paid tier. ³ MemPalace CLI wall-clock incl.
 process startup, sqlite_exact backend — its marketed zero-API config.
 ⁴ LlamaIndex embeds every query via API, uncached; local-only ~2 ms.
-Also: [LOCOMO](https://github.com/snap-research/locomo) LLM-judge 0.706 vs
-mem0's published 0.669; LongMemEval_S judged sample 0.76 (GPT-4o full-context
-baseline ≈ 0.60); DMR (500 q) 0.694 vs 0.648 same-harness naive RAG.</sub>
+Also: **full 500-question LongMemEval_S retrieval, zero API calls** (local
+MiniLM embedder) — Recall@5 = 0.972 any-session / 0.857 all-evidence-sessions
+([§7d](BENCHMARKS.md)); [LOCOMO](https://github.com/snap-research/locomo)
+LLM-judge 0.706 vs mem0's published 0.669; DMR (500 q) 0.694 vs 0.648
+same-harness naive RAG.</sub>
 
 **[KorQuAD 1.0](https://korquad.github.io/)** — 140 real Korean Wikipedia
 articles, 400 human-written questions:
