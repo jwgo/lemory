@@ -169,3 +169,27 @@ def test_upsert_document_is_idempotent(store):
     assert id1 == id2
     assert store.doc_count() == 1
     assert store.get_doc_by_path("a.md").title == "A2"
+
+
+def test_malformed_tags_do_not_crash_reads(store):
+    """A corrupt tags cell must degrade to [] everywhere, not crash reads
+    (regression: Store._doc used an unguarded json.loads)."""
+    d = _add_doc(store, "a.md", "A", [("", "hello")])
+    store.conn().execute("UPDATE documents SET tags='not json{' WHERE id=?", (d,))
+    store.conn().commit()
+    doc = store.get_doc_by_path("a.md")          # _doc path
+    assert doc is not None and doc.tags == []
+    assert store.all_docs()[0].tags == []
+    assert isinstance(store.tag_counts(), list)  # tag_counts path
+    assert store.doc_overview_rows()             # overview path
+    assert store.docs_matching(tags=["x"]) == set()
+
+
+def test_subheading_dedupes_title():
+    from lemory.storage.sqlite_store import ChunkHit
+
+    h = ChunkHit(1, 1, "a.md", "회의록", "회의록 > 결정사항", "text", 0.0)
+    assert h.subheading() == "결정사항"
+    assert ChunkHit(1, 1, "a.md", "회의록", "회의록", "t", 0.0).subheading() == ""
+    assert ChunkHit(1, 1, "a.md", "A", "", "t", 0.0).subheading() == ""
+    assert ChunkHit(1, 1, "a.md", "A", "Other Section", "t", 0.0).subheading() == "Other Section"

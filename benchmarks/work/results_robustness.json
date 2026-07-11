@@ -5,7 +5,7 @@
     "full_support@8_korean": 0.975,
     "full_support@8_keyword": 1.0,
     "full_support@8_typo": 1.0,
-    "seconds": 0.7263424396514893
+    "seconds": 0.7087242603302002
   },
   "lemory-nograph": {
     "full_support@8_original": 0.631578947368421,
@@ -13,7 +13,7 @@
     "full_support@8_korean": 0.45,
     "full_support@8_keyword": 0.625,
     "full_support@8_typo": 0.5614035087719298,
-    "seconds": 0.6381990909576416
+    "seconds": 0.6148221492767334
   },
   "vector": {
     "full_support@8_original": 0.631578947368421,
@@ -21,7 +21,7 @@
     "full_support@8_korean": 0.55,
     "full_support@8_keyword": 0.5714285714285714,
     "full_support@8_typo": 0.6140350877192983,
-    "seconds": 0.06685423851013184
+    "seconds": 0.06785774230957031
   },
   "bm25": {
     "full_support@8_original": 0.5964912280701754,
@@ -29,6 +29,6 @@
     "full_support@8_korean": 0.275,
     "full_support@8_keyword": 0.5892857142857143,
     "full_support@8_typo": 0.43859649122807015,
-    "seconds": 0.3014826774597168
+    "seconds": 0.29508280754089355
   }
 }

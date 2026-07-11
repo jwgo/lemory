@@ -325,17 +325,10 @@ def recent(
     limit: int = typer.Option(20, help="Max notes to list"),
 ):
     """What did I touch lately? Notes from the last N days, newest first."""
-    import time as _time
     from datetime import datetime
 
     eng = _engine(vault)
-    dates = eng.store.doc_dates()
-    docs = {d.id: d for d in eng.store.all_docs()}
-    cutoff = _time.time() - days * 86400
-    rows = sorted(
-        ((ts, docs[did]) for did, ts in dates.items() if ts >= cutoff and did in docs),
-        key=lambda x: -x[0],
-    )[:limit]
+    rows = eng.store.recent_docs(days, limit)
     if not rows:
         console.print(f"no notes in the last {days} days")
         return
@@ -493,9 +486,7 @@ def search(
     table.add_column("score", width=8)
     table.add_column("excerpt")
     for i, h in enumerate(hits, 1):
-        # headings repeat the note title for single-section notes — dedupe
-        sub = h.heading if h.heading and h.heading != h.title else ""
-        sub = sub[len(h.title) + 3:] if sub.startswith(h.title + " > ") else sub
+        sub = h.subheading()
         loc = h.title + (f" › {sub}" if sub else "")
         table.add_row(str(i), loc, f"{h.score:.4f}", h.text[:180].replace("\n", " "))
     console.print(table)

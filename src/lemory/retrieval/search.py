@@ -250,7 +250,7 @@ def hybrid_search(
         if intent.active:
             dates = store.doc_dates()
             doc_of = {cid: m.doc_id for cid, m in chunk_meta.items()}
-            for cid in list(fused.keys()):
+            for cid in fused:  # values mutated in place; no keys added/removed
                 ts = dates.get(doc_of.get(cid, -1), 0.0)
                 if ts <= 0:
                     continue
@@ -349,9 +349,11 @@ def related_notes(engine: "Engine", path: str, k: int = 8) -> list[dict]:
     centroid /= norm
 
     linked = {n_id for n_id, _kind, _w in store.neighbors([doc.id]).get(doc.id, [])}
+    cand = store.vector_search(centroid, max(48, k * 6))
+    metas = store.get_chunks([cid for cid, _ in cand])  # one query, not N
     best: dict[int, float] = {}
-    for cid, sim in store.vector_search(centroid, max(48, k * 6)):
-        meta = store.get_chunks([cid]).get(cid)
+    for cid, sim in cand:
+        meta = metas.get(cid)
         if meta is None or meta.doc_id == doc.id:
             continue
         score = sim + (0.05 if meta.doc_id in linked else 0.0)

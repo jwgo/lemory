@@ -116,6 +116,19 @@ class Indexer:
         self.cfg = engine.cfg
         self.store: Store = engine.store
 
+    def _chunk(self, note, title: str) -> list[tuple[str, str]]:
+        """Chunk a note, with the whole-note fallback for notes that produce no
+        chunks (0-byte, frontmatter-only). Shared by plan() and sync() so the
+        dry-run estimate and the real sync can never disagree on chunk counts."""
+        chunks = chunk_note(
+            note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
+            self.cfg.min_chunk_chars,
+        )
+        if not chunks:
+            plain = render_plain(note.body)
+            chunks = [("", plain)] if plain else [("", title)]
+        return chunks
+
     # ------------------------------------------------------------------ plan
     # provider defaults (chunks/s) used until a real rate has been observed
     _DEFAULT_RATES = {"gemini": 40.0, "openai": 40.0, "local": 20.0, "ollama": 6.0}
@@ -162,13 +175,7 @@ class Indexer:
             p.to_process += 1
             title = note_title(f)
             note = parse_note(raw, title)
-            chunks = chunk_note(
-                note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
-                self.cfg.min_chunk_chars,
-            )
-            if not chunks:
-                plain = render_plain(note.body)
-                chunks = [("", plain)] if plain else [("", title)]
+            chunks = self._chunk(note, title)
             p.chunks_total += len(chunks)
             if not keyless:
                 embed_keys.extend(
@@ -250,13 +257,7 @@ class Indexer:
                         progress(f"excluded (lemory: false): {rel}")
                 continue  # stays in seen_paths so the delete sweep skips it
 
-            chunks = chunk_note(
-                note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
-                self.cfg.min_chunk_chars,
-            )
-            if not chunks:
-                plain = render_plain(note.body)
-                chunks = [("", plain)] if plain else [("", title)]
+            chunks = self._chunk(note, title)
 
             if self.engine.keyless:
                 # no embedding provider: index lexically (BM25 + link graph

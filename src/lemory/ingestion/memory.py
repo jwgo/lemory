@@ -57,7 +57,7 @@ def save_memory(
 
     tag_line = ""
     if tags:
-        clean = [t.strip().lstrip("#") for t in tags if t.strip().lstrip("#")]
+        clean = [c for t in tags if (c := t.strip().lstrip("#"))]
         if clean:
             tag_line = "tags: [" + ", ".join(clean) + "]\n"
     # lemory_generated is the ONLY thing the trash guard trusts — an
@@ -174,16 +174,12 @@ def context_block(engine, max_chars: int = 2400) -> str:
         f"(index: {st['vector_index']})"
     )
 
-    docs = {d.id: d for d in store.all_docs()}
-    dates = store.doc_dates()
+    docs = {d.id: d for d in store.all_docs()}  # reused by the hot/hub sections
 
-    cutoff = time.time() - 14 * 86400
-    recent = sorted(((ts, did) for did, ts in dates.items() if ts >= cutoff and did in docs),
-                    key=lambda x: -x[0])[:8]
+    recent = store.recent_docs(days=14, limit=8)
     if recent:
         lines.append("\n## Recent notes (14d)")
-        for ts, did in recent:
-            d = docs[did]
+        for ts, d in recent:
             lines.append(f"- {datetime.fromtimestamp(ts).date().isoformat()} · "
                          f"{d.title} ({d.path})")
 

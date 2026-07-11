@@ -28,10 +28,7 @@ class Answer:
     def render_sources(self) -> str:
         lines = []
         for i, h in enumerate(self.sources, 1):
-            # headings echo the note title for single-section notes — dedupe
-            sub = h.heading if h.heading and h.heading != h.title else ""
-            if sub.startswith(h.title + " > "):
-                sub = sub[len(h.title) + 3:]
+            sub = h.subheading()
             lines.append(f"[{i}] {h.path}" + (f" › {sub}" if sub else ""))
         return "\n".join(lines)
 

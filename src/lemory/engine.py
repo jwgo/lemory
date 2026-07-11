@@ -35,12 +35,13 @@ class Engine:
     # ------------------------------------------------------------ embeddings
     def embed_documents_cached(self, texts: list[str]) -> tuple[np.ndarray, int]:
         """Embed with content-hash cache. Returns (vectors, api_misses)."""
-        keys = [Store.cache_key(self.cfg.active_embed_model(), self.cfg.active_embed_dim(), "doc", t) for t in texts]
+        model, dim = self.cfg.active_embed_model(), self.cfg.active_embed_dim()
+        keys = [Store.cache_key(model, dim, "doc", t) for t in texts]
         cached = self.store.cache_get_many(keys)
-        out = np.zeros((len(texts), self.cfg.active_embed_dim()), dtype=np.float32)
+        out = np.zeros((len(texts), dim), dtype=np.float32)
         missing_idx = []
         for i, k in enumerate(keys):
-            if k in cached and cached[k].shape[0] == self.cfg.active_embed_dim():
+            if k in cached and cached[k].shape[0] == dim:
                 out[i] = cached[k]
             else:
                 missing_idx.append(i)

@@ -113,6 +113,16 @@ class ChunkHit:
     score: float
     doc_date: float = 0.0  # epoch seconds; see retrieval.temporal.doc_date
 
+    def subheading(self) -> str:
+        """The section heading with the note title stripped off. Headings are
+        stored as `Title > Section` breadcrumbs; showing the title again next
+        to the note name is noise. Returns "" for a whole-note / title-only
+        heading."""
+        if not self.heading or self.heading == self.title:
+            return ""
+        prefix = self.title + " > "
+        return self.heading[len(prefix):] if self.heading.startswith(prefix) else self.heading
+
 
 @dataclass
 class DocRecord:
@@ -165,6 +175,15 @@ def _fts_escape(query: str) -> str:
     if not all_terms:
         return '""'
     return " OR ".join(f'"{t}"' for t in all_terms)
+
+
+def _loads_or(raw, default):
+    """json.loads that returns `default` on any malformed value — the index is
+    derived data, so a corrupt cell must degrade gracefully, never crash a read."""
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return default
 
 
 class Store:
@@ -236,7 +255,7 @@ class Store:
         return DocRecord(
             id=row["id"], path=row["path"], title=row["title"],
             content_hash=row["content_hash"], mtime=row["mtime"],
-            tags=json.loads(row["tags"]),
+            tags=_loads_or(row["tags"], []),
         )
 
     def _mark_dirty(self) -> None:
@@ -432,10 +451,7 @@ class Store:
         out: set[int] = set()
         for r in self.conn().execute("SELECT id, path, tags FROM documents"):
             if want_tags:
-                try:
-                    have = {t.lower().lstrip("#") for t in json.loads(r["tags"])}
-                except json.JSONDecodeError:
-                    have = set()
+                have = {t.lower().lstrip("#") for t in _loads_or(r["tags"], [])}
                 if not all(t in have for t in want_tags):
                     continue
             if want_dirs:
@@ -467,10 +483,7 @@ class Store:
         hits = self.hit_stats()
         rows = []
         for r in c.execute("SELECT id, path, title, tags, mtime FROM documents"):
-            try:
-                tags = json.loads(r["tags"])
-            except json.JSONDecodeError:
-                tags = []
+            tags = _loads_or(r["tags"], [])
             h = hits.get(r["id"], (0, 0.0))
             rows.append({
                 "path": r["path"], "title": r["title"], "tags": tags,
@@ -507,14 +520,8 @@ class Store:
                 "SELECT heading, text FROM chunks WHERE doc_id=? ORDER BY ord",
                 (doc_id,))
         ]
-        try:
-            tags = json.loads(r["tags"])
-        except json.JSONDecodeError:
-            tags = []
-        try:
-            frontmatter = json.loads(r["frontmatter"])
-        except json.JSONDecodeError:
-            frontmatter = {}
+        tags = _loads_or(r["tags"], [])
+        frontmatter = _loads_or(r["frontmatter"], {})
         hit_row = c.execute(
             "SELECT hits, last_hit FROM note_hits WHERE doc_id=?", (doc_id,)).fetchone()
         return {
@@ -530,11 +537,8 @@ class Store:
     def tag_counts(self) -> list[dict]:
         out: dict[str, int] = {}
         for r in self.conn().execute("SELECT tags FROM documents"):
-            try:
-                for t in json.loads(r["tags"]):
-                    out[t] = out.get(t, 0) + 1
-            except json.JSONDecodeError:
-                pass
+            for t in _loads_or(r["tags"], []):
+                out[t] = out.get(t, 0) + 1
         return [
             {"tag": t, "count": n}
             for t, n in sorted(out.items(), key=lambda x: (-x[1], x[0]))
@@ -548,10 +552,7 @@ class Store:
         """doc_id -> raw wikilink targets, as stored at index time."""
         out: dict[int, list[str]] = {}
         for r in self.conn().execute("SELECT id, wikilinks FROM documents"):
-            try:
-                out[r["id"]] = json.loads(r["wikilinks"])
-            except json.JSONDecodeError:
-                out[r["id"]] = []
+            out[r["id"]] = _loads_or(r["wikilinks"], [])
         return out
 
     # -------------------------------------------------------------- entities
@@ -854,10 +855,7 @@ class Store:
         args.append(limit)
         out = []
         for r in self.conn().execute(sql, args):
-            try:
-                detail = json.loads(r["detail"]) if r["detail"] else None
-            except json.JSONDecodeError:
-                detail = None
+            detail = _loads_or(r["detail"], None) if r["detail"] else None
             out.append({"ts": r["ts"], "kind": r["kind"], "client": r["client"],
                         "query": r["query"], "path": r["path"], "detail": detail})
         return out
@@ -967,6 +965,20 @@ class Store:
         with self._matrix_lock:
             self._doc_dates = out
         return out
+
+    def recent_docs(self, days: float, limit: int) -> list[tuple[float, "DocRecord"]]:
+        """(date, doc) for notes touched in the last `days`, newest first.
+        Shared by `lemory recent`, the MCP recent_notes tool, and the context
+        block so they can't drift."""
+        import time as _t
+
+        docs = {d.id: d for d in self.all_docs()}
+        dates = self.doc_dates()
+        cutoff = _t.time() - days * 86400
+        rows = [(ts, docs[did]) for did, ts in dates.items()
+                if ts >= cutoff and did in docs]
+        rows.sort(key=lambda x: -x[0])
+        return rows[:limit]
 
     # ------------------------------------------------------------ typo lexicon
     _LEX_WORD_RE = re.compile(r"[A-Za-z]{3,}")
