@@ -281,6 +281,48 @@ BM25 (3.6→1.5 pt)** — while the multi-hop (1.000) and robustness
 further (3.0) starts costing paraphrase robustness, so this is the knee of
 the curve, not the end of it.
 
+## 6b. Keyless laptop regime (local MiniLM embedder): Korean morphology + the verbatim pin
+
+Everything above runs on Gemini embeddings. In **keyless local mode**
+(fastembed multilingual MiniLM, CPU, zero API calls) the dense leg is far
+weaker on Korean — and rank-only RRF let that weak leg corrupt decisive
+lexical wins: a chunk mediocre in *both* legs outranks a decisive BM25 top-1,
+because RRF sees ranks, not margins. On KorQuAD/local, hybrid recall@1 was
+0.525 vs BM25's 0.923 — a 40 pt hole (Gemini regime: 1.5 pt).
+
+Two fixes, both LLM-free (`retrieval/search.py`):
+
+* **Korean-aware verbatim coverage** — the coverage detector was blind to
+  Korean morphology: 조사-carrying tokens ("본명은") never substring-match
+  note text, question-focus nouns ("~을 일으킨 인물은?" — the Korean
+  "who/what") deflated the denominator, and conjugation (ㄹ-drop: "만든" /
+  "만들었다") broke syllable-level stem matching. Now: stem match with 1-2
+  char suffix tolerance, jamo-level fallback with final-받침 drop, final
+  topic-marked focus-noun exclusion (explicit questions only), and Korean
+  interrogative/glue-word stop list.
+* **The reciting pin** (`verbatim_pin_gate`, default 0.65) — when a top-3
+  BM25 chunk covers ≥65 % of the query's content tokens, the query is
+  reciting a note: BM25's own ordering is kept outright and dense candidates
+  only fill in below it. Paraphrased / cross-lingual / typo'd queries never
+  reach this coverage (measured: 0 % at ≥0.9, ≤9 % at ≥0.8 on the robustness
+  variants), so their fusion is untouched.
+
+Measured (local embedder, 400 KorQuAD q / 300 SQuAD q, gate swept 0.60–0.90
+with every corpus above as guard):
+
+| | recall@1 | recall@8 | MRR@10 | gap to BM25 @1 |
+|---|---|---|---|---|
+| KorQuAD before | 0.525 | 0.813 | 0.639 | −39.8 pt |
+| **KorQuAD after** | **0.825** | **0.945** | **0.873** | **−9.8 pt** |
+| SQuAD before | 0.690 | — | — | — |
+| **SQuAD after** | **0.760** | — | — | — |
+
+Guards: multihop 0.860, korean 0.850, typo 0.772, keyword 0.893, law/maple
+full-support 1.000, kepano 0.955, temporal 0.818 — all bit-identical to
+pre-change; paraphrase *improved* 0.804 → 0.821 (high-coverage paraphrases
+are lexically close to gold, so the pin helps them too). Gate 0.60 starts
+costing multihop/korean/keyword, which is why 0.65 ships.
+
 ## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
 The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for every system; adversarial category excluded (mem0 protocol). mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini).

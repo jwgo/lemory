@@ -70,3 +70,54 @@ def test_graph_hops_two_reaches_chain_end(engine, vault):
     # (1-hop may or may not find C via lexical luck — no assertion on titles_1
     # beyond sanity)
     assert titles_1
+
+
+# --- Korean-aware verbatim coverage & the reciting pin ---------------------
+
+def test_jamo_decomposition_matches_conjugation():
+    from lemory.retrieval.search import _to_jamo, _token_in_text
+
+    # '만든' (adnominal) vs '만들었다' (past declarative): the syllable-level
+    # strings diverge (ㄹ-drop), the jamo prefix does not
+    text = "윤상이 만들었다"
+    assert _token_in_text("만든", text, _to_jamo(text))
+    # unrelated word must not match
+    assert not _token_in_text("부순", text, _to_jamo(text))
+
+
+def test_coverage_tokens_drop_korean_question_furniture():
+    from lemory.retrieval.search import _coverage_tokens
+
+    toks = _coverage_tokens("진산파동을 일으킨 인물은?")
+    assert "진산파동을" in toks
+    assert "인물은" not in toks  # final topic-marked answer-category noun
+    # declarative search keeps its topic noun (it IS the content)
+    toks2 = _coverage_tokens("프로젝트 예산은")
+    assert "예산은" in toks2
+
+
+def test_coverage_tokens_drop_interrogatives_and_glue():
+    from lemory.retrieval.search import _coverage_tokens
+
+    toks = _coverage_tokens("김학인과 함께 만든 스쿨밴드는 무엇인가?")
+    assert "무엇인가" not in toks
+    assert "함께" not in toks
+    assert "김학인과" in toks
+
+
+def test_verbatim_pin_preserves_bm25_order(engine):
+    """A query that recites a note nearly verbatim must keep BM25's ranking:
+    rank-interleaved fusion may not bury the decisive lexical top hit."""
+    engine.index()
+    q = "Dana previously worked at Weyland Corp on distributed tracing"
+    hy = engine.search(q, k=3)
+    bm = engine.search(q, k=3, mode="bm25")
+    assert hy and bm
+    assert hy[0].chunk_id == bm[0].chunk_id
+
+
+def test_verbatim_pin_gate_configurable(engine):
+    engine.index()
+    engine.cfg.verbatim_pin_gate = 2.0  # unreachable -> pin never fires
+    q = "Dana previously worked at Weyland Corp on distributed tracing"
+    assert engine.search(q, k=3)  # still returns fused results

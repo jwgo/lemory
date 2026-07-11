@@ -92,6 +92,19 @@ class LemoryConfig(BaseSettings):
     # robustness, so this is the knee of the curve.
     keyword_bm25_boost: float = 2.4  # lexical weight multiplier when verbatim/keyword detected
     verbatim_gate: float = 0.60  # query-token coverage in top BM25 chunks that flips to lexical lean
+    # near-exact quoting tier: at this coverage the query is reciting the note
+    # (reference-QA), where paraphrase risk is nil — lean harder on lexical.
+    # The plain boost's own sweep showed 3.0 costs paraphrase robustness at
+    # gate 0.60; gating the stronger lean at 0.85+ coverage avoids that regime.
+    # reciting tier: at this coverage the query IS the note's text — BM25's
+    # internal ordering is preserved outright (dense candidates fill in below).
+    # Rank-only RRF can't honor a decisive lexical margin; this can. Weak-
+    # embedder regimes (local MiniLM on Korean) are where it matters most.
+    # Swept 0.60-0.90 on KorQuAD/SQuAD with multihop/robustness/law/maple/
+    # kepano guards (local embedder): 0.65 is the knee — KorQuAD recall@1
+    # 0.525→0.825, SQuAD 0.690→0.760, paraphrase +1.7pt, every guard flat;
+    # 0.60 starts costing multihop (-1.8pt), korean (-2.5pt), keyword (-1.8pt).
+    verbatim_pin_gate: float = 0.65
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions

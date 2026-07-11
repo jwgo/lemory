@@ -224,15 +224,28 @@ def hybrid_search(
         # style) also deserve a lexical lean: detected per query by how much of
         # the query's vocabulary the top BM25 chunks already cover. Paraphrased,
         # cross-lingual, or typo'd queries have low coverage and are unaffected.
+        cov = 0.0
         if kw_boost == 1.0 and bm25_hits:
             cov = _bm25_coverage(store, lex_query, bm25_hits)
             if cov >= cfg.verbatim_gate:
                 kw_boost = cfg.keyword_bm25_boost
-        fused = rrf_fuse(
-            [(hits, w * (kw_boost if kind == "bm25" else 1.0))
-             for kind, hits, w in tagged_lists],
-            cfg.rrf_k,
-        )
+        if cov >= cfg.verbatim_pin_gate and bm25_hits:
+            # the query recites a note nearly token-for-token: BM25's own
+            # ordering is authoritative, and rank-interleaved fusion can only
+            # corrupt it (a chunk that is mediocre in BOTH legs outscores a
+            # decisive lexical top-1 under RRF, because RRF sees ranks, not
+            # margins). Keep every dense candidate — but strictly below the
+            # lexical list, as gap-fillers.
+            fused = {cid: 2.0 + 1.0 / (1 + r) for r, (cid, _) in enumerate(bm25_hits)}
+            for r, (cid, _) in enumerate(vec_hits):
+                if cid not in fused:
+                    fused[cid] = 1.0 / (cfg.rrf_k + r + 1)
+        else:
+            fused = rrf_fuse(
+                [(hits, w * (kw_boost if kind == "bm25" else 1.0))
+                 for kind, hits, w in tagged_lists],
+                cfg.rrf_k,
+            )
 
     if not fused:
         return SearchResult(hits=[])
@@ -391,17 +404,103 @@ _QUESTION_WORDS = {
 }
 
 
+_HANGUL_RE = re.compile(r"[가-힣]")
+
+# Korean interrogatives — they never appear in note text, so counting them in
+# coverage deflates the score of genuinely verbatim Korean questions
+# ("~의 본명은 무엇인가?" quotes the note in every token but the last)
+_KR_QWORD_PREFIXES = ("무엇", "뭐", "뭔", "무슨", "누구", "누가", "언제", "어디",
+                      "어떻", "어떤", "어느", "얼마", "왜")
+
+# Korean glue adverbs/deverbals that paraphrase freely between question and
+# note ("함께 만든" vs "같이 만들었다") — noise for coverage, like _STOP
+_KR_GLUE = {"함께", "같이", "위해", "위한", "대한", "대해", "있는", "있던",
+            "되는", "이후", "당시", "때문"}
+
+
+def _coverage_tokens(query: str) -> list[str]:
+    toks = [t for t in _tokens(query)
+            if not (_HANGUL_RE.search(t)
+                    and (t.startswith(_KR_QWORD_PREFIXES) or t in _KR_GLUE))]
+    # Korean questions name the ANSWER CATEGORY as their final topic-marked
+    # noun — "~을 일으킨 인물은?", "~의 이름은?" — the Korean "who/what".
+    # The note states the answer, not its category, so the focus word is
+    # question furniture, not quotable content. Only for explicit questions:
+    # in a declarative search ("프로젝트 예산은") the topic noun IS content.
+    if query.rstrip().endswith("?"):
+        words = query.rstrip().rstrip("?").split()
+        if words:
+            last_words = _WORD_RE.findall(words[-1].lower())
+            if (last_words and _HANGUL_RE.search(last_words[-1])
+                    and len(last_words[-1]) >= 2
+                    and last_words[-1].endswith(("은", "는"))):
+                toks = [t for t in toks if t != last_words[-1]]
+    return toks
+
+
+_JAMO_L = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"
+_JAMO_V = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"
+_JAMO_T = ["", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ",
+           "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ",
+           "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]
+
+
+def _to_jamo(s: str, drop_last_tail: bool = False) -> str:
+    """Decompose Hangul syllables to jamo so conjugation survives matching:
+    '만든' vs '만들었다' differ at the syllable level (ㄹ-drop) but share the
+    jamo prefix ㅁㅏㄴㄷㅡ. Non-Hangul characters pass through."""
+    out = []
+    for i, ch in enumerate(s):
+        code = ord(ch)
+        if 0xAC00 <= code <= 0xD7A3:
+            code -= 0xAC00
+            l, v, t = code // 588, (code % 588) // 28, code % 28
+            out.append(_JAMO_L[l])
+            out.append(_JAMO_V[v])
+            if t and not (drop_last_tail and i == len(s) - 1):
+                out.append(_JAMO_T[t])
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _token_in_text(t: str, text: str, text_jamo: str = "") -> bool:
+    if t in text:
+        return True
+    # agglutinative Hangul: the query token carries 조사/어미 the note won't
+    # repeat ("본명은" vs "본명이") — accept a stem match, mirroring the
+    # query-side suffix tolerance _covers() already gives titles
+    if _HANGUL_RE.search(t):
+        if len(t) >= 3 and t[:-1] in text:
+            return True
+        if len(t) >= 5 and t[:-2] in text:
+            return True
+        # conjugation-proof fallback: '만든'/'만들었다', '넣은'/'넣었다' — match
+        # at the jamo level with the final consonant (받침) dropped, which is
+        # where Korean verb endings mutate
+        if text_jamo and len(t) >= 2:
+            stem = _to_jamo(t, drop_last_tail=True)
+            if len(stem) >= 4 and stem in text_jamo:
+                return True
+    return False
+
+
 def _bm25_coverage(store: Store, query: str, bm25_hits: list[tuple[int, float]]) -> float:
     """Fraction of the query's content tokens present in the best-covering
     top-3 BM25 chunk (title included)."""
-    q_tokens = _tokens(query)
-    if len(q_tokens) < 4:
+    q_tokens = _coverage_tokens(query)
+    # Hangul packs more content per token (조사 glue words instead of separate
+    # prepositions), so 3 Korean tokens carry what ~4+ English tokens do
+    has_hangul = any(_HANGUL_RE.search(t) for t in q_tokens)
+    min_tokens = 3 if has_hangul else 4
+    if len(q_tokens) < min_tokens:
         return 0.0
     meta = store.get_chunks([cid for cid, _ in bm25_hits[:3]])
     best = 0.0
     for m in meta.values():
         text = (m.text + " " + m.title).lower()
-        hit = sum(1 for t in q_tokens if t in text)
+        text_jamo = _to_jamo(text) if has_hangul else ""
+        hit = sum(1 for t in q_tokens if _token_in_text(t, text, text_jamo))
         best = max(best, hit / len(q_tokens))
     return best
 
