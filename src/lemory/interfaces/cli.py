@@ -398,6 +398,48 @@ def import_chats(
 
 
 @app.command()
+def hook(
+    agent: str = typer.Argument(..., help="Hook source: claude-code"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """(internal) Lifecycle hook entry — reads the hook event JSON from stdin.
+    Registered automatically by `lemory hooks install`."""
+    from .hooks import run_hook
+
+    if agent != "claude-code":
+        raise typer.Exit(0)  # never break the host session
+    raise typer.Exit(run_hook(_engine(vault)))
+
+
+@app.command()
+def hooks(
+    action: str = typer.Argument(..., help="install | remove"),
+    agent: str = typer.Argument("claude-code"),
+    vault: Optional[Path] = typer.Option(None, help="Vault the captured memories go to"),
+):
+    """Automatic session memory: capture every Claude Code session's
+    decisions/facts into the vault on SessionEnd (undo in the dashboard)."""
+    from .hooks import install_claude_code, uninstall_claude_code
+
+    if agent != "claude-code":
+        console.print(f"[red]지원하지 않는 에이전트:[/red] {agent} (현재: claude-code)")
+        raise typer.Exit(1)
+    if action == "install":
+        eng = _engine(vault)
+        v = eng.cfg.resolved_vault()
+        path = install_claude_code(v)
+        console.print(f"[green]✔[/green] SessionEnd 훅 등록: {path}\n"
+                      f"  이제 Claude Code 세션이 끝날 때마다 기억할 것들이 {v}/memories/sessions/ 에 저장됩니다.\n"
+                      f"  대시보드 AI 메모리 피드에서 확인·되돌리기 가능합니다.")
+    elif action == "remove":
+        removed = uninstall_claude_code()
+        console.print("[green]✔[/green] 훅 제거됨" if removed else "등록된 훅이 없습니다")
+    else:
+        console.print("[red]action은 install 또는 remove[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
 def index(
     vault: Optional[Path] = typer.Option(None, help="Vault path (else lemory.toml / LEMORY_VAULT)"),
     full: bool = typer.Option(False, help="Re-chunk everything (embeddings still cached)"),

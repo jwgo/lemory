@@ -118,13 +118,59 @@ vocabulary (zero API calls; hybrid pipeline only — baselines stay pure).
 
 | System | original | paraphrase | korean | keyword | typo |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 0.982 | 1.000 | 0.982 | 0.965 |
+| **Lemory** (hybrid + graph) | 1.000 | 0.964 | 0.975 | 1.000 | 1.000 |
+| MemPalace (external, §4f) | 0.596 | 0.643 | 0.350 | 0.554 | 0.667 |
 | Lemory w/o graph (ablation) | 0.544 | 0.446 | 0.275 | 0.464 | 0.526 |
 | Vector-only (naive RAG) | 0.544 | 0.464 | 0.475 | 0.482 | 0.491 |
 | BM25 (lexical) | 0.579 | 0.429 | 0.250 | 0.482 | 0.404 |
 
-(paraphrase 0.946→0.982 and korean 0.975→1.000 improved with the graph-expansion
-redesign of §5d — re-measured, baselines unchanged.)
+(re-measured 2026-07-11 after the ANN/scoping/BM25-two-phase changes —
+variants file unchanged, baselines unchanged.)
+
+## 4e. External system: LightRAG (HKU, EMNLP 2025 — 37.6k stars)
+
+`benchmarks/run_lightrag.py` — its extraction LLM = gemini-2.5-flash-lite
+(same as the cognee run), embeddings = gemini-embedding-001 @768d (same as
+Lemory), flagship "mix" mode with `only_need_context`, top_k=8. The metric is
+GENEROUS to LightRAG: its merged entity+relation+chunk context blob is larger
+than the 8 chunks every other system receives.
+
+| | answer-in-context@8 | 1-hop | 2-hop | ingest (54 notes) | p50 query |
+|---|---|---|---|---|---|
+| LightRAG (mix) | 0.807 | 1.000 | 0.738 | 165 LLM calls · 14 min | 7.5 s¹ |
+| **Lemory** | **1.000** | 1.000 | **1.000** | **0 LLM calls · ~30 s** | **~3 ms** |
+
+<sub>¹ mix mode makes an LLM keyword-extraction call per query; 7.5 s includes
+our free-tier rate limit — expect ~1–2 s on a paid tier. Still 3 orders of
+magnitude above lexical+graph retrieval that needs no per-query LLM.</sub>
+
+Honest read: LightRAG's LLM-built graph is the real thing — its 2-hop score
+(0.738) is the best of any external system we've measured, far above the
+~0.45-0.58 wall (mem0/cognee/supermemory/MemPalace). The difference is the
+bill: an LLM pipeline at ingest AND at query buys LESS multi-hop coverage
+than reading the wikilinks the user already wrote for free.
+
+## 4f. External system: MemPalace (57.2k stars, Apr 2026)
+
+`benchmarks/run_mempalace.py` — configured exactly as its own headline
+markets: `sqlite_exact` backend + bundled local embeddinggemma ONNX, "zero
+API calls", verbatim storage. Vault mined with its own CLI; queries through
+`mempalace search --results 8`; answer-in-context over the full CLI output an
+agent would consume (generous: includes drawer metadata beyond raw chunks).
+
+| | aic@8 | 1-hop | 2-hop | paraphrase | korean | keyword | typo | p50 |
+|---|---|---|---|---|---|---|---|---|
+| MemPalace | 0.596 | 1.000 | 0.452 | 0.643 | 0.350 | 0.554 | 0.667 | ~1 s¹ |
+| **Lemory** | **1.000** | 1.000 | **1.000** | **0.964** | **0.975** | **1.000** | **1.000** | **~3 ms** |
+
+<sub>¹ CLI wall-clock including Python process startup — its daemon mode
+would be faster; the quality numbers are unaffected by process overhead.</sub>
+
+Honest read: on 1-hop lookups MemPalace is perfect — verbatim storage works.
+On 2-hop questions it hits the same ~0.45 wall as every embedding-first
+system, because no similarity search follows a link it can't see. And with
+no Korean-specific lexical path, Korean queries over English notes collapse
+to 0.350 (Lemory's Hangul-bigram FTS + cross-lingual fusion: 0.975).
 
 Optional LLM query expansion (`--expand`) was also measured: paraphrase 0.911, korean 0.950, typo 0.825 — no better than the LLM-free pipeline on this corpus, which is why it stays off by default (saves one LLM call per query).
 

@@ -2,9 +2,9 @@
 
 # 🍋 Lemory
 
-### 기억은 당신의 것이어야 합니다.
-**Your memory should belong to you — not rows in someone's database.
-Markdown files, in your own vault.**
+### Your memory should belong to you.
+**Not rows in someone's database — Markdown files, in your own vault.**
+<sub>기억은 당신의 것이어야 합니다 · **[한국어 README](README.ko.md)**</sub>
 
 [![CI](https://github.com/jwgo/lemory/actions/workflows/ci.yml/badge.svg)](https://github.com/jwgo/lemory/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -62,20 +62,41 @@ knowledge graph; we just read them.
 **New here? Step-by-step: [docs/GUIDE.md](docs/GUIDE.md)
 (한국어: [docs/GUIDE.ko.md](docs/GUIDE.ko.md)).**
 
-## Give Claude your memory
+## Give your AI a memory — any AI
 
 ```bash
 claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault --client claude-desktop
 ```
 
-Ten tools. Read: `search_notes` · `ask_notes` · `recent_notes` · `read_note` ·
+| Client | Setup |
+|---|---|
+| Claude Code / Desktop | `claude mcp add lemory -- lemory mcp --vault <vault> --client claude-code` |
+| Cursor | add to `.cursor/mcp.json`: `{"lemory": {"command": "lemory", "args": ["mcp", "--vault", "<vault>", "--client", "cursor"]}}` |
+| Windsurf / VS Code / Codex CLI / any MCP client | same stdio command — `lemory mcp --vault <vault> --client <name>` |
+| Scripts / your own agent | REST with an `X-Lemory-Client` header (below) |
+
+The `--client` name is how each app shows up in the dashboard's per-client
+usage — you always know who is reading and writing your memory.
+
+Ten tools (with MCP behavior annotations, so clients know what's read-only).
+Read: `search_notes` · `ask_notes` · `recent_notes` · `read_note` ·
 `list_notes` · `related_notes` · `vault_status` · `vault_context` (one-call
 session context: recent activity, hot notes, hubs, tags — Zep-style, ~ms,
 zero LLM). Write: `save_memory` · `append_note` — never overwrites, can't
 escape the vault, append-only edits.
 
-To make memory automatic (mem0/supermemory-style lifecycle, minus the cloud),
-drop this into `CLAUDE.md` or your global instructions:
+### Automatic session memory (one command)
+
+```bash
+lemory hooks install claude-code
+```
+
+Registers a SessionEnd lifecycle hook: when a Claude Code session ends, the
+decisions, facts and open threads worth keeping are summarized into **one
+dated Markdown note** in your vault — no discipline required, and unlike the
+hook-based memory tools, every capture lands in the dashboard feed with
+attribution and one-click undo. Prefer manual control? The `CLAUDE.md`
+instruction pattern still works:
 
 ```markdown
 At the start of a session, call lemory's vault_context once for situational
@@ -83,6 +104,10 @@ awareness. When we settle a decision, a fact worth keeping, or a preference,
 save it with save_memory (concise, one memory per note). Search the vault
 with search_notes before asking me things my notes already answer.
 ```
+
+**Privacy is a file property**: put `lemory: false` in any note's frontmatter
+and it is never indexed, never retrieved, never sent to any model — and if it
+was indexed before, the flag removes it.
 
 Every write shows up in the dashboard's **AI 메모리 피드** with who wrote it
 and an undo button (moves the note to `<vault>/.trash` — Obsidian's own
@@ -141,23 +166,32 @@ here at all.
 
 | | original | paraphrase | 한국어 질문 | keyword | typo |
 |---|---|---|---|---|---|
-| **Lemory** | **1.000** | **0.982** | **1.000** | **0.982** | **0.965** |
+| **Lemory** | **1.000** | **0.964** | **0.975** | **1.000** | **1.000** |
 | Vector-only | 0.544 | 0.464 | 0.475 | 0.482 | 0.491 |
 | BM25 | 0.579 | 0.429 | 0.250 | 0.482 | 0.404 |
 
-**Against the field** — same corpus, same embedding/generator/judge models
-wherever the system allows it:
+**Against the field** — 7 systems run by us on the same corpus, same models
+wherever the system allows it. Including the two biggest names of 2026:
+LightRAG (37.6k stars, EMNLP) and MemPalace (57.2k stars):
 
-| | **Lemory** | mem0 | cognee | supermemory | LlamaIndex | qmd |
-|---|---|---|---|---|---|---|
-| Multi-hop answer-in-context@8 | **1.000** | 0.579 | 0.561 | 0.579 | 0.649 | 0.526 |
-| [LOCOMO](https://github.com/snap-research/locomo) LLM-judge | **0.706** | 0.669¹ | — | — | — | — |
-| Retrieval latency (p50) | **~3 ms** | 212 ms | ~5 s | 327 ms | 649 ms² | 0.6–59 s |
+| | **Lemory** | LightRAG | MemPalace | mem0 | cognee | supermemory | LlamaIndex | qmd |
+|---|---|---|---|---|---|---|---|---|
+| Multi-hop answer-in-context@8 | **1.000** | 0.807¹ | 0.596 | 0.579 | 0.561 | 0.579 | 0.649 | 0.526 |
+| — 2-hop questions only | **1.000** | 0.738 | 0.452 | — | — | — | — | — |
+| Ingest, 54 notes | **0 LLM calls, ~30 s** | 165 calls, 14 min | local embeds | 1-2 calls/note | ~45 min | API-side | 0 | 0 |
+| Retrieval latency (p50) | **~3 ms** | 7.5 s² | ~1 s³ | 212 ms | ~5 s | 327 ms | 649 ms⁴ | 0.6–59 s |
+| 한국어 질문 (full-support) | **0.975** | — | 0.350 | — | — | — | — | — |
 
-<sub>¹ mem0's own published number. LongMemEval_S: 0.76 (GPT-4o full-context
-baseline ≈ 0.60). DMR (500 q): 0.694 vs 0.648 same-harness naive RAG.
-² LlamaIndex embeds every query via API, uncached; its local-only retrieval
-is ~2 ms — the quality gap is architectural, not compute.</sub>
+<sub>¹ Generous to LightRAG: its merged entity+relation+chunk context blob is
+larger than the 8 chunks every other system gets. Its LLM-built graph is
+real — best competitor 2-hop score — it just costs an LLM pipeline at ingest
+AND at query. ² Includes its per-query LLM keyword-extraction call under our
+free-tier rate limit; ~1–2 s on a paid tier. ³ MemPalace CLI wall-clock incl.
+process startup, sqlite_exact backend — its marketed zero-API config.
+⁴ LlamaIndex embeds every query via API, uncached; local-only ~2 ms.
+Also: [LOCOMO](https://github.com/snap-research/locomo) LLM-judge 0.706 vs
+mem0's published 0.669; LongMemEval_S judged sample 0.76 (GPT-4o full-context
+baseline ≈ 0.60); DMR (500 q) 0.694 vs 0.648 same-harness naive RAG.</sub>
 
 **[KorQuAD 1.0](https://korquad.github.io/)** — 140 real Korean Wikipedia
 articles, 400 human-written questions:

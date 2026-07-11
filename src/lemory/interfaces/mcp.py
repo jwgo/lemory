@@ -23,11 +23,16 @@ from ..engine import Engine
 
 def run_mcp(engine: Engine, client: str = "mcp") -> None:
     from mcp.server.fastmcp import FastMCP
+    from mcp.types import ToolAnnotations
+
+    RO = ToolAnnotations(readOnlyHint=True)
+    WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False,
+                            idempotentHint=False)
 
     mcp = FastMCP("lemory")
     engine.index()
 
-    @mcp.tool()
+    @mcp.tool(annotations=RO)
     def search_notes(query: str, k: int = 8) -> str:
         """Hybrid search (semantic + keyword + link-graph) over the user's
         Obsidian vault. Returns the top matching note excerpts."""
@@ -42,7 +47,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             ensure_ascii=False,
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=RO)
     def ask_notes(question: str) -> str:
         """Answer a question grounded ONLY in the user's Obsidian vault,
         with note citations."""
@@ -54,7 +59,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             ensure_ascii=False,
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=RO)
     def recent_notes(days: int = 7, limit: int = 20) -> str:
         """Notes the user touched in the last N days, newest first — for
         '요새 내가 뭐 했지?' style questions about recent activity."""
@@ -75,7 +80,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             ensure_ascii=False,
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=RO)
     def read_note(path: str, offset: int = 0, limit: int = 200) -> str:
         """Read a note's full markdown by its vault-relative path (as returned
         by search_notes/recent_notes). Filesystem-style memory access: search
@@ -91,7 +96,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             ensure_ascii=False,
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=RO)
     def list_notes(folder: str = "", limit: int = 100) -> str:
         """List note paths (optionally under a folder), newest-modified first —
         browse the vault like a filesystem."""
@@ -104,7 +109,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             [str(p.relative_to(vault)) for p in files], ensure_ascii=False
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=RO)
     def related_notes(path: str, k: int = 8) -> str:
         """Notes related to a given note by content similarity (the note
         itself is the query). Use after read_note to explore context."""
@@ -113,12 +118,12 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         engine.index()
         return json.dumps(_related(engine, path, k=k), ensure_ascii=False)
 
-    @mcp.tool()
+    @mcp.tool(annotations=RO)
     def vault_status() -> str:
         """Index statistics for the connected vault."""
         return json.dumps(engine.status())
 
-    @mcp.tool()
+    @mcp.tool(annotations=RO)
     def vault_context(max_chars: int = 2400) -> str:
         """Pre-assembled situational context for this vault in one cheap call
         (no search round-trip): stats, recent notes, frequently referenced
@@ -129,7 +134,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         engine.index()
         return context_block(engine, max_chars=max_chars)
 
-    @mcp.tool()
+    @mcp.tool(annotations=WRITE)
     def save_memory(content: str, title: str = "", folder: str = "memories",
                     tags: str = "") -> str:
         """Persist a memory as a NEW Markdown note in the user's vault (facts,
@@ -145,7 +150,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             return json.dumps({"error": str(e)})
         return json.dumps({"saved": path}, ensure_ascii=False)
 
-    @mcp.tool()
+    @mcp.tool(annotations=WRITE)
     def append_note(path: str, content: str) -> str:
         """Append a timestamped section to an existing vault note (running
         logs, decision records). Creates the note if missing. Cannot modify

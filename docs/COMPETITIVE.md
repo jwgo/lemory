@@ -160,3 +160,42 @@ Smart Connections/Copilot, qmd, memory-vault류 MCP 서버들)에서:
   워크로드(증분 FTS·노트 단위 upsert·PK 배치·2프로세스)에서 SQLite가 4/5 축
   승리, DuckDB는 전 축 탈락(증분 FTS 부재), LanceDB는 FTS만 5배 빠르고(정직하게
   기록) 벡터·PK·운영 축에서 열세. 교체 근거 없음 — 재검토 트리거만 명시.
+
+---
+
+# 4차: 런칭 최종 검토 (2026-07-11) — 시장이 6개월 만에 재편됐다
+
+2026년 상반기의 신흥 강자들: **claude-mem 86.8k★** (Claude Code 라이프사이클
+훅 자동 캡처), **MemPalace 57.2k★** (4월 출시, "96.6% R@5 LongMemEval, zero
+API calls" — 셀럽 창업자·벤치마크 논란 생존), **codebase-memory-mcp 29.9k★**,
+**context-mode 18.8k★**. 관찰된 10k+ 공식: 저장소 설명에 공인 벤치마크 숫자
+한 개 + 원커맨드 설치 + 반대 명제 한 줄 + 재현 커맨드(논란 보험).
+
+## 이번 라운드 실측 2건 (합계 외부 시스템 7개)
+
+1. **LightRAG (37.6k★, EMNLP)** — §4e. aic@8 **0.807**, 2-hop **0.738**:
+   외부 시스템 최고 기록. LLM으로 지은 그래프는 진짜다 — 대신 인제스트
+   165콜·14분 + **질의당 LLM 1콜(p50 7.5s)**을 낸다. 공짜 위키링크 그래프
+   (0콜·~30초·3ms)가 여전히 더 높은 커버리지(1.000)를 준다는 게 요지.
+2. **MemPalace (57.2k★)** — §4f. 자기네 간판 설정(sqlite_exact + 로컬
+   임베딩) 그대로: aic@8 **0.596**, 2-hop **0.452** — mem0/cognee/supermemory와
+   같은 ~0.45 벽. 한국어 질문 **0.350** (우리 0.975). 57k 스타 "최고
+   벤치마크" 제품도 링크를 못 보는 유사도 검색이라는 한계는 같다.
+
+## 런칭 갭 → 이번에 메운 것
+
+| 갭 (10k+ 공통) | 조치 |
+|---|---|
+| 훅 기반 자동 캡처 (claude-mem의 존재 이유) | `lemory hooks install claude-code` — SessionEnd에 세션 요약을 볼트 노트로, 피드에 출처+되돌리기와 함께 |
+| 프라이버시 배제 | `lemory: false` 프론트매터 = 색인·검색·전송 전부 차단 |
+| 플랫폼 매트릭스 | README에 클라이언트별 셋업 표 (Claude/Cursor/Windsurf/REST) |
+| MCP 툴 힌트 | 10툴 전부 read-only/write 어노테이션 |
+| 영어 우선 표면 | README 히어로 영어화 (한국어는 README.ko 1급 유지) |
+| 낯선 사람 감사 | 신규 venv 설치→up→ask 전 과정 실검증, doctor 키리스 티어 수정 |
+| 런칭 플레이북 | [docs/LAUNCH.md](LAUNCH.md) — 저장소 설명 문구·채널 순서·Show HN 제목·논란 대응 |
+
+## 남은 것 (코드 밖)
+
+PyPI 등록 → 옵시디언 스토어 제출 → LAUNCH.md 순서로 유통 절차 실행.
+LongMemEval **풀셋(500문항) 리트리벌 벤치**가 로컬 임베더(zero-API,
+MemPalace와 동일 조건)로 진행 중 — 완료 시 저장소 설명의 헤드라인 숫자가 된다.

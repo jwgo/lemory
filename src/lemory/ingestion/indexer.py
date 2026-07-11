@@ -234,6 +234,18 @@ class Indexer:
 
             title = note_title(f)
             note = parse_note(raw, title)
+
+            # privacy exclusion: `lemory: false` in frontmatter keeps a note
+            # out of the index entirely — never searchable, never sent to any
+            # model. If it was indexed before the flag, it is removed now.
+            if note.frontmatter.get("lemory") is False:
+                if existing:
+                    self.store.delete_document(rel)
+                    rep.removed += 1
+                    if progress:
+                        progress(f"excluded (lemory: false): {rel}")
+                continue  # stays in seen_paths so the delete sweep skips it
+
             chunks = chunk_note(
                 note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
                 self.cfg.min_chunk_chars,
