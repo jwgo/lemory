@@ -14,7 +14,7 @@ from rich.table import Table
 
 from ..engine import create_engine
 
-app = typer.Typer(help="Lemory — personal knowledge base backend for Obsidian.", no_args_is_help=True)
+app = typer.Typer(help="Lemory — 당신의 마크다운을 위한 로컬 메모리 미들웨어 (local memory middleware for your Markdown).", no_args_is_help=True)
 console = Console()
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -264,10 +264,11 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
         ok = check("vault", False, str(e))
         v = None
 
-    # 2. API key + live round-trip
+    # 2. provider + live round-trip. Keyless is a supported tier, not a
+    # failure: lexical search (BM25 + link graph) works without any key.
     try:
         provider = cfg.resolved_provider()
-        check("api key", True, f"provider={provider}")
+        check("provider", True, f"{provider}")
         try:
             eng = _engine(vault)
             vec = eng.llm.embed(["lemory doctor ping"])
@@ -275,8 +276,11 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
                         f"{cfg.active_embed_model()} @{vec.shape[-1]}d")
         except Exception as e:
             ok = check("embedding API", False, str(e)[:120])
-    except Exception as e:
-        ok = check("api key", False, str(e)[:120])
+    except RuntimeError:
+        console.print(
+            " [yellow]⚠[/yellow] provider — 키 없음: 렉시컬 모드로 동작 중 "
+            "(BM25+링크 그래프). 시맨틱 검색·ask는 GEMINI_API_KEY를 넣으면 "
+            "다음 색인에서 자동 활성화됩니다")
 
     # 3. sqlite features
     import sqlite3
@@ -295,8 +299,12 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
             if st["documents"] > 0:
                 check("index", True,
                       f"{st['documents']} docs / {st['chunks']} chunks / {st['links']} links")
-                hits = eng.search("test", k=1)
-                ok &= check("search", True, f"returned {len(hits)} hit(s)")
+                # probe with the vault's own top note title, so a healthy
+                # index can't return 0 and pass anyway
+                docs = eng.store.all_docs()
+                probe = docs[0].title if docs else "test"
+                hits = eng.search(probe, k=1)
+                ok &= check("search", bool(hits), f"returned {len(hits)} hit(s) for '{probe}'")
             else:
                 console.print(" [yellow]⚠[/yellow] index — empty, run [bold]lemory index[/bold] to build it")
         except Exception as e:
@@ -443,7 +451,10 @@ def search(
     table.add_column("score", width=8)
     table.add_column("excerpt")
     for i, h in enumerate(hits, 1):
-        loc = h.title + (f" › {h.heading}" if h.heading else "")
+        # headings repeat the note title for single-section notes — dedupe
+        sub = h.heading if h.heading and h.heading != h.title else ""
+        sub = sub[len(h.title) + 3:] if sub.startswith(h.title + " > ") else sub
+        loc = h.title + (f" › {sub}" if sub else "")
         table.add_row(str(i), loc, f"{h.score:.4f}", h.text[:180].replace("\n", " "))
     console.print(table)
 

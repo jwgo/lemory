@@ -1,0 +1,27 @@
+name: 버그 신고 / Bug report
+description: 뭔가 잘못 동작해요 / Something broke
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: 무슨 일이 있었나요? / What happened?
+      description: 실제 동작과 기대한 동작을 알려주세요. Both Korean and English are welcome.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 재현 방법 / Steps to reproduce
+      placeholder: |
+        1. lemory up ~/vault
+        2. lemory ask "..."
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: lemory doctor 출력 / output
+      description: 키 값은 지우고 붙여넣어 주세요 / redact any keys
+      render: text
+  - type: input
+    attributes:
+      label: 환경 / Environment
+      placeholder: "macOS 15 / Python 3.12 / lemory 0.1.0 / provider: gemini"
