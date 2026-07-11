@@ -5,7 +5,7 @@ from lemory.interfaces.http import build_app
 
 def test_server_endpoints(engine):
     app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         st = client.get("/status").json()
         assert st["documents"] == 4  # lifespan indexed the vault
 
@@ -29,7 +29,7 @@ def test_server_endpoints(engine):
 
 def test_server_search_modes(engine):
     app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         for mode in ("hybrid", "vector", "bm25"):
             r = client.get("/search", params={"q": "pricing", "mode": mode})
             assert r.status_code == 200
@@ -37,7 +37,7 @@ def test_server_search_modes(engine):
 
 def test_console_api(engine):
     app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         o = client.get("/api/overview").json()
         assert o["documents"] == 4 and "activity" in o and o["activity"]
         assert o["activity"][0]["kind"] == "startup"
@@ -61,7 +61,7 @@ def test_console_api(engine):
 
 def test_console_config_roundtrip(engine):
     app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         cfg = client.get("/api/config").json()
         assert cfg["tunable"]["graph_expansion"] is True
 
@@ -80,7 +80,7 @@ def test_console_config_roundtrip(engine):
 
 def test_console_ui_served(engine):
     app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         home = client.get("/")
         assert home.status_code == 200 and "Lemory 콘솔" in home.text
         assert client.get("/assets/app.css").status_code == 200
@@ -90,7 +90,7 @@ def test_console_ui_served(engine):
 
 def test_index_plan_endpoint(engine, vault):
     app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         # lifespan already indexed: nothing pending
         p = client.get("/api/index_plan").json()
         assert p["to_process"] == 0 and p["embeds_needed"] == 0
@@ -110,7 +110,7 @@ def test_index_plan_endpoint(engine, vault):
 
 def test_config_persist_keeps_vault_key(engine):
     app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         client.patch("/api/config", json={"title_boost": 0.2})
         toml = (engine.cfg.resolved_vault() / "lemory.toml").read_text()
         assert "vault = " in toml and "title_boost = 0.2" in toml
@@ -118,7 +118,7 @@ def test_config_persist_keeps_vault_key(engine):
 
 def test_hit_recording_via_server_only(engine):
     app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         # library-level search must NOT record
         engine.search("pricing decision")
         rows = client.get("/api/notes").json()

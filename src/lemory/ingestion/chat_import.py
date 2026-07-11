@@ -112,7 +112,8 @@ def import_conversations(engine, file: Path, folder: str = "chats",
         if len(body) > MAX_NOTE_CHARS:
             body = body[:MAX_NOTE_CHARS] + "\n\n> (truncated)"
         target.write_text(
-            f"---\ndate: {date}\nsource: {fmt}\ntags: [chat-import]\n---\n\n"
+            f"---\ndate: {date}\nsource: {fmt}\nlemory_generated: true\n"
+            f"tags: [chat-import]\n---\n\n"
             f"# {title}\n\n{body}\n",
             encoding="utf-8",
         )

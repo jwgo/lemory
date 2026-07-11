@@ -146,6 +146,29 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
 
     app = FastAPI(title="Lemory", version="0.1.0", lifespan=lifespan)
 
+    # DNS-rebinding defense. This server has no auth and exposes write/delete
+    # endpoints (/memory, /append, /memory/trash, /index). It binds 127.0.0.1,
+    # but a malicious web page can rebind its own hostname to 127.0.0.1 and
+    # POST to it from the victim's browser — CORS doesn't stop that, because
+    # after rebinding the request is same-origin. The rebound request still
+    # carries the attacker's Host header, so a hostname allowlist blocks it
+    # while letting real localhost clients (browser console, Obsidian) through.
+    from starlette.responses import PlainTextResponse
+
+    _ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
+
+    @app.middleware("http")
+    async def _host_guard(request, call_next):
+        host = request.headers.get("host", "")
+        # strip port: "127.0.0.1:8377" -> "127.0.0.1", "[::1]:8377" -> "::1"
+        hostname = host.rsplit(":", 1)[0] if ":" in host and not host.endswith("]") \
+            else host
+        hostname = hostname.strip("[]")
+        if hostname not in _ALLOWED_HOSTS:
+            return PlainTextResponse(
+                "host not allowed (DNS-rebinding guard)", status_code=421)
+        return await call_next(request)
+
     # allow the Obsidian app (and local tools) to call this API directly
     from fastapi.middleware.cors import CORSMiddleware
 

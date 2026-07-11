@@ -88,8 +88,15 @@ class IVFFlatIndex:
         centroids: Optional[np.ndarray] = None,
         scale: Optional[float] = None,
     ) -> "IVFFlatIndex":
-        """Build from an iterable of (float32_block, id_block) so callers can
-        stream rows out of SQLite without materializing an n×d float matrix.
+        """Build from (float32_block, id_block) chunks streamed out of SQLite —
+        the full n×d float matrix is never materialized (that's the whole point
+        of switching to ANN at scale).
+
+        `blocks` may be an iterable OR a zero-arg factory returning a fresh
+        iterable. When training needs two passes, a factory streams each pass
+        independently; a plain iterable is materialized once (fine for the
+        small in-memory callers — tests, benchmarks). The store passes its
+        cursor factory, so the 1M-chunk build peaks at one block, not 3 GB.
 
         Pass `centroids` (+ its `scale`) from a previous build for an
         assignment-only rebuild — the cheap path when the vault grew a bit."""
@@ -100,18 +107,24 @@ class IVFFlatIndex:
                        ids=np.zeros(0, dtype=np.int64), scale=127.0)
         nlist = nlist or _auto_nlist(total)
         rng = np.random.default_rng(_SEED)
+
+        if callable(blocks):
+            iter_blocks = blocks                       # re-iterable: true streaming
+        else:
+            _materialized = list(blocks)               # single-use: hold once
+            iter_blocks = lambda: iter(_materialized)  # noqa: E731
+
         i8 = np.empty((total, dim), dtype=np.int8)
         ids = np.empty(total, dtype=np.int64)
         assign = np.empty(total, dtype=np.int32)
 
         if centroids is None or scale is None:
-            blocks = list(blocks)  # two passes: (sample+scale) then (assign+quantize)
             n_sample = min(_KMEANS_SAMPLE, total)
             sample_idx = np.sort(rng.choice(total, size=n_sample, replace=False))
             parts = []
             pos = 0
             max_abs = 1e-6
-            for blk, _bid in blocks:
+            for blk, _bid in iter_blocks():            # pass 1: sample + scale
                 b = np.asarray(blk, dtype=np.float32)
                 max_abs = max(max_abs, float(np.abs(b).max(initial=0.0)))
                 lo, hi = np.searchsorted(sample_idx, [pos, pos + len(b)])
@@ -122,7 +135,7 @@ class IVFFlatIndex:
             scale = 127.0 / max_abs
 
         pos = 0
-        for blk, bid in blocks:
+        for blk, bid in iter_blocks():                 # pass 2: assign + quantize
             b = np.asarray(blk, dtype=np.float32)
             span = slice(pos, pos + len(b))
             ids[span] = bid

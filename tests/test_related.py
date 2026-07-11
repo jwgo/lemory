@@ -18,13 +18,7 @@ def test_related_unknown_note(engine):
     assert related_notes(engine, "no-such.md") == []
 
 
-def test_related_http_endpoint(engine):
-    from fastapi.testclient import TestClient
-
-    from lemory.interfaces.http import build_app
-
-    app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+def test_related_http_endpoint(client):
         r = client.get("/api/related", params={"path": "Mercury Initiative.md", "k": 4})
         assert r.status_code == 200
         rows = r.json()

@@ -39,7 +39,7 @@ def test_append_creates_and_appends(engine, vault):
     rel = append_to_note(engine, "logs/decisions", "Picked SQLite over Postgres.")
     assert rel == "logs/decisions.md"
     first = (vault / rel).read_text(encoding="utf-8")
-    assert first.startswith("# decisions") and "Picked SQLite" in first
+    assert "lemory_generated: true" in first and "# decisions" in first and "Picked SQLite" in first
 
     append_to_note(engine, "logs/decisions.md", "Second entry.")
     text = (vault / rel).read_text(encoding="utf-8")
@@ -62,13 +62,7 @@ def test_context_block_sections(engine):
     assert len(context_block(engine, max_chars=200)) <= 200
 
 
-def test_server_memory_endpoints(engine):
-    from fastapi.testclient import TestClient
-
-    from lemory.interfaces.http import build_app
-
-    app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+def test_server_memory_endpoints(client):
         r = client.get("/context")
         assert r.status_code == 200 and r.json()["context"].startswith("# Vault context")
 

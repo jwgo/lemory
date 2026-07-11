@@ -55,22 +55,32 @@ def save_memory(
     base = _safe_target(vault, folder)
     base.mkdir(parents=True, exist_ok=True)
 
-    target = base / f"{name}.md"
-    n = 2
-    while target.exists():
-        target = base / f"{name} {n}.md"
-        n += 1
-
     tag_line = ""
     if tags:
         clean = [t.strip().lstrip("#") for t in tags if t.strip().lstrip("#")]
         if clean:
             tag_line = "tags: [" + ", ".join(clean) + "]\n"
+    # lemory_generated is the ONLY thing the trash guard trusts — an
+    # unambiguous machine marker a human would never type. `source:` is
+    # human-facing metadata (and a common human field: web clippings, quotes),
+    # so it must NOT gate deletion.
     body = (
-        f"---\ndate: {today}\nsource: {source}\n{tag_line}---\n\n"
+        f"---\ndate: {today}\nsource: {source}\nlemory_generated: true\n{tag_line}---\n\n"
         f"{content.strip()}\n"
     )
-    target.write_text(body, encoding="utf-8")
+    # exclusive create in the collision loop: `open(..., "x")` fails if the
+    # name exists, so two concurrent saves of the same title can never pick
+    # the same free name and clobber each other ("never overwrites").
+    n = 2
+    target = base / f"{name}.md"
+    while True:
+        try:
+            with open(target, "x", encoding="utf-8") as fh:
+                fh.write(body)
+            break
+        except FileExistsError:
+            target = base / f"{name} {n}.md"
+            n += 1
     rel = str(target.relative_to(vault))
     engine.index(paths={rel})  # searchable immediately
     if engine.cfg.event_log:
@@ -90,12 +100,16 @@ def append_to_note(engine, path: str, content: str, client: str = "") -> str:
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     block = f"\n\n## {stamp}\n\n{content.strip()}\n"
     if target.exists():
+        # appending to an existing (possibly human-authored) note — must NOT
+        # mark it deletable, and must not stamp a marker into its body
         with open(target, "a", encoding="utf-8") as fh:
             fh.write(block)
     else:
         target.parent.mkdir(parents=True, exist_ok=True)
         title = target.stem
-        target.write_text(f"# {title}{block}", encoding="utf-8")
+        # fresh note created by Lemory → markable for undo
+        target.write_text(
+            f"---\nlemory_generated: true\n---\n\n# {title}{block}", encoding="utf-8")
     rel = str(target.relative_to(vault))
     engine.index(paths={rel})
     if engine.cfg.event_log:
@@ -109,9 +123,12 @@ def trash_ai_note(engine, path: str, client: str = "") -> str:
     (Obsidian's own trash folder, so it shows up in Obsidian's trash too).
 
     Guarded twice: the path must stay inside the vault, and the note's
-    frontmatter must carry a `source:` line — i.e. it was created by
-    save_memory / import-chats. Human-authored notes are refused; this
-    endpoint can never delete something the user wrote."""
+    frontmatter must carry `lemory_generated: true` — the machine marker
+    Lemory stamps on notes it CREATES (save_memory / import-chats / a hook,
+    or an append that created a fresh note). Human-authored notes — including
+    ones with a `source:` field, which is a common human clipping/citation
+    pattern — are refused; this endpoint can never delete something the user
+    wrote, and never an existing note that Lemory only appended to."""
     vault = engine.cfg.resolved_vault()
     target = _safe_target(vault, path)
     if not target.is_file():
@@ -120,9 +137,11 @@ def trash_ai_note(engine, path: str, client: str = "") -> str:
     ai_written = False
     if head.startswith("---") and head.count("---") >= 2:
         frontmatter = head.split("---", 2)[1]
-        ai_written = "\nsource:" in frontmatter or frontmatter.startswith("source:")
+        ai_written = re.search(r"(?m)^lemory_generated:\s*true\s*$", frontmatter) is not None
     if not ai_written:
-        raise ValueError("refusing: not an AI-written note (no source: frontmatter)")
+        raise ValueError(
+            "refusing: not a Lemory-generated note (no 'lemory_generated: true' "
+            "marker). Only notes Lemory created can be trashed here.")
     trash = vault / ".trash"
     trash.mkdir(exist_ok=True)
     dest = trash / target.name

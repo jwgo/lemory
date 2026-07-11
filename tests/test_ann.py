@@ -181,3 +181,45 @@ def test_store_ann_reloads_from_disk(tmp_path):
         assert s2.vector_search(q, 5) == first  # loaded, not retrained
     finally:
         s2.close()
+
+
+def test_store_ann_build_failure_falls_back(tmp_path, monkeypatch):
+    """A build OOM/error must fall back to exact search and NOT retry on every
+    query (which would re-OOM forever)."""
+    import lemory.storage.ann as annmod
+
+    s = Store(tmp_path / "t.db", ann_threshold=50)
+    _fill_store(s, n_docs=40, chunks_per_doc=10)
+    (tmp_path / "ann-index.npz").unlink(missing_ok=True)
+
+    calls = {"n": 0}
+    orig = annmod.IVFFlatIndex.build
+
+    def boom(*a, **k):
+        calls["n"] += 1
+        raise MemoryError("simulated OOM")
+
+    monkeypatch.setattr(annmod.IVFFlatIndex, "build", staticmethod(boom))
+    q = np.ones(8, dtype=np.float32) / np.sqrt(8)
+    hits = [s.vector_search(q, 5) for _ in range(3)]
+    assert calls["n"] == 1, "must not rebuild after a failure"
+    assert all(len(h) == 5 for h in hits), "exact fallback must still return results"
+    # new data clears the failure flag so a smaller build can be retried
+    monkeypatch.setattr(annmod.IVFFlatIndex, "build", staticmethod(orig))
+    rng = np.random.default_rng(9)
+    v = rng.standard_normal((1, 8)).astype(np.float32)
+    v /= np.linalg.norm(v)
+    s.replace_chunks(1, "D0", [("", "changed")], v)
+    assert len(s.vector_search(q, 5)) == 5  # rebuilds cleanly now
+    s.close()
+
+
+def test_store_ann_build_streams_not_materialized(tmp_path):
+    """The store must pass a re-iterable factory to build (streaming), not a
+    one-shot generator — otherwise training's two passes would need list()."""
+    s = Store(tmp_path / "t.db", ann_threshold=50)
+    _fill_store(s, n_docs=40, chunks_per_doc=10)
+    assert s.vector_index_kind() == "ivf-int8"
+    # if the factory weren't re-iterable, the 2-pass k-means build would raise
+    assert len(s.vector_search(np.ones(8, dtype=np.float32) / np.sqrt(8), 5)) == 5
+    s.close()

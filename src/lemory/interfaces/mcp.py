@@ -85,9 +85,14 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         """Read a note's full markdown by its vault-relative path (as returned
         by search_notes/recent_notes). Filesystem-style memory access: search
         first, then drill into the exact note. offset/limit are line-based."""
+        from ..ingestion.memory import _safe_target
+
         vault = engine.cfg.resolved_vault()
-        target = (vault / path).resolve()
-        if not str(target).startswith(str(vault)) or not target.is_file():
+        try:
+            target = _safe_target(vault, path)  # rejects .., abs paths, siblings
+        except ValueError:
+            return json.dumps({"error": f"no such note: {path}"})
+        if not target.is_file():
             return json.dumps({"error": f"no such note: {path}"})
         lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
         body = "\n".join(lines[offset : offset + limit])
@@ -100,9 +105,14 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
     def list_notes(folder: str = "", limit: int = 100) -> str:
         """List note paths (optionally under a folder), newest-modified first —
         browse the vault like a filesystem."""
+        from ..ingestion.memory import _safe_target
+
         vault = engine.cfg.resolved_vault()
-        base = (vault / folder).resolve() if folder else vault
-        if not str(base).startswith(str(vault)) or not base.is_dir():
+        try:
+            base = _safe_target(vault, folder) if folder else vault
+        except ValueError:
+            return json.dumps({"error": f"no such folder: {folder}"})
+        if not base.is_dir():
             return json.dumps({"error": f"no such folder: {folder}"})
         files = sorted(base.rglob("*.md"), key=lambda p: -p.stat().st_mtime)[:limit]
         return json.dumps(

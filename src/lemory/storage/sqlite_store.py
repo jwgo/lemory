@@ -178,6 +178,8 @@ class Store:
         self.ann_threshold = ann_threshold
         self.ann_nprobe = ann_nprobe
         self._ann = None  # Optional[IVFFlatIndex], built lazily
+        self._ann_build_lock = threading.Lock()  # serializes builds, held off reads
+        self._ann_failed = False  # a build OOM'd/errored → stop retrying this session
         self._local = threading.local()
         self._matrix_lock = threading.Lock()
         self._matrix: Optional[np.ndarray] = None  # [n, dim] float32, L2-normalized
@@ -244,6 +246,7 @@ class Store:
         with self._matrix_lock:
             self._dirty = True
             self._ann = None
+            self._ann_failed = False  # data changed; a fresh build may fit now
             self._lexicon = None
             self._doc_dates = None
 
@@ -638,6 +641,12 @@ class Store:
         return self.conn().execute(
             "SELECT COUNT(*) AS n FROM chunks WHERE vec IS NOT NULL").fetchone()["n"]
 
+    def unembedded_chunk_count(self) -> int:
+        """Chunks with no vector — left over from a keyless index. Non-zero
+        means vector search is silently blind to those notes."""
+        return self.conn().execute(
+            "SELECT COUNT(*) AS n FROM chunks WHERE vec IS NULL").fetchone()["n"]
+
     def _ann_path(self) -> Path:
         return self.db_path.parent / "ann-index.npz"
 
@@ -656,31 +665,56 @@ class Store:
         assignment pass reruns — the expensive training is a rare event."""
         from .ann import IVFFlatIndex
 
+        # fast path: already built, or below threshold — the only work under
+        # the matrix lock
         with self._matrix_lock:
             if self._ann is not None:
                 return self._ann
+            if self._ann_failed:
+                return None  # a prior build OOM'd/errored: don't retry all session
             n = self._embedded_count()
             if n < self.ann_threshold:
+                return None
+
+        # the expensive part (load or k-means build) runs WITHOUT the matrix
+        # lock, so concurrent /search, watcher commits (_mark_dirty), and the
+        # console's date/lexicon queries don't freeze for the whole build. A
+        # dedicated build lock stops two threads building at once.
+        with self._ann_build_lock:
+            if self._ann is not None:      # another thread built it while we waited
+                return self._ann
+            if self._ann_failed:
                 return None
             fp = self._ann_fingerprint()
             idx = IVFFlatIndex.load(self._ann_path(), fp)
             if idx is None:
+                n = self._embedded_count()
+                dim = self._embedded_dim()
                 prev = IVFFlatIndex.load_any(self._ann_path())
                 reuse = (prev is not None
                          and 0.5 <= prev.size / max(n, 1) <= 1.5
-                         and prev.vectors.shape[1] == self._embedded_dim())
+                         and prev.vectors.shape[1] == dim)
                 log.info("building IVF vector index for %d chunks%s", n,
                          " (reusing centroids)" if reuse else "")
-                idx = IVFFlatIndex.build(
-                    self._iter_vec_blocks(), total=n, dim=self._embedded_dim(),
-                    centroids=prev.centroids if reuse else None,
-                    scale=prev.scale if reuse else None,
-                )
+                try:
+                    idx = IVFFlatIndex.build(
+                        self._iter_vec_blocks, total=n, dim=dim,
+                        centroids=prev.centroids if reuse else None,
+                        scale=prev.scale if reuse else None,
+                    )
+                except (MemoryError, ValueError) as e:
+                    # don't let vector_search re-attempt (and re-OOM) forever —
+                    # fall back to the exact scan for the rest of the session
+                    log.warning("ANN build failed (%s); falling back to exact "
+                                "vector search for this session", e)
+                    self._ann_failed = True
+                    return None
                 try:
                     idx.save(self._ann_path(), fp)
                 except OSError:
                     log.warning("could not persist ANN index; it will rebuild next run")
-            self._ann = idx
+            with self._matrix_lock:
+                self._ann = idx
             return idx
 
     def _embedded_dim(self) -> int:

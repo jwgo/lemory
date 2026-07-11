@@ -67,13 +67,7 @@ def test_trash_refuses_human_notes(engine, vault):
     assert (vault / "Dana Petrov.md").exists()
 
 
-def test_server_timeline_endpoints(engine):
-    from fastapi.testclient import TestClient
-
-    from lemory.interfaces.http import build_app
-
-    app = build_app(engine, watch=False)
-    with TestClient(app) as client:
+def test_server_timeline_endpoints(client):
         client.get("/search", params={"q": "pricing"},
                    headers={"X-Lemory-Client": "obsidian-plugin"})
         client.post("/memory", json={"content": "fact", "title": "F"},
@@ -92,3 +86,46 @@ def test_server_timeline_endpoints(engine):
         # kind filter works
         only = client.get("/api/events", params={"kinds": "trash"}).json()
         assert [e["kind"] for e in only] == ["trash"]
+
+
+def test_trash_guard_uses_machine_marker_not_source(engine, vault):
+    """A human note with a `source:` field (web clipping, citation — a common
+    Obsidian pattern) must NEVER be trashable; only Lemory-generated notes."""
+    from lemory.ingestion.memory import append_to_note, save_memory, trash_ai_note
+
+    engine.index()
+    (vault / "clipping.md").write_text(
+        "---\nsource: https://news.example.com/article\ntags: [read]\n---\n"
+        "# Saved article\nimportant human-saved content", encoding="utf-8")
+    engine.index()
+    with pytest.raises(ValueError):
+        trash_ai_note(engine, "clipping.md")
+    assert (vault / "clipping.md").exists()
+
+    # a real AI note carries lemory_generated: true and IS trashable
+    p = save_memory(engine, "remember this fact", title="AI fact")
+    assert "lemory_generated: true" in (vault / p).read_text(encoding="utf-8")
+    assert trash_ai_note(engine, p).startswith(".trash/")
+
+    # appending to a human note must not make it trashable
+    (vault / "diary.md").write_text("# diary\nprivate", encoding="utf-8")
+    engine.index()
+    append_to_note(engine, "diary.md", "AI appended a line")
+    with pytest.raises(ValueError):
+        trash_ai_note(engine, "diary.md")
+    assert (vault / "diary.md").exists()
+
+
+def test_host_header_guard_blocks_dns_rebinding(engine):
+    from fastapi.testclient import TestClient
+
+    from lemory.interfaces.http import build_app
+
+    with TestClient(build_app(engine, watch=False)) as client:
+        for host in ("127.0.0.1:8377", "localhost", "[::1]:8377"):
+            assert client.get("/status", headers={"host": host}).status_code == 200
+        # a rebound attacker hostname is refused before reaching any handler
+        for host in ("evil.example.com", "attacker.com:8377"):
+            assert client.get("/status", headers={"host": host}).status_code == 421
+            assert client.post("/memory", json={"content": "x", "title": "t"},
+                               headers={"host": host}).status_code == 421

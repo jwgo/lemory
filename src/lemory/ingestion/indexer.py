@@ -142,6 +142,10 @@ class Indexer:
             stored_sig = self.store.get_meta("embed_signature")
             if stored_sig is not None and stored_sig != f"{model}|{dim}" and self.store.chunk_count() > 0:
                 full = True
+            # keyless→keyed upgrade: the next sync full-embeds the leftover
+            # NULL-vector chunks (mirrors Engine.index) — so the ETA is honest
+            elif self.store.unembedded_chunk_count() > 0:
+                full = True
 
         embed_keys: list[str] = []
         for f in files:

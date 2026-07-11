@@ -104,13 +104,24 @@ class Engine:
             if not self.keyless:
                 sig = f"{self.cfg.active_embed_model()}|{self.cfg.active_embed_dim()}"
                 stored = self.store.get_meta("embed_signature")
-                if stored is not None and stored != sig and self.store.chunk_count() > 0:
-                    import logging
+                import logging
 
-                    logging.getLogger("lemory.engine").warning(
+                _log = logging.getLogger("lemory.engine")
+                if stored is not None and stored != sig and self.store.chunk_count() > 0:
+                    _log.warning(
                         "embedding model changed (%s -> %s): re-embedding the whole "
                         "vault so search stays correct", stored, sig,
                     )
+                    full = True
+                    paths = None
+                elif self.store.unembedded_chunk_count() > 0:
+                    # keyless→keyed upgrade: notes indexed without a provider have
+                    # NULL vectors. An incremental sync would only touch changed
+                    # files, leaving old notes permanently invisible to vector
+                    # search. Force a full pass so every note gets embedded.
+                    _log.info("provider now available: embedding %d chunks left "
+                              "from a keyless index",
+                              self.store.unembedded_chunk_count())
                     full = True
                     paths = None
             else:

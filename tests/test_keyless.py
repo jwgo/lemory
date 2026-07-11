@@ -39,7 +39,11 @@ def test_keyless_plan_and_status(keyless_engine):
     assert "unconfigured" in eng.status()["embed_model"]
 
 
-def test_key_upgrade_embeds_in_place(vault, tmp_path, monkeypatch):
+def test_key_upgrade_embeds_via_documented_incremental_flow(vault, tmp_path, monkeypatch):
+    """The README promises adding a key upgrades in place. The DOCUMENTED flow
+    is a plain `lemory index` (incremental) after the key appears — NOT
+    index(full=True). Regression: an incremental sync used to only embed
+    changed files, leaving keyless-era notes permanently vectorless."""
     from conftest import DIM, FakeGemini
 
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
@@ -49,14 +53,17 @@ def test_key_upgrade_embeds_in_place(vault, tmp_path, monkeypatch):
     eng = Engine(cfg)
     eng.index()
     assert eng.store._embedded_count() == 0
+    total = eng.store.chunk_count()
+    assert total > 0
 
-    # the user adds a key later: same DB, next full sync embeds everything
     eng.cfg.gemini_api_key = "test"
     eng.cfg.embed_dim = DIM
     eng._llm = FakeGemini()
     assert not eng.keyless
-    rep = eng.index(full=True)
-    assert rep.embedded > 0 and eng.store._embedded_count() > 0
+
+    rep = eng.index()  # incremental — no file changed since the keyless index
+    assert eng.store.unembedded_chunk_count() == 0, "old notes left vectorless"
+    assert eng.store._embedded_count() == total and rep.embedded == total
     hits = eng.search("pricing decision", k=3)
     assert hits and hits[0].title == "Mercury Initiative"
     eng.close()

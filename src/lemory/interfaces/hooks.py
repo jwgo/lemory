@@ -16,6 +16,7 @@ Keyless installs skip capture gracefully (summarizing needs an LLM).
 from __future__ import annotations
 
 import json
+import shlex
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -133,7 +134,10 @@ def install_claude_code(vault: Path, settings_path: Path | None = None) -> str:
             sp.read_text(encoding="utf-8"), encoding="utf-8")
     hooks = data.setdefault("hooks", {})
     entries = hooks.setdefault("SessionEnd", [])
-    cmd = f"{HOOK_COMMAND} --vault {vault}"
+    # Claude Code runs the command through a shell; vault paths with spaces
+    # (macOS/iCloud: "~/Library/Mobile Documents/.../My Vault") would break
+    # typer's arg parsing without quoting.
+    cmd = f"{HOOK_COMMAND} --vault {shlex.quote(str(vault))}"
     for grp in entries:
         for h in grp.get("hooks", []):
             if HOOK_COMMAND in h.get("command", ""):

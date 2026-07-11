@@ -128,3 +128,15 @@ def engine(vault, tmp_path):
     eng = Engine(cfg, llm=FakeGemini())
     yield eng
     eng.close()
+
+
+@pytest.fixture
+def client(engine):
+    """Server test client whose Host header is a real localhost value, so the
+    DNS-rebinding Host guard (http.py) lets it through."""
+    from fastapi.testclient import TestClient
+
+    from lemory.interfaces.http import build_app
+
+    with TestClient(build_app(engine, watch=False), base_url="http://127.0.0.1") as c:
+        yield c
