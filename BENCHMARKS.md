@@ -219,6 +219,32 @@ else the missing lexical leg and missing graph cost it 2-4x on multi-hop and
 ~2x on Korean/typo robustness, with an **English-only** embedding model as
 the default for a tool whose users write in every language.
 
+## 4h. The 2026 LLM-knowledge-graph wave (Graphify · Understand-Anything · openwiki · OpenKB · obsidian-second-brain · codegraph)
+
+2026년 봄의 스타 급상승 도구들은 공통 아키텍처를 공유한다: **파일마다 LLM
+파이프라인을 돌려** 그래프/위키를 만들고, 어시스턴트 스킬로 배포하며,
+인터랙티브 graph.html을 대표 산출물로 내민다. 정직한 분류부터: Graphify
+(22k★)·Understand-Anything(54.7k★)·codegraph는 **코드베이스** 도구다 —
+개인 노트/메모리와 도메인이 다르고, 이 문서의 검색 벤치마크 대상이
+아니다. openwiki(LangChain)·OpenKB(Vectify)는 문서→LLM 유지 위키로 직접
+경쟁군이지만 **인제스트와 질의 모두 LLM 키가 필수**라 키 없는 환경
+재현·비교가 불가능하다(키 확보 시 측정 예정).
+
+측정 가능한 축 — 같은 산출물의 비용:
+
+| | 그래프 소스 | 1,469노트 그래프 생성 | 질의 비용 | 배포 |
+|---|---|---|---|---|
+| Graphify/UA류 | LLM 추출(문서 패스) | 문서당 LLM 호출 × 1,469 (+분 단위) | 어시스턴트 LLM | 스킬 |
+| openwiki/OpenKB | LLM이 위키 작성·유지 | 코퍼스 전체 LLM 컴파일 | LLM 추론 검색 | CLI+스킬 |
+| **Lemory** | **사용자가 이미 쓴 wikilink+멘션** | **~1초, LLM 0회** (`lemory graph`) | ~ms 로컬 하이브리드 | MCP + `lemory skill install` |
+
+이 라운드에 추가된 편이성 패리티: `lemory graph`(자체완결 인터랙티브
+HTML — 캔버스 포스 레이아웃, 폴더 색, 검색, 이웃 탐색; 24,850엣지
+나무위키 볼트에서 안정성 헤드리스 검증)와 `lemory skill install
+claude-code|codex|cursor`(볼트를 장기기억으로 다루는 법을 어시스턴트에게
+가르치는 SKILL.md 원커맨드 설치). 성능 축은 §5e KorMapleQA에서 키 없이
+실행 가능한 실경쟁자(qmd·MemPalace)와 직접 비교한다.
+
 ## 5. Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
 
 All documents categorized under 메이플스토리 in the public namuwiki 2021-03-01 dump (867k docs scanned): 33,375 chunks, 24,850 real wikilink edges. QA drafted by LLM, kept only if code-verified: answer appears ONLY in the gold note, no title leakage (see gen_maple_real_qa.py).
