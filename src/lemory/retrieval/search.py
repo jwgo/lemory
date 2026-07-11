@@ -89,6 +89,7 @@ def rrf_fuse(
 
 
 _ASCII_WORD_RE = re.compile(r"[A-Za-z]{4,}")
+_HANGUL_WORD_RE = re.compile(r"[가-힣]{3,}")
 
 
 def _edit_distance_capped(a: str, b: str, cap: int) -> int:
@@ -108,23 +109,60 @@ def _edit_distance_capped(a: str, b: str, cap: int) -> int:
     return prev[-1]
 
 
+def _dl_distance_capped(a: str, b: str, cap: int) -> int:
+    """Damerau-Levenshtein (adjacent transposition = 1 op) with cap exit.
+
+    For Hangul the unit is the SYLLABLE — a fat-finger swap ('메이플' →
+    '메플이') is one operation, matching how Korean typos actually happen;
+    plain Levenshtein would charge 2 and push real typos past the cap."""
+    if abs(len(a) - len(b)) > cap:
+        return cap + 1
+    prev2: list[int] | None = None
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        best = i
+        for j, cb in enumerate(b, 1):
+            d = min(prev[j] + 1, cur[-1] + 1, prev[j - 1] + (ca != cb))
+            if (prev2 is not None and i > 1 and j > 1
+                    and ca == b[j - 2] and a[i - 2] == cb):
+                d = min(d, prev2[j - 2] + 1)
+            cur.append(d)
+            best = min(best, d)
+        if best > cap:
+            return cap + 1
+        prev2, prev = prev, cur
+    return prev[-1]
+
+
 def correct_typos(store: Store, query: str) -> str:
     """Local did-you-mean: replace query words that match nothing in the index
-    with the closest indexed term (edit distance 1, or 2 for longer words).
-    Purely lexical and offline — the vector leg is left on the raw query,
-    which embeddings already handle; this repairs the BM25/title-boost legs."""
+    with the closest indexed term. Purely lexical and offline — the vector leg
+    is left on the raw query, which embeddings already handle; this repairs
+    the BM25/title-boost legs.
+
+    ASCII words: Levenshtein (distance 1, or 2 for longer words).
+    Hangul words: syllable-level Damerau-Levenshtein — an adjacent-syllable
+    swap ('메이플스토리' 오타 '메이플스퇴리/메이플스토리' 류) is 1 op — over
+    the indexed Hangul vocabulary. Both paths only ever touch words the index
+    has never seen, so correct queries are never rewritten."""
     lexicon = None
     corrected = query
+
+    def _lex():
+        nonlocal lexicon
+        if lexicon is None:
+            lexicon = store.lexicon()
+        return lexicon
+
     for m in _ASCII_WORD_RE.finditer(query):
         word = m.group(0)
         lower = word.lower()
         if store.token_known(lower):
             continue
-        if lexicon is None:
-            lexicon = store.lexicon()
         cap = 1 if len(lower) <= 5 else 2
         best, best_key = None, (cap + 1, 0)
-        for term, doc_count in lexicon.items():
+        for term, doc_count in _lex().items():
             if term[0] != lower[0] or abs(len(term) - len(lower)) > cap:
                 continue
             d = _edit_distance_capped(lower, term, cap)
@@ -132,6 +170,22 @@ def correct_typos(store: Store, query: str) -> str:
                 best, best_key = term, (d, doc_count)
         if best:
             corrected = re.sub(rf"(?<!\w){re.escape(word)}(?!\w)", best, corrected)
+
+    for m in _HANGUL_WORD_RE.finditer(query):
+        word = m.group(0)
+        if store.token_known(word):
+            continue
+        cap = 1 if len(word) <= 4 else 2
+        best, best_key = None, (cap + 1, 0)
+        # first-syllable bucket + length filter: O(bucket), not O(vocab)
+        for term, doc_count in store.lexicon_buckets().get(word[0], ()):
+            if abs(len(term) - len(word)) > cap or not _HANGUL_RE.search(term):
+                continue
+            d = _dl_distance_capped(word, term, cap)
+            if d <= cap and (d, -doc_count) < (best_key[0], -best_key[1]):
+                best, best_key = term, (d, doc_count)
+        if best and best != word:
+            corrected = corrected.replace(word, best, 1)
     return corrected
 
 

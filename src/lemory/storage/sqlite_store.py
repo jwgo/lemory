@@ -236,7 +236,8 @@ class Store:
         self._matrix: Optional[np.ndarray] = None  # [n, dim] float32, L2-normalized
         self._matrix_chunk_ids: Optional[np.ndarray] = None
         self._matrix_pos: dict[int, int] = {}  # chunk_id -> row
-        self._lexicon: Optional[dict[str, int]] = None  # FTS term -> doc count
+        self._lexicon: Optional[dict[str, int]] = None
+        self._lexicon_buckets: Optional[dict] = None  # FTS term -> doc count
         self._doc_dates: Optional[dict[int, float]] = None  # doc_id -> epoch
         self._dirty = True
         try:
@@ -299,6 +300,7 @@ class Store:
             self._ann = None
             self._ann_failed = False  # data changed; a fresh build may fit now
             self._lexicon = None
+            self._lexicon_buckets = None
             self._doc_dates = None
 
     def _upsert_document_tx(
@@ -1028,7 +1030,7 @@ class Store:
         return rows[:limit]
 
     # ------------------------------------------------------------ typo lexicon
-    _LEX_WORD_RE = re.compile(r"[A-Za-z]{3,}")
+    _LEX_WORD_RE = re.compile(r"[A-Za-z]{3,}|[가-힣]{2,}")
 
     def lexicon(self) -> dict[str, int]:
         """Surface-form vocabulary of the indexed text (word -> frequency),
@@ -1050,6 +1052,21 @@ class Store:
         with self._matrix_lock:
             self._lexicon = counts
         return counts
+
+    def lexicon_buckets(self) -> dict[str, list[tuple[str, int]]]:
+        """lexicon() grouped by first character — the typo scan's candidate
+        filter (same first char, similar length) becomes an O(bucket) lookup
+        instead of a 350k-term linear scan per unknown word."""
+        with self._matrix_lock:
+            buckets = self._lexicon_buckets
+        if buckets is not None:
+            return buckets
+        buckets = {}
+        for term, count in self.lexicon().items():
+            buckets.setdefault(term[0], []).append((term, count))
+        with self._matrix_lock:
+            self._lexicon_buckets = buckets
+        return buckets
 
     def token_known(self, token: str) -> bool:
         """True if the token (after FTS stemming) matches anything indexed."""

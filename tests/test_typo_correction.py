@@ -38,3 +38,30 @@ def test_korean_tokens_skipped(engine, vault):
     engine.index()
     q = "김지수의 프로젝트"
     assert correct_typos(engine.store, q) == q
+
+
+# --- Korean typo correction (syllable-level Damerau-Levenshtein) -----------
+
+def test_korean_syllable_transposition_corrected(engine, vault):
+    (vault / "메이플스토리 공략.md").write_text("메이플스토리 보스 공략 모음집이다.")
+    engine.index()
+    from lemory.retrieval.search import correct_typos
+
+    assert "메이플스토리" in correct_typos(engine.store, "메플이스토리 공략")
+
+
+def test_korean_substitution_corrected(engine, vault):
+    (vault / "테마곡 목록.md").write_text("루시드의 테마곡은 아름답다.")
+    engine.index()
+    from lemory.retrieval.search import correct_typos
+
+    assert "테마곡" in correct_typos(engine.store, "루시드 테마국")
+
+
+def test_known_korean_words_never_rewritten(engine, vault):
+    (vault / "노트.md").write_text("메이플스토리 이야기")
+    engine.index()
+    from lemory.retrieval.search import correct_typos
+
+    q = "메이플스토리 이야기"
+    assert correct_typos(engine.store, q) == q
