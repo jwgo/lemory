@@ -76,3 +76,57 @@ def test_self_mention_not_linked(engine, vault):
     mercury = docs["Mercury Initiative"]
     nbrs = engine.store.neighbors([mercury])[mercury]
     assert all(dst != mercury for dst, _, _ in nbrs)
+
+
+def test_stub_enrichment_makes_stub_findable(engine, vault):
+    """A property-stub note gains an indexed pseudo-chunk from frontmatter +
+    backlink context, and becomes retrievable by queries its body can't match."""
+    (vault / "Dune Part Two.md").write_text(
+        "---\nrating: 7\ndirector: Denis Villeneuve\nyear: 2024\n---\n"
+    )
+    (vault / "Movie Log.md").write_text(
+        "Watched [[Dune Part Two]] last weekend — the sandworm ride sequence "
+        "in IMAX was the best theater experience of the year."
+    )
+    engine.index()
+    store = engine.store
+    doc = store.get_doc_by_path("Dune Part Two.md")
+    row = store.conn().execute(
+        "SELECT text FROM chunks WHERE doc_id=? AND heading=?",
+        (doc.id, store.ENRICH_HEADING)).fetchone()
+    assert row is not None
+    assert "Denis Villeneuve" in row["text"]          # frontmatter flattened
+    assert "sandworm" in row["text"]                  # backlink context captured
+
+    hits = engine.search("Denis Villeneuve sandworm movie", k=4)
+    assert any(h.title == "Dune Part Two" for h in hits)
+
+
+def test_stub_enrichment_updates_when_source_changes(engine, vault):
+    (vault / "Stub.md").write_text("---\nkind: place\n---\n")
+    (vault / "Trip.md").write_text("We visited [[Stub]] during the eclipse festival.")
+    engine.index()
+    store = engine.store
+    doc = store.get_doc_by_path("Stub.md")
+
+    def enrich_text():
+        r = store.conn().execute(
+            "SELECT text FROM chunks WHERE doc_id=? AND heading=?",
+            (doc.id, store.ENRICH_HEADING)).fetchone()
+        return r["text"] if r else ""
+
+    assert "eclipse" in enrich_text()
+    (vault / "Trip.md").write_text("We visited [[Stub]] during the comet parade.")
+    engine.index()
+    assert "comet" in enrich_text() and "eclipse" not in enrich_text()
+
+
+def test_stub_enrichment_off_by_config(engine, vault):
+    engine.cfg.stub_enrichment = False
+    (vault / "Tiny.md").write_text("---\nx: 1\n---\n")
+    engine.index()
+    doc = engine.store.get_doc_by_path("Tiny.md")
+    row = engine.store.conn().execute(
+        "SELECT COUNT(*) AS n FROM chunks WHERE doc_id=? AND heading=?",
+        (doc.id, engine.store.ENRICH_HEADING)).fetchone()
+    assert row["n"] == 0

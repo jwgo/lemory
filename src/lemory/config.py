@@ -39,8 +39,14 @@ class LemoryConfig(BaseSettings):
 
     # --- provider: "auto" picks gemini/openai from whichever key is set,
     # falling back to fully-local embeddings when no key exists ---
-    provider: str = "auto"  # auto | gemini | openai | local
+    provider: str = "auto"  # auto | gemini | openai | local | ollama
     local_embed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+    # --- ollama (fully-local LLM + embeddings; `lemory setup` configures this) ---
+    ollama_host: str = "http://127.0.0.1:11434"
+    ollama_llm_model: str = "gemma3n:e4b"             # Gemma 3n E4B, 4-bit quant
+    ollama_embed_model: str = "qwen3-embedding:0.6b"  # Qwen3-Embedding-0.6B
+    ollama_embed_dim: int = 1024
 
     # --- Gemini ---
     gemini_api_key: str = ""
@@ -66,26 +72,67 @@ class LemoryConfig(BaseSettings):
     chunk_overlap: int = 180
     min_chunk_chars: int = 120
 
+    # --- vector index scale-out ---
+    # below the threshold: exact float32 scan (zero accuracy loss). Above it:
+    # int8 IVF index — 4× less RAM, sublinear query time, recall vs exact
+    # measured in BENCHMARKS.md §scale. 0 disables ANN entirely.
+    ann_threshold: int = 20_000
+    ann_nprobe: int = 48
+
     # --- retrieval ---
     k_vector: int = 48
     k_bm25: int = 48
     rrf_k: int = 60
     w_vector: float = 1.0
     w_bm25: float = 0.8
-    keyword_bm25_boost: float = 1.8  # lexical weight multiplier for short keyword queries
-    verbatim_gate: float = 0.75  # query-token coverage in top BM25 chunks that flips to lexical lean
+    # lexical lean for keyword/verbatim queries. Swept on KorQuAD with
+    # multihop + robustness guards (benchmarks/sweep_verbatim.py): 0.60/2.4
+    # gains +1.2pt recall@1 on quote-the-document questions with zero guard
+    # regression; pushing further (boost 3.0) starts costing paraphrase
+    # robustness, so this is the knee of the curve.
+    keyword_bm25_boost: float = 2.4  # lexical weight multiplier when verbatim/keyword detected
+    verbatim_gate: float = 0.60  # query-token coverage in top BM25 chunks that flips to lexical lean
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
     context_style: str = "full"   # "full" chunks or "compact" fact-sheet context for ask()
+    # "rank" (fusion order) or "curriculum" — CDS-inspired smooth ordering
+    # (arXiv:2605.13511). Measured on KorQuAD e2e A/B: no gain over rank
+    # (contain-EM tied, F1 -3pt), so it stays opt-in. See BENCHMARKS.md §13.
+    context_order: str = "rank"
     recency_half_life_days: float = 21.0
     graph_expansion: bool = True
     graph_top_docs: int = 6
+    graph_hops: int = 1  # link-propagation depth; 2 = HippoRAG-style A→B→C chains
+    graph_expand_budget: int = 8  # max neighbor notes that may receive boosts per query
+
+    # stub-note enrichment (real vaults are full of 3-line reference notes that
+    # neither BM25 nor embeddings can see): short notes get one extra indexed
+    # pseudo-chunk built from flattened frontmatter properties + the sentences
+    # around inbound links in OTHER notes ("backlink context"). Deterministic,
+    # index-time only, content chunks and their embed cache untouched.
+    stub_enrichment: bool = True
+    stub_chars: int = 400  # body length below which a note counts as a stub
     graph_alpha: float = 0.55  # neighbor score = alpha * src_score * edge_weight * sim
     graph_sim_floor: float = 0.25  # skip neighbors whose best chunk sim is below this
     mention_links: bool = True
     per_doc_cap: int = 3
     title_boost: float = 0.12
+    # cognee-"memify"-style usage prior: notes that keep getting retrieved in
+    # real use rank slightly higher. Default OFF and it stays off until someone
+    # can measure it on THEIR usage — there is no honest offline benchmark for
+    # a signal that only exists after weeks of personal use, and it feeds back
+    # into itself. Opt-in: 0.05-0.15 is a sane range.
+    usage_prior: float = 0.0
+
+    # --- attachments ---
+    index_pdf: bool = False  # index PDF text too (pip install 'lemory[pdf]')
+
+    # --- middleware dashboard ---
+    # local-only timeline of what passed through: queries (with top sources),
+    # AI memory writes, per-client stats. Lives in the same SQLite file,
+    # capped ring buffer, never transmitted. Set false to keep no logs.
+    event_log: bool = True
 
     # --- optional LLM retrieval stages (qmd-style; each costs LLM calls) ---
     query_expansion: bool = False   # rewrite the query into variants pre-search
@@ -129,7 +176,7 @@ class LemoryConfig(BaseSettings):
         )
 
     def resolved_provider(self) -> str:
-        if self.provider in ("gemini", "openai", "local"):
+        if self.provider in ("gemini", "openai", "local", "ollama"):
             return self.provider
         if self.resolved_gemini_key():
             return "gemini"
@@ -153,19 +200,26 @@ class LemoryConfig(BaseSettings):
             return self.openai_embed_model
         if p == "local":
             return self.local_embed_model
+        if p == "ollama":
+            return self.ollama_embed_model
         return self.embed_model
 
     def active_embed_dim(self) -> int:
-        if self.resolved_provider() == "local":
+        p = self.resolved_provider()
+        if p == "local":
             from .providers.local import LOCAL_EMBED_DIM
 
             return LOCAL_EMBED_DIM
+        if p == "ollama":
+            return self.ollama_embed_dim
         return self.embed_dim
 
     def active_llm_model(self) -> str:
         p = self.resolved_provider()
         if p == "openai":
             return self.openai_llm_model
+        if p == "ollama":
+            return self.ollama_llm_model
         if p == "local":
             return (f"{self.llm_model} (answers)" if self.resolved_gemini_key()
                     else "none — local search-only")
@@ -173,8 +227,8 @@ class LemoryConfig(BaseSettings):
 
     def resolved_api_key(self) -> str:
         provider = self.resolved_provider()
-        if provider == "local":
-            return ""  # local embeddings need no key
+        if provider in ("local", "ollama"):
+            return ""  # fully-local providers need no key
         key = self.resolved_gemini_key() if provider == "gemini" else self.resolved_openai_key()
         if not key:
             raise RuntimeError(f"provider is '{provider}' but no matching API key is set")

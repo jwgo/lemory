@@ -83,6 +83,22 @@ CREATE TABLE IF NOT EXISTS embed_cache (
 );
 
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+
+CREATE TABLE IF NOT EXISTS note_hits (
+    doc_id INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+    hits INTEGER NOT NULL DEFAULT 0,
+    last_hit REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS event_log (
+    id INTEGER PRIMARY KEY,
+    ts REAL NOT NULL,
+    kind TEXT NOT NULL,               -- 'search' | 'ask' | 'memory' | 'append' | 'trash'
+    client TEXT NOT NULL DEFAULT '',  -- who passed through: cli / http / mcp / ...
+    query TEXT,                       -- for search/ask
+    path TEXT,                        -- for memory/append/trash
+    detail TEXT                       -- JSON: top result paths, note title, ...
+);
 """
 
 
@@ -96,6 +112,16 @@ class ChunkHit:
     text: str
     score: float
     doc_date: float = 0.0  # epoch seconds; see retrieval.temporal.doc_date
+
+    def subheading(self) -> str:
+        """The section heading with the note title stripped off. Headings are
+        stored as `Title > Section` breadcrumbs; showing the title again next
+        to the note name is noise. Returns "" for a whole-note / title-only
+        heading."""
+        if not self.heading or self.heading == self.title:
+            return ""
+        prefix = self.title + " > "
+        return self.heading[len(prefix):] if self.heading.startswith(prefix) else self.heading
 
 
 @dataclass
@@ -151,10 +177,28 @@ def _fts_escape(query: str) -> str:
     return " OR ".join(f'"{t}"' for t in all_terms)
 
 
+def _loads_or(raw, default):
+    """json.loads that returns `default` on any malformed value — the index is
+    derived data, so a corrupt cell must degrade gracefully, never crash a read."""
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+
 class Store:
-    def __init__(self, db_path: Path | str):
+    def __init__(self, db_path: Path | str,
+                 ann_threshold: int = 20_000, ann_nprobe: int = 48):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # above `ann_threshold` embedded chunks, vector search switches from
+        # the exact float32 scan to an int8 IVF index (storage/ann.py):
+        # small vaults keep exact behaviour, huge vaults keep flat latency
+        self.ann_threshold = ann_threshold
+        self.ann_nprobe = ann_nprobe
+        self._ann = None  # Optional[IVFFlatIndex], built lazily
+        self._ann_build_lock = threading.Lock()  # serializes builds, held off reads
+        self._ann_failed = False  # a build OOM'd/errored → stop retrying this session
         self._local = threading.local()
         self._matrix_lock = threading.Lock()
         self._matrix: Optional[np.ndarray] = None  # [n, dim] float32, L2-normalized
@@ -211,7 +255,7 @@ class Store:
         return DocRecord(
             id=row["id"], path=row["path"], title=row["title"],
             content_hash=row["content_hash"], mtime=row["mtime"],
-            tags=json.loads(row["tags"]),
+            tags=_loads_or(row["tags"], []),
         )
 
     def _mark_dirty(self) -> None:
@@ -220,6 +264,8 @@ class Store:
         invalidation can never be lost."""
         with self._matrix_lock:
             self._dirty = True
+            self._ann = None
+            self._ann_failed = False  # data changed; a fresh build may fit now
             self._lexicon = None
             self._doc_dates = None
 
@@ -396,14 +442,117 @@ class Store:
     def link_count(self) -> int:
         return int(self.conn().execute("SELECT COUNT(*) AS n FROM links").fetchone()["n"])
 
+    def docs_matching(self, tags: list[str] | None = None,
+                      folders: list[str] | None = None) -> set[int]:
+        """Doc ids satisfying scope filters: ALL tags present (AND), path under
+        ANY of the folders (OR). Case-insensitive; folders match any depth."""
+        want_tags = [t.lower().lstrip("#") for t in (tags or []) if t.strip()]
+        want_dirs = [f.lower().strip().strip("/") for f in (folders or []) if f.strip()]
+        out: set[int] = set()
+        for r in self.conn().execute("SELECT id, path, tags FROM documents"):
+            if want_tags:
+                have = {t.lower().lstrip("#") for t in _loads_or(r["tags"], [])}
+                if not all(t in have for t in want_tags):
+                    continue
+            if want_dirs:
+                hay = "/" + r["path"].lower()
+                if not any(f"/{d}/" in hay for d in want_dirs):
+                    continue
+            out.add(r["id"])
+        return out
+
+    def link_degrees(self) -> dict[int, int]:
+        """doc_id -> total link degree (in + out), for hub detection."""
+        out: dict[int, int] = {}
+        for r in self.conn().execute(
+                "SELECT src_doc AS a, dst_doc AS b FROM links"):
+            out[r["a"]] = out.get(r["a"], 0) + 1
+            out[r["b"]] = out.get(r["b"], 0) + 1
+        return out
+
+    # ------------------------------------------------------- console queries
+    def doc_overview_rows(self) -> list[dict]:
+        """Per-note console row: path, title, tags, mtime, chunk/link counts."""
+        c = self.conn()
+        chunks = {r["d"]: r["n"] for r in c.execute(
+            "SELECT doc_id AS d, COUNT(*) AS n FROM chunks GROUP BY doc_id")}
+        outl = {r["d"]: r["n"] for r in c.execute(
+            "SELECT src_doc AS d, COUNT(*) AS n FROM links GROUP BY src_doc")}
+        inl = {r["d"]: r["n"] for r in c.execute(
+            "SELECT dst_doc AS d, COUNT(*) AS n FROM links GROUP BY dst_doc")}
+        hits = self.hit_stats()
+        rows = []
+        for r in c.execute("SELECT id, path, title, tags, mtime FROM documents"):
+            tags = _loads_or(r["tags"], [])
+            h = hits.get(r["id"], (0, 0.0))
+            rows.append({
+                "path": r["path"], "title": r["title"], "tags": tags,
+                "mtime": r["mtime"], "chunks": chunks.get(r["id"], 0),
+                "links_out": outl.get(r["id"], 0), "links_in": inl.get(r["id"], 0),
+                "hits": h[0], "last_hit": h[1],
+            })
+        return rows
+
+    def doc_detail(self, path: str) -> Optional[dict]:
+        """Full note detail for the console: meta, chunks, in/out links."""
+        c = self.conn()
+        r = c.execute(
+            "SELECT id, path, title, tags, frontmatter, mtime, indexed_at "
+            "FROM documents WHERE path=?", (path,)
+        ).fetchone()
+        if not r:
+            return None
+        doc_id = r["id"]
+
+        def _links(where: str, join_on: str):
+            return [
+                {"path": x["path"], "title": x["title"], "kind": x["kind"],
+                 "weight": x["weight"]}
+                for x in c.execute(
+                    f"SELECT d.path, d.title, l.kind, l.weight FROM links l "
+                    f"JOIN documents d ON d.id = l.{join_on} WHERE l.{where}=? "
+                    f"ORDER BY l.weight DESC, d.title", (doc_id,))
+            ]
+
+        chunks = [
+            {"heading": x["heading"], "text": x["text"]}
+            for x in c.execute(
+                "SELECT heading, text FROM chunks WHERE doc_id=? ORDER BY ord",
+                (doc_id,))
+        ]
+        tags = _loads_or(r["tags"], [])
+        frontmatter = _loads_or(r["frontmatter"], {})
+        hit_row = c.execute(
+            "SELECT hits, last_hit FROM note_hits WHERE doc_id=?", (doc_id,)).fetchone()
+        return {
+            "path": r["path"], "title": r["title"], "tags": tags,
+            "frontmatter": frontmatter, "mtime": r["mtime"],
+            "indexed_at": r["indexed_at"], "chunks": chunks,
+            "links_out": _links("src_doc", "dst_doc"),
+            "links_in": _links("dst_doc", "src_doc"),
+            "hits": hit_row["hits"] if hit_row else 0,
+            "last_hit": hit_row["last_hit"] if hit_row else 0.0,
+        }
+
+    def tag_counts(self) -> list[dict]:
+        out: dict[str, int] = {}
+        for r in self.conn().execute("SELECT tags FROM documents"):
+            for t in _loads_or(r["tags"], []):
+                out[t] = out.get(t, 0) + 1
+        return [
+            {"tag": t, "count": n}
+            for t, n in sorted(out.items(), key=lambda x: (-x[1], x[0]))
+        ]
+
+    def embed_cache_count(self) -> int:
+        return int(self.conn().execute(
+            "SELECT COUNT(*) AS n FROM embed_cache").fetchone()["n"])
+
     def doc_wikilinks(self) -> dict[int, list[str]]:
         """doc_id -> raw wikilink targets, as stored at index time."""
         out: dict[int, list[str]] = {}
         for r in self.conn().execute("SELECT id, wikilinks FROM documents"):
-            try:
-                out[r["id"]] = json.loads(r["wikilinks"])
-            except json.JSONDecodeError:
-                out[r["id"]] = []
+            out[r["id"]] = _loads_or(r["wikilinks"], [])
         return out
 
     # -------------------------------------------------------------- entities
@@ -489,7 +638,127 @@ class Store:
             self._dirty = False
             return self._matrix, self._matrix_chunk_ids, self._matrix_pos
 
+    def _embedded_count(self) -> int:
+        return self.conn().execute(
+            "SELECT COUNT(*) AS n FROM chunks WHERE vec IS NOT NULL").fetchone()["n"]
+
+    def unembedded_chunk_count(self) -> int:
+        """Chunks with no vector — left over from a keyless index. Non-zero
+        means vector search is silently blind to those notes."""
+        return self.conn().execute(
+            "SELECT COUNT(*) AS n FROM chunks WHERE vec IS NULL").fetchone()["n"]
+
+    def _ann_path(self) -> Path:
+        return self.db_path.parent / "ann-index.npz"
+
+    def _ann_fingerprint(self) -> str:
+        r = self.conn().execute(
+            "SELECT COUNT(*) AS n, COALESCE(MAX(id),0) AS mx, COALESCE(SUM(id),0) AS sm "
+            "FROM chunks WHERE vec IS NOT NULL").fetchone()
+        return f"{r['n']}|{r['mx']}|{r['sm']}"
+
+    def _ensure_ann(self):
+        """IVF index for big vaults, or None below the threshold (exact scan).
+
+        Persisted next to the DB and fingerprinted against the chunk table, so
+        restarts skip the k-means build. When the corpus drifted (incremental
+        sync), centroids from the previous build are reused and only the
+        assignment pass reruns — the expensive training is a rare event."""
+        from .ann import IVFFlatIndex
+
+        # fast path: already built, or below threshold — the only work under
+        # the matrix lock
+        with self._matrix_lock:
+            if self._ann is not None:
+                return self._ann
+            if self._ann_failed:
+                return None  # a prior build OOM'd/errored: don't retry all session
+            n = self._embedded_count()
+            if n < self.ann_threshold:
+                return None
+
+        # the expensive part (load or k-means build) runs WITHOUT the matrix
+        # lock, so concurrent /search, watcher commits (_mark_dirty), and the
+        # console's date/lexicon queries don't freeze for the whole build. A
+        # dedicated build lock stops two threads building at once.
+        with self._ann_build_lock:
+            if self._ann is not None:      # another thread built it while we waited
+                return self._ann
+            if self._ann_failed:
+                return None
+            fp = self._ann_fingerprint()
+            idx = IVFFlatIndex.load(self._ann_path(), fp)
+            if idx is None:
+                n = self._embedded_count()
+                dim = self._embedded_dim()
+                prev = IVFFlatIndex.load_any(self._ann_path())
+                reuse = (prev is not None
+                         and 0.5 <= prev.size / max(n, 1) <= 1.5
+                         and prev.vectors.shape[1] == dim)
+                log.info("building IVF vector index for %d chunks%s", n,
+                         " (reusing centroids)" if reuse else "")
+                try:
+                    idx = IVFFlatIndex.build(
+                        self._iter_vec_blocks, total=n, dim=dim,
+                        centroids=prev.centroids if reuse else None,
+                        scale=prev.scale if reuse else None,
+                    )
+                except (MemoryError, ValueError) as e:
+                    # don't let vector_search re-attempt (and re-OOM) forever —
+                    # fall back to the exact scan for the rest of the session
+                    log.warning("ANN build failed (%s); falling back to exact "
+                                "vector search for this session", e)
+                    self._ann_failed = True
+                    return None
+                try:
+                    idx.save(self._ann_path(), fp)
+                except OSError:
+                    log.warning("could not persist ANN index; it will rebuild next run")
+            with self._matrix_lock:
+                self._ann = idx
+            return idx
+
+    def _embedded_dim(self) -> int:
+        r = self.conn().execute(
+            "SELECT LENGTH(vec) AS b FROM chunks WHERE vec IS NOT NULL LIMIT 1").fetchone()
+        return (r["b"] // 4) if r else 0
+
+    def _iter_vec_blocks(self, block: int = 20_000):
+        cur = self.conn().execute(
+            "SELECT id, vec FROM chunks WHERE vec IS NOT NULL ORDER BY id")
+        while True:
+            rows = cur.fetchmany(block)
+            if not rows:
+                return
+            yield (np.vstack([np.frombuffer(r["vec"], dtype=np.float32) for r in rows]),
+                   np.array([r["id"] for r in rows], dtype=np.int64))
+
+    def vector_index_kind(self) -> str:
+        """'ivf-int8' | 'exact' — what the next vector query will use."""
+        if self._ann is not None or self._embedded_count() >= self.ann_threshold:
+            return "ivf-int8"
+        return "exact"
+
     def vector_search(self, query_vec: np.ndarray, k: int) -> list[tuple[int, float]]:
+        ann = self._ensure_ann()
+        if ann is not None:
+            # over-fetch from the int8 index, then rescore candidates with
+            # their true float32 vectors (a handful of PK lookups): recovers
+            # quantization near-tie flips — measured recall@10 0.965 → 0.995
+            cand = ann.search(query_vec, max(k + 16, 2 * k), nprobe=self.ann_nprobe)
+            if not cand:
+                return []
+            q = query_vec.astype(np.float32)
+            marks = ",".join("?" * len(cand))
+            rows = self.conn().execute(
+                f"SELECT id, vec FROM chunks WHERE id IN ({marks})",
+                [cid for cid, _ in cand]).fetchall()
+            rescored = [
+                (r["id"], float(np.frombuffer(r["vec"], dtype=np.float32) @ q))
+                for r in rows if r["vec"] is not None
+            ]
+            rescored.sort(key=lambda t: -t[1])
+            return rescored[:k]
         matrix, ids, _pos = self._ensure_matrix()
         if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0]:
             # dim mismatch = embed model/provider changed without `index --full`
@@ -500,10 +769,144 @@ class Store:
         top = top[np.argsort(-sims[top])]
         return [(int(ids[i]), float(sims[i])) for i in top]
 
+    ENRICH_HEADING = "↩ context"  # marker for index-time enrichment pseudo-chunks
+
+    def replace_enrichment_chunk(self, doc_id: int, title: str, text: str,
+                                 vec: Optional[np.ndarray]) -> None:
+        """Replace a doc's enrichment pseudo-chunk (frontmatter + backlink
+        context for stub notes). Kept separate from content chunks so normal
+        re-chunking and the embed cache are untouched."""
+        c = self.conn()
+        old = [r["id"] for r in c.execute(
+            "SELECT id FROM chunks WHERE doc_id=? AND heading=?",
+            (doc_id, self.ENRICH_HEADING))]
+        for cid in old:
+            c.execute("DELETE FROM chunks_fts WHERE rowid=?", (cid,))
+        c.execute("DELETE FROM chunks WHERE doc_id=? AND heading=?",
+                  (doc_id, self.ENRICH_HEADING))
+        if text.strip():
+            nxt = c.execute(
+                "SELECT COALESCE(MAX(ord), -1) + 1 AS o FROM chunks WHERE doc_id=?",
+                (doc_id,)).fetchone()["o"]
+            blob = vec.astype(np.float32).tobytes() if vec is not None else None
+            cur = c.execute(
+                "INSERT INTO chunks(doc_id, ord, heading, text, vec) VALUES(?,?,?,?,?)",
+                (doc_id, nxt, self.ENRICH_HEADING, text, blob))
+            c.execute(
+                "INSERT INTO chunks_fts(rowid, text, title, heading) VALUES(?,?,?,?)",
+                (int(cur.lastrowid), fts_index_text(text), fts_index_text(title), ""))
+        c.commit()
+        self._mark_dirty()
+
+    # -------------------------------------------------------------- hit stats
+    def record_hits(self, doc_ids: list[int]) -> None:
+        """Count real retrievals per note (console 'working knowledge' stats).
+
+        Only interface layers (server/CLI) record — library calls and
+        benchmarks never pollute the numbers."""
+        if not doc_ids:
+            return
+        import time as _t
+
+        now = _t.time()
+        c = self.conn()
+        c.executemany(
+            "INSERT INTO note_hits(doc_id, hits, last_hit) VALUES(?, 1, ?) "
+            "ON CONFLICT(doc_id) DO UPDATE SET hits = hits + 1, last_hit = ?",
+            [(d, now, now) for d in set(doc_ids)],
+        )
+        c.commit()
+
+    def hit_stats(self) -> dict[int, tuple[int, float]]:
+        """doc_id -> (hits, last_hit)."""
+        return {r["doc_id"]: (r["hits"], r["last_hit"]) for r in self.conn().execute(
+            "SELECT doc_id, hits, last_hit FROM note_hits")}
+
+    # -------------------------------------------------------------- event log
+    EVENT_LOG_MAX = 1000  # ring buffer: the dashboard needs a timeline, not history
+
+    def log_event(self, kind: str, client: str = "", query: Optional[str] = None,
+                  path: Optional[str] = None, detail: Optional[dict] = None) -> None:
+        """One line in the middleware timeline: what passed through, from whom.
+        Local-only (never leaves the SQLite file); capped as a ring buffer."""
+        import time as _t
+
+        c = self.conn()
+        c.execute(
+            "INSERT INTO event_log(ts, kind, client, query, path, detail) "
+            "VALUES(?,?,?,?,?,?)",
+            (_t.time(), kind, client, query, path,
+             json.dumps(detail, ensure_ascii=False) if detail else None),
+        )
+        c.execute(
+            "DELETE FROM event_log WHERE id <= ("
+            "  SELECT id FROM event_log ORDER BY id DESC "
+            f"  LIMIT 1 OFFSET {self.EVENT_LOG_MAX})")
+        c.commit()
+
+    def events(self, kinds: Optional[list[str]] = None, limit: int = 100) -> list[dict]:
+        """Newest-first timeline rows, optionally filtered by kind."""
+        sql = "SELECT ts, kind, client, query, path, detail FROM event_log"
+        args: list = []
+        if kinds:
+            sql += f" WHERE kind IN ({','.join('?' * len(kinds))})"
+            args.extend(kinds)
+        sql += " ORDER BY id DESC LIMIT ?"
+        args.append(limit)
+        out = []
+        for r in self.conn().execute(sql, args):
+            detail = _loads_or(r["detail"], None) if r["detail"] else None
+            out.append({"ts": r["ts"], "kind": r["kind"], "client": r["client"],
+                        "query": r["query"], "path": r["path"], "detail": detail})
+        return out
+
+    def client_stats(self, days: float = 7.0) -> list[dict]:
+        """Per-client event counts in the window — who is using this memory."""
+        import time as _t
+
+        cutoff = _t.time() - days * 86400
+        return [
+            {"client": r["client"] or "unknown", "events": r["n"],
+             "queries": r["q"], "writes": r["w"], "last": r["last"]}
+            for r in self.conn().execute(
+                "SELECT client, COUNT(*) AS n, "
+                "  SUM(kind IN ('search','ask')) AS q, "
+                "  SUM(kind IN ('memory','append')) AS w, "
+                "  MAX(ts) AS last "
+                "FROM event_log WHERE ts >= ? GROUP BY client ORDER BY n DESC",
+                (cutoff,))
+        ]
+
+    def doc_body_len(self) -> dict[int, int]:
+        """doc_id -> total chars of content chunks (enrichment excluded)."""
+        return {r["d"]: r["n"] for r in self.conn().execute(
+            "SELECT doc_id AS d, SUM(LENGTH(text)) AS n FROM chunks "
+            "WHERE heading != ? GROUP BY doc_id", (self.ENRICH_HEADING,))}
+
+    def chunk_vectors(self, chunk_ids: list[int]) -> dict[int, "np.ndarray"]:
+        """Raw stored vectors for specific chunks (unit-norm rows of the matrix).
+
+        In ANN mode the float32 matrix is never materialized (that's the whole
+        point) — rows come dequantized from the int8 index instead."""
+        ann = self._ensure_ann()
+        if ann is not None:
+            return ann.rows_for(chunk_ids)
+        matrix, _ids, pos = self._ensure_matrix()
+        return {cid: matrix[pos[cid]] for cid in chunk_ids if cid in pos}
+
     def chunk_sims(self, query_vec: np.ndarray, chunk_ids: list[int]) -> dict[int, float]:
         """Cosine similarity of specific chunks against a query vector."""
+        if not chunk_ids:
+            return {}
+        ann = self._ensure_ann()
+        if ann is not None:
+            vecs = ann.rows_for(chunk_ids)
+            q = query_vec.astype(np.float32)
+            if not vecs or next(iter(vecs.values())).shape[0] != q.shape[0]:
+                return {}
+            return {cid: float(v @ q) for cid, v in vecs.items()}
         matrix, _ids, pos = self._ensure_matrix()
-        if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0] or not chunk_ids:
+        if matrix.shape[0] == 0 or matrix.shape[1] != query_vec.shape[0]:
             return {}
         wanted = [(cid, pos[cid]) for cid in chunk_ids if cid in pos]
         if not wanted:
@@ -513,16 +916,34 @@ class Store:
         return {cid: float(s) for (cid, _), s in zip(wanted, sims)}
 
     # ----------------------------------------------------------------- BM25
-    def bm25_search(self, query: str, k: int) -> list[tuple[int, float]]:
-        match = _fts_escape(query)
+    def _fts_query(self, match: str, k: int) -> Optional[list]:
         try:
-            rows = self.conn().execute(
+            return self.conn().execute(
                 """SELECT rowid, bm25(chunks_fts, 1.0, 0.6, 0.4) AS s
                    FROM chunks_fts WHERE chunks_fts MATCH ?
                    ORDER BY s LIMIT ?""",
                 (match, k),
             ).fetchall()
         except sqlite3.OperationalError:
+            return None
+
+    def bm25_search(self, query: str, k: int) -> list[tuple[int, float]]:
+        # Phase 1 — implicit AND of the raw words: on big corpora the OR query
+        # below matches (and scores) nearly every row when the query contains
+        # common words, which dominates hybrid latency (~60 ms at 50k chunks).
+        # AND restricts the scored set to docs containing every term; when that
+        # already yields k docs they are strictly better candidates than any
+        # OR-only match, so the OR pass can be skipped. Queries that AND can't
+        # satisfy (Korean 조사 variants, paraphrases, typos) fall through to
+        # the OR+bigram pass unchanged — a cheap failed AND, not a recall loss.
+        terms = [t.replace('"', "") for t in query.split() if t.strip()][:16]
+        if len(terms) >= 2:
+            rows = self._fts_query(" ".join(f'"{t}"' for t in terms), k)
+            if rows is not None and len(rows) >= k:
+                return [(int(r["rowid"]), -float(r["s"])) for r in rows]
+        # Phase 2 — the recall-oriented OR of terms + Hangul bigrams
+        rows = self._fts_query(_fts_escape(query), k)
+        if rows is None:
             return []
         # bm25() returns lower-is-better; flip sign so higher is better
         return [(int(r["rowid"]), -float(r["s"])) for r in rows]
@@ -544,6 +965,20 @@ class Store:
         with self._matrix_lock:
             self._doc_dates = out
         return out
+
+    def recent_docs(self, days: float, limit: int) -> list[tuple[float, "DocRecord"]]:
+        """(date, doc) for notes touched in the last `days`, newest first.
+        Shared by `lemory recent`, the MCP recent_notes tool, and the context
+        block so they can't drift."""
+        import time as _t
+
+        docs = {d.id: d for d in self.all_docs()}
+        dates = self.doc_dates()
+        cutoff = _t.time() - days * 86400
+        rows = [(ts, docs[did]) for did, ts in dates.items()
+                if ts >= cutoff and did in docs]
+        rows.sort(key=lambda x: -x[0])
+        return rows[:limit]
 
     # ------------------------------------------------------------ typo lexicon
     _LEX_WORD_RE = re.compile(r"[A-Za-z]{3,}")

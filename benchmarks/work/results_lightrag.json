@@ -1,0 +1,7 @@
+{
+  "answer_in_context@8": 0.8070175438596491,
+  "aic_1hop": 1.0,
+  "aic_2hop": 0.7380952380952381,
+  "p50_latency_ms": 7493.714332580566,
+  "note": "mix mode, only_need_context, merged blob (generous vs 8-chunk systems)"
+}

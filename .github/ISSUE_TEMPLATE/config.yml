@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 질문 / Questions & discussions
+    url: https://github.com/jwgo/lemory/discussions
+    about: 사용법 질문은 디스커션으로 / usage questions go to Discussions

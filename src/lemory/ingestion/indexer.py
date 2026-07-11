@@ -26,6 +26,32 @@ log = logging.getLogger("lemory.ingest")
 
 
 @dataclass
+class IndexPlan:
+    """Dry-run answer to "what would indexing do, and how long will it take?"."""
+
+    files_total: int = 0
+    to_process: int = 0        # notes that would be (re)chunked
+    to_remove: int = 0
+    chunks_total: int = 0      # chunks across to-be-processed notes
+    embeds_needed: int = 0     # chunks that would actually hit the embedder
+    est_seconds: float = 0.0
+    rate_chunks_per_s: float = 0.0
+    rate_measured: bool = False  # False → provider default, not observed speed
+
+    def human_eta(self) -> str:
+        s = self.est_seconds
+        if self.embeds_needed == 0:
+            return "즉시 (임베딩 캐시 적중)"
+        if s < 5:
+            return "몇 초"
+        if s < 90:
+            return f"약 {int(round(s / 5) * 5)}초"
+        if s < 5400:
+            return f"약 {int(round(s / 60))}분"
+        return f"약 {s / 3600:.1f}시간"
+
+
+@dataclass
 class SyncReport:
     added: int = 0
     updated: int = 0
@@ -58,11 +84,118 @@ def iter_vault_files(vault: Path, include: list[str], exclude_dirs: list[str]) -
     return sorted(set(out))
 
 
+def active_globs(cfg) -> list[str]:
+    """include_globs plus attachment types enabled in config."""
+    globs = list(cfg.include_globs)
+    if getattr(cfg, "index_pdf", False) and "**/*.pdf" not in globs:
+        globs.append("**/*.pdf")
+    return globs
+
+
+def read_note_text(f: Path) -> str:
+    """File → indexable text. Markdown is read verbatim; PDFs (opt-in via
+    cfg.index_pdf) go through pypdf text extraction. Raises OSError on
+    unreadable files so callers' existing error paths apply."""
+    if f.suffix.lower() != ".pdf":
+        return f.read_text(encoding="utf-8", errors="replace")
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise OSError("PDF indexing requires pypdf — pip install 'lemory[pdf]'")
+    try:
+        reader = PdfReader(str(f))
+        pages = [(p.extract_text() or "") for p in reader.pages]
+    except Exception as e:  # pypdf raises a zoo of types on corrupt files
+        raise OSError(f"unreadable PDF: {e}")
+    return "\n\n".join(pages).strip()
+
+
 class Indexer:
     def __init__(self, engine: "Engine"):
         self.engine = engine
         self.cfg = engine.cfg
         self.store: Store = engine.store
+
+    def _chunk(self, note, title: str) -> list[tuple[str, str]]:
+        """Chunk a note, with the whole-note fallback for notes that produce no
+        chunks (0-byte, frontmatter-only). Shared by plan() and sync() so the
+        dry-run estimate and the real sync can never disagree on chunk counts."""
+        chunks = chunk_note(
+            note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
+            self.cfg.min_chunk_chars,
+        )
+        if not chunks:
+            plain = render_plain(note.body)
+            chunks = [("", plain)] if plain else [("", title)]
+        return chunks
+
+    # ------------------------------------------------------------------ plan
+    # provider defaults (chunks/s) used until a real rate has been observed
+    _DEFAULT_RATES = {"gemini": 40.0, "openai": 40.0, "local": 20.0, "ollama": 6.0}
+
+    def plan(self, full: bool = False) -> IndexPlan:
+        """Estimate what sync() would do — no writes, no API calls.
+
+        Chunks changed notes locally (fast) and checks the embedding cache to
+        count real API/model work, then divides by the observed embed rate
+        (persisted EMA from previous runs) or a provider default.
+        """
+        p = IndexPlan()
+        vault = self.cfg.resolved_vault()
+        files = iter_vault_files(vault, active_globs(self.cfg), self.cfg.exclude_dirs)
+        p.files_total = len(files)
+        seen: set[str] = set()
+
+        keyless = self.engine.keyless
+        model = dim = None
+        if not keyless:
+            model = self.cfg.active_embed_model()
+            dim = self.cfg.active_embed_dim()
+            # a pending model switch makes the next sync a full re-embed
+            stored_sig = self.store.get_meta("embed_signature")
+            if stored_sig is not None and stored_sig != f"{model}|{dim}" and self.store.chunk_count() > 0:
+                full = True
+            # keyless→keyed upgrade: the next sync full-embeds the leftover
+            # NULL-vector chunks (mirrors Engine.index) — so the ETA is honest
+            elif self.store.unembedded_chunk_count() > 0:
+                full = True
+
+        embed_keys: list[str] = []
+        for f in files:
+            rel = str(f.relative_to(vault))
+            seen.add(rel)
+            try:
+                raw = read_note_text(f)
+            except OSError:
+                continue
+            content_hash = hashlib.sha256(raw.encode()).hexdigest()
+            existing = self.store.get_doc_by_path(rel)
+            if existing and existing.content_hash == content_hash and not full:
+                continue
+            p.to_process += 1
+            title = note_title(f)
+            note = parse_note(raw, title)
+            chunks = self._chunk(note, title)
+            p.chunks_total += len(chunks)
+            if not keyless:
+                embed_keys.extend(
+                    Store.cache_key(model, dim, "doc", embed_text_for_chunk(title, h, t))
+                    for h, t in chunks
+                )
+
+        p.to_remove = sum(1 for d in self.store.all_docs() if d.path not in seen)
+        cached = self.store.cache_get_many(embed_keys)
+        p.embeds_needed = sum(1 for k in embed_keys if k not in cached)
+
+        rate_meta = self.store.get_meta("embed_rate_ema")
+        if rate_meta:
+            p.rate_chunks_per_s = max(0.5, float(rate_meta))
+            p.rate_measured = True
+        else:
+            provider = "none" if keyless else self.cfg.resolved_provider()
+            p.rate_chunks_per_s = self._DEFAULT_RATES.get(provider, 20.0)
+        p.est_seconds = p.embeds_needed / p.rate_chunks_per_s + p.chunks_total * 0.002 + 1.0
+        return p
 
     # ------------------------------------------------------------------ sync
     def sync(
@@ -92,7 +225,7 @@ class Indexer:
                     if progress:
                         progress(f"removed {rel}")
         else:
-            files = iter_vault_files(vault, self.cfg.include_globs, self.cfg.exclude_dirs)
+            files = iter_vault_files(vault, active_globs(self.cfg), self.cfg.exclude_dirs)
         seen_paths: set[str] = set()
         changed_docs: list[tuple[int, list[str]]] = []  # (doc_id, wikilinks)
 
@@ -100,7 +233,7 @@ class Indexer:
             rel = str(f.relative_to(vault))
             seen_paths.add(rel)
             try:
-                raw = f.read_text(encoding="utf-8", errors="replace")
+                raw = read_note_text(f)
             except OSError as e:
                 rep.errors.append(f"{rel}: {e}")
                 continue
@@ -112,16 +245,27 @@ class Indexer:
 
             title = note_title(f)
             note = parse_note(raw, title)
-            chunks = chunk_note(
-                note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
-                self.cfg.min_chunk_chars,
-            )
-            if not chunks:
-                plain = render_plain(note.body)
-                chunks = [("", plain)] if plain else [("", title)]
 
-            embed_texts = [embed_text_for_chunk(title, h, t) for h, t in chunks]
-            vectors, misses = self.engine.embed_documents_cached(embed_texts)
+            # privacy exclusion: `lemory: false` in frontmatter keeps a note
+            # out of the index entirely — never searchable, never sent to any
+            # model. If it was indexed before the flag, it is removed now.
+            if note.frontmatter.get("lemory") is False:
+                if existing:
+                    self.store.delete_document(rel)
+                    rep.removed += 1
+                    if progress:
+                        progress(f"excluded (lemory: false): {rel}")
+                continue  # stays in seen_paths so the delete sweep skips it
+
+            chunks = self._chunk(note, title)
+
+            if self.engine.keyless:
+                # no embedding provider: index lexically (BM25 + link graph
+                # still work); a key added later fills vectors on next sync
+                vectors, misses = None, 0
+            else:
+                embed_texts = [embed_text_for_chunk(title, h, t) for h, t in chunks]
+                vectors, misses = self.engine.embed_documents_cached(embed_texts)
             rep.embedded += misses
 
             doc_id = self.store.store_note(
@@ -162,6 +306,13 @@ class Indexer:
             )
             self.store.set_meta("title_set_hash", title_hash)
 
+        # runs on change, and once on upgrade (pre-enrichment indexes)
+        if self.cfg.stub_enrichment and (
+            rep.changed or self.store.get_meta("stub_enriched") != "1"
+        ):
+            rep.embedded += self._enrich_stubs()
+            self.store.set_meta("stub_enriched", "1")
+
         rep.seconds = time.time() - t0
         self.store.set_meta("last_sync", str(time.time()))
         return rep
@@ -186,6 +337,95 @@ class Indexer:
                 if (dst, "wiki") not in merged:
                     merged[(dst, "mention")] = w
             self.store.replace_links(doc_id, [(dst, kind, w) for (dst, kind), w in merged.items()])
+
+    # -------------------------------------------------------- stub enrichment
+    _SENT_SPLIT = re.compile(r"(?<=[.!?다요음됨])\s+|\n+")
+
+    def _enrich_stubs(self) -> int:
+        """Give stub notes an indexed representation others can find.
+
+        A 3-line reference note is nearly invisible to BM25 and embeddings,
+        yet most wikilinks in real vaults point at exactly such notes. For
+        every doc whose content is shorter than cfg.stub_chars, index one
+        extra pseudo-chunk: flattened frontmatter properties + the sentences
+        surrounding inbound links in other notes (anchor-text style). Runs
+        after every link rebuild; the embed cache absorbs unchanged contexts.
+        Returns the number of enrichment chunks that hit the embedder.
+        """
+        import json as _json
+
+        store = self.store
+        body_len = store.doc_body_len()
+        stubs = [d for d, ln in body_len.items() if ln < self.cfg.stub_chars]
+        if not stubs:
+            return 0
+        docs = {d.id: d for d in store.all_docs()}
+        c = store.conn()
+
+        to_embed: list[tuple[int, str, str]] = []  # (doc_id, title, text)
+        for doc_id in stubs:
+            doc = docs.get(doc_id)
+            if doc is None:
+                continue
+            parts: list[str] = []
+            row = c.execute("SELECT frontmatter FROM documents WHERE id=?", (doc_id,)).fetchone()
+            try:
+                fm = _json.loads(row["frontmatter"]) if row else {}
+            except _json.JSONDecodeError:
+                fm = {}
+            props = []
+            for k, v in fm.items():
+                if isinstance(v, (str, int, float)) and str(v).strip():
+                    props.append(f"{k}: {v}")
+                elif isinstance(v, list):
+                    vals = [str(x) for x in v if isinstance(x, (str, int, float))][:6]
+                    if vals:
+                        props.append(f"{k}: {', '.join(vals)}")
+            if props:
+                parts.append(" · ".join(props[:10]))
+
+            # backlink contexts: sentences in OTHER notes around links/mentions here
+            srcs = [r["src_doc"] for r in c.execute(
+                "SELECT DISTINCT src_doc FROM links WHERE dst_doc=? "
+                "AND kind IN ('wiki','mention') LIMIT 6", (doc_id,))]
+            tl = doc.title.lower()
+            ctx: list[str] = []
+            for src in srcs:
+                src_doc = docs.get(src)
+                if src_doc is None:
+                    continue
+                rows = c.execute(
+                    "SELECT text FROM chunks WHERE doc_id=? AND heading != ? ORDER BY ord",
+                    (src, store.ENRICH_HEADING)).fetchall()
+                for r in rows:
+                    for sent in self._SENT_SPLIT.split(r["text"]):
+                        if tl in sent.lower() and 20 <= len(sent) <= 400:
+                            ctx.append(f"({src_doc.title}) {sent.strip()}")
+                            break
+                    if len(ctx) and ctx[-1].startswith(f"({src_doc.title})"):
+                        break
+            if ctx:
+                parts.append("\n".join(ctx[:6]))
+
+            text = "\n".join(parts).strip()
+            existing = c.execute(
+                "SELECT text FROM chunks WHERE doc_id=? AND heading=?",
+                (doc_id, store.ENRICH_HEADING)).fetchone()
+            if (existing["text"] if existing else "") == text:
+                continue  # unchanged — don't dirty the matrix
+            to_embed.append((doc_id, doc.title, text))
+
+        if not to_embed:
+            return 0
+        if self.engine.keyless:
+            vectors, misses = None, 0
+        else:
+            embed_texts = [embed_text_for_chunk(t, "", txt) for _, t, txt in to_embed]
+            vectors, misses = self.engine.embed_documents_cached(embed_texts)
+        for i, (doc_id, title, text) in enumerate(to_embed):
+            vec = vectors[i] if vectors is not None and text else None
+            store.replace_enrichment_chunk(doc_id, title, text, vec)
+        return misses
 
     def _cached_mention_targets(self, title_to_id: dict[str, int]) -> list[tuple[re.Pattern, int]]:
         """Compiled mention regexes, cached across syncs until titles change."""
@@ -270,7 +510,7 @@ def watch(engine: "Engine", debounce: float = 2.0, on_sync: Optional[Callable] =
     lock = threading.Lock()
     pending: dict = {"paths": set(), "last": 0.0, "overflow": False}
     # react to whatever the include globs cover, not just .md
-    suffixes = {Path(g).suffix for g in engine.cfg.include_globs if Path(g).suffix} or {".md"}
+    suffixes = {Path(g).suffix for g in active_globs(engine.cfg) if Path(g).suffix} or {".md"}
 
     def note_path(p: str) -> Optional[str]:
         pp = Path(p)

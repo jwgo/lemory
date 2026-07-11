@@ -30,9 +30,12 @@ def load_bench(name: str):
     if name == "squad":
         vault = WORK / "squad_vault"
         questions = json.loads((WORK / "squad_questions.json").read_text())
-    elif name in ("multihop", "maple", "law", "maple_real"):
+    elif name in ("multihop", "maple", "law", "maple_real", "kepano"):
         vault = DATA / name / "vault"
         questions = json.loads((DATA / name / "questions.json").read_text())
+    elif name == "help":
+        vault = WORK / "help_vault"  # fetched by prep_help.py (not committed)
+        questions = json.loads((DATA / "help" / "questions.json").read_text())
     else:
         raise SystemExit(f"unknown bench {name}")
     return vault, questions

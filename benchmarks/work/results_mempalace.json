@@ -1,0 +1,14 @@
+{
+  "answer_in_context@8": 0.5964912280701754,
+  "aic_1hop": 1.0,
+  "aic_2hop": 0.4523809523809524,
+  "p50_latency_ms": 1007.042407989502,
+  "latency_note": "CLI wall-clock incl. process startup — see docs note",
+  "robustness": {
+    "original": 0.5964912280701754,
+    "paraphrase": 0.6428571428571429,
+    "korean": 0.35,
+    "keyword": 0.5535714285714286,
+    "typo": 0.6666666666666666
+  }
+}

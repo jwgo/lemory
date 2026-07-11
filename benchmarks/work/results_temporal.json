@@ -10,7 +10,7 @@
     "superseded_trap_hit@3": 1.0,
     "overall_hit@1": 1.0,
     "overall_hit@3": 1.0,
-    "ms_per_query": 2.341747283935547
+    "ms_per_query": 681.9279193878174
   },
   "lemory-norecency": {
     "recent_fact_hit@1": 0.4,
@@ -20,12 +20,11 @@
     "old_fact_hit@3": 1.0,
     "window_hit@1": 0.75,
     "window_hit@3": 0.75,
-    "superseded_trap_hit@1": 0.0,
+    "superseded_trap_hit@1": 1.0,
     "superseded_trap_hit@3": 1.0,
-    "superseded_trap_trapped@1": 1.0,
-    "overall_hit@1": 0.5454545454545454,
+    "overall_hit@1": 0.6363636363636364,
     "overall_hit@3": 0.9090909090909091,
-    "ms_per_query": 2.165555953979492
+    "ms_per_query": 1.3332366943359375
   },
   "vector": {
     "recent_fact_hit@1": 0.0,
@@ -40,7 +39,7 @@
     "superseded_trap_trapped@1": 1.0,
     "overall_hit@1": 0.2727272727272727,
     "overall_hit@3": 0.9090909090909091,
-    "ms_per_query": 0.4448890686035156
+    "ms_per_query": 0.39577484130859375
   },
   "bm25": {
     "recent_fact_hit@1": 0.6,
@@ -54,6 +53,6 @@
     "superseded_trap_hit@3": 1.0,
     "overall_hit@1": 0.6363636363636364,
     "overall_hit@3": 0.7272727272727273,
-    "ms_per_query": 1.2209415435791016
+    "ms_per_query": 0.690460205078125
   }
 }

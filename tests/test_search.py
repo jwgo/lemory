@@ -44,3 +44,29 @@ def test_search_empty_index(engine):
 def test_search_returns_at_most_k(engine):
     engine.index()
     assert len(engine.search("Mercury", k=2)) <= 2
+
+
+def test_graph_hops_two_reaches_chain_end(engine, vault):
+    """A→B→C chain: hop-2 propagation must surface C for an A-anchored query."""
+    (vault / "Alpha Project.md").write_text(
+        "The Alpha Project builds telemetry pipelines. Led by [[Bram Osei]]."
+    )
+    (vault / "Bram Osei.md").write_text(
+        "Bram Osei is a systems engineer. His toolkit of choice is [[Quarklight]]."
+    )
+    (vault / "Quarklight.md").write_text(
+        "Quarklight is a profiling suite written in Zig with flamegraph output."
+    )
+    engine.index()
+
+    engine.cfg.graph_hops = 1
+    titles_1 = [h.title for h in engine.search("Alpha Project profiling suite language", k=8)]
+    engine.cfg.graph_hops = 2
+    titles_2 = [h.title for h in engine.search("Alpha Project profiling suite language", k=8)]
+    # the chain end must be reachable at 2 hops
+    assert "Quarklight" in titles_2
+    # and hop-2 must never remove the direct evidence
+    assert "Alpha Project" in titles_2
+    # (1-hop may or may not find C via lexical luck — no assertion on titles_1
+    # beyond sanity)
+    assert titles_1
