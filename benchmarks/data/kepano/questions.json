@@ -11,6 +11,50 @@
     "type": "single:Buy wisely"
   },
   {
+    "q": "What is a related topic to Podcasts?",
+    "answers": [
+      "[[Podcast episodes]]"
+    ],
+    "gold_notes": [
+      "Podcasts"
+    ],
+    "hops": 1,
+    "type": "single:Podcasts"
+  },
+  {
+    "q": "Which book was discussed in the 2023-09-12 Meeting with Steph?",
+    "answers": [
+      "Out of Control"
+    ],
+    "gold_notes": [
+      "2023-09-12 Meeting with Steph"
+    ],
+    "hops": 1,
+    "type": "single:2023-09-12 Meeting with Steph"
+  },
+  {
+    "q": "What is the icon associated with 'Parks'?",
+    "answers": [
+      "trees"
+    ],
+    "gold_notes": [
+      "Parks"
+    ],
+    "hops": 1,
+    "type": "single:Parks"
+  },
+  {
+    "q": "In which Japanese city is Fushimi Inari located?",
+    "answers": [
+      "Kyoto"
+    ],
+    "gold_notes": [
+      "Fushimi Inari"
+    ],
+    "hops": 1,
+    "type": "single:Fushimi Inari"
+  },
+  {
     "q": "What size tart pan is the brown butter nectarine tart recipe scaled for?",
     "answers": [
       "11 inch"
@@ -20,6 +64,17 @@
     ],
     "hops": 1,
     "type": "single:Brown butter nectarine tart"
+  },
+  {
+    "q": "What year was the Minimal Theme project started?",
+    "answers": [
+      "2020"
+    ],
+    "gold_notes": [
+      "Minimal Theme"
+    ],
+    "hops": 1,
+    "type": "single:Minimal Theme"
   },
   {
     "q": "What concept is defined by the uniqueness and appeal of the combination of elements, if one believes that everything is a remix?",
@@ -33,6 +88,17 @@
     "type": "single:Evergreen notes turn ideas into objects that you can manipulate"
   },
   {
+    "q": "What country is Kyoto located in?",
+    "answers": [
+      "Japan"
+    ],
+    "gold_notes": [
+      "Kyoto"
+    ],
+    "hops": 1,
+    "type": "single:Kyoto"
+  },
+  {
     "q": "In the context of 'In good hands', what Japanese culinary experience aims to embody this feeling?",
     "answers": [
       "omakase"
@@ -42,6 +108,85 @@
     ],
     "hops": 1,
     "type": "single:In good hands"
+  },
+  {
+    "q": "Who is the host of 'Well Made'?",
+    "answers": [
+      "Steph Ango"
+    ],
+    "gold_notes": [
+      "Well Made"
+    ],
+    "hops": 1,
+    "type": "single:Well Made"
+  },
+  {
+    "q": "What is the official website for Obsidian?",
+    "answers": [
+      "https://obsidian.md/"
+    ],
+    "gold_notes": [
+      "Obsidian"
+    ],
+    "hops": 1,
+    "type": "single:Obsidian"
+  },
+  {
+    "q": "In 'The Machine Stops', what did Vashti lecture on?",
+    "answers": [
+      "Australian music"
+    ],
+    "gold_notes": [
+      "The Machine Stops"
+    ],
+    "hops": 1,
+    "type": "single:The Machine Stops"
+  },
+  {
+    "q": "What brand of wool socks is mentioned as an example when analyzing product usage?",
+    "answers": [
+      "Darn Tough"
+    ],
+    "gold_notes": [
+      "Product usage analysis",
+      "Buy wisely"
+    ],
+    "hops": 2,
+    "type": "Product usage analysis→Buy wisely"
+  },
+  {
+    "q": "What kind of note is an Evergreen note?",
+    "answers": [
+      "an idea"
+    ],
+    "gold_notes": [
+      "Evergreen"
+    ],
+    "hops": 1,
+    "type": "single:Evergreen"
+  },
+  {
+    "q": "During the meeting with Steph, what year was the book on Emergence published?",
+    "answers": [
+      "1992"
+    ],
+    "gold_notes": [
+      "2023-09-12 Meeting with Steph",
+      "Out of Control"
+    ],
+    "hops": 2,
+    "type": "2023-09-12 Meeting with Steph→Out of Control"
+  },
+  {
+    "q": "In what year was The Legend of Zelda Breath of the Wild released?",
+    "answers": [
+      "2017"
+    ],
+    "gold_notes": [
+      "The Legend of Zelda Breath of the Wild"
+    ],
+    "hops": 1,
+    "type": "single:The Legend of Zelda Breath of the Wild"
   },
   {
     "q": "What is the name of the note that explains the Obsidian vault structure?",
@@ -55,6 +200,39 @@
     "type": "single:Readme"
   },
   {
+    "q": "What category of media does this note primarily discuss?",
+    "answers": [
+      "Movies"
+    ],
+    "gold_notes": [
+      "Movies"
+    ],
+    "hops": 1,
+    "type": "single:Movies"
+  },
+  {
+    "q": "What category is Kevin Kelly associated with?",
+    "answers": [
+      "People"
+    ],
+    "gold_notes": [
+      "Kevin Kelly"
+    ],
+    "hops": 1,
+    "type": "single:Kevin Kelly"
+  },
+  {
+    "q": "What type of person is Paul Chambers, according to the note?",
+    "answers": [
+      "Musicians"
+    ],
+    "gold_notes": [
+      "Paul Chambers"
+    ],
+    "hops": 1,
+    "type": "single:Paul Chambers"
+  },
+  {
     "q": "According to '68 Bits of Unsolicited Advice', what is being enthusiastic worth?",
     "answers": [
       "25 IQ points"
@@ -64,16 +242,5 @@
     ],
     "hops": 1,
     "type": "single:68 Bits of Unsolicited Advice"
-  },
-  {
-    "q": "In 'The Machine Stops', what did Vashti lecture on?",
-    "answers": [
-      "Australian music"
-    ],
-    "gold_notes": [
-      "The Machine Stops"
-    ],
-    "hops": 1,
-    "type": "single:The Machine Stops"
   }
 ]

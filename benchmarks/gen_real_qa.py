@@ -31,9 +31,20 @@ VAULTS = {
 }
 
 
-def note_text(store, doc_id: int, limit: int = 4000) -> str:
-    # content chunks only — enrichment pseudo-chunks quote OTHER notes and
-    # must never leak into question drafting or answer verification
+def note_text(store, doc_id: int, limit: int = 4000, vault: Path | None = None,
+              path: str | None = None) -> str:
+    """Source text for drafting/verification.
+
+    Reads the RAW file (frontmatter included) when vault/path are given —
+    real stub notes keep their facts in properties, which chunking strips.
+    Never reads enrichment pseudo-chunks: those quote OTHER notes and would
+    make verification circular.
+    """
+    if vault is not None and path is not None:
+        try:
+            return (vault / path).read_text(encoding="utf-8", errors="replace")[:limit]
+        except OSError:
+            pass
     rows = store.conn().execute(
         "SELECT text FROM chunks WHERE doc_id=? AND heading != ? ORDER BY ord",
         (doc_id, store.ENRICH_HEADING)).fetchall()
@@ -95,10 +106,11 @@ def main() -> None:
         a, b = docs.get(row["src_doc"]), docs.get(row["dst_doc"])
         if not a or not b or a.id == b.id or f"{a.title}→{b.title}" in seen_types:
             continue
-        a_text, b_text = note_text(store, a.id), note_text(store, b.id)
+        a_text = note_text(store, a.id, vault=vault, path=a.path)
+        b_text = note_text(store, b.id, vault=vault, path=b.path)
         # real personal notes are short — accept small bodies; a stub target
         # still yields valid QA if its few lines contain a concrete fact
-        if len(a_text) < 60 or len(b_text) < 60:
+        if len(a_text) < 40 or len(b_text) < 40:
             continue
         tried += 1
         try:
@@ -134,8 +146,8 @@ def main() -> None:
         d = docs[doc_id]
         if f"single:{d.title}" in seen_types:
             continue
-        text = note_text(store, doc_id)
-        if len(text) < 200:
+        text = note_text(store, doc_id, vault=vault, path=d.path)
+        if len(text) < 80:
             continue
         try:
             draft = eng.llm.generate_json(

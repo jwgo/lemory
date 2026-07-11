@@ -118,10 +118,13 @@ vocabulary (zero API calls; hybrid pipeline only — baselines stay pure).
 
 | System | original | paraphrase | korean | keyword | typo |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 0.946 | 0.975 | 0.982 | 0.965 |
+| **Lemory** (hybrid + graph) | 1.000 | 0.982 | 1.000 | 0.982 | 0.965 |
 | Lemory w/o graph (ablation) | 0.544 | 0.446 | 0.275 | 0.464 | 0.526 |
 | Vector-only (naive RAG) | 0.544 | 0.464 | 0.475 | 0.482 | 0.491 |
 | BM25 (lexical) | 0.579 | 0.429 | 0.250 | 0.482 | 0.404 |
+
+(paraphrase 0.946→0.982 and korean 0.975→1.000 improved with the graph-expansion
+redesign of §5d — re-measured, baselines unchanged.)
 
 Optional LLM query expansion (`--expand`) was also measured: paraphrase 0.911, korean 0.950, typo 0.825 — no better than the LLM-free pipeline on this corpus, which is why it stays off by default (saves one LLM call per query).
 
@@ -157,6 +160,59 @@ Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers 
 | Lemory w/o graph (ablation) | 0.947 | 1.000 | 1.000 | 1.000 |
 | Vector-only (naive RAG) | 0.895 | 1.000 | 1.000 | 1.000 |
 | BM25 (lexical) | 0.895 | 1.000 | 1.000 | 1.000 |
+
+## 5d. Real public Obsidian vaults (kepano · obsidian-help)
+
+The "not our benchmark" benchmark: two real, independently-authored vaults.
+**kepano** — Steph Ango's (Obsidian CEO) public personal vault, MIT, committed
+with attribution (51 content notes; stub-heavy, property-heavy — the messy
+reality). **obsidian-help** — the official Obsidian documentation vault
+(171 notes, densely interlinked; fetched at bench time by `prep_help.py`).
+QA drafted by LLM and code-verified against RAW note text (answer only in the
+gold note, no title leakage; enrichment pseudo-chunks excluded from drafting
+and verification). kepano 22 questions (incl. frontmatter-fact questions),
+help 55 questions (30 2-hop).
+
+**obsidian-help** (hub-linked docs — the graph-expansion stress test):
+
+| System | Full-support@8 | 2-hop | Recall@1 | MRR@10 |
+|---|---|---|---|---|
+| **Lemory** | **0.836** | **0.700** | **0.800** | **0.854** |
+| Vector-only | 0.691 | 0.433 | 0.709 | 0.798 |
+| BM25 | 0.655 | 0.400 | 0.673 | 0.787 |
+
+**kepano** (real personal vault — the stub-note stress test):
+
+| System | Full-support@8 | 2-hop | MRR@10 |
+|---|---|---|---|
+| Lemory (stub enrichment on, default) | 0.955 | **1.000** | 0.932 |
+| Lemory without stub enrichment (ablation) | 0.909 | 0.500 | 0.932 |
+| Vector-only | **1.000** | 1.000 | 0.930 |
+| BM25 | 0.909 | 1.000 | 0.847 |
+
+Honest notes, in both directions:
+
+- **Stub enrichment is the real win of this round**: on the real personal
+  vault it doubles 2-hop full-support (0.500 → 1.000) by making property-stub
+  notes findable (flattened frontmatter + backlink context as one extra
+  indexed pseudo-chunk). Zero LLM calls, index-time only, ablated above.
+- **Vector-only edges Lemory by one question on kepano** (1.000 vs 0.955,
+  n=22) — on a 51-note vault at k=8, dense retrieval over the same enriched
+  index nearly saturates. We print it; small-n, but real.
+- **The graph-expansion redesign was almost a self-inflicted wound**: the
+  first version (unconditioned degree normalization + gain-ranked budget)
+  regressed help to 0.600 and the synthetic multihop guard to 0.842. The
+  shipped version (hub-threshold normalization, budget applied after
+  query-similarity weighting, seed notes eligible for boosts) restores every
+  guard (multihop 1.000, law/maple 1.000, SQuAD/KorQuAD unchanged) and beats
+  the pre-round code on help precision (recall@1 0.745 → 0.800, MRR 0.834 →
+  0.854) and on robustness (paraphrase 0.946 → 0.982, korean 0.975 → 1.000).
+  Full-support on help is unchanged from pre-round (0.836) — the redesign's
+  value is precision, robustness, and a measured defense against hub-graph
+  flooding, not a recall jump.
+- **graph_hops=2 (HippoRAG-style deeper propagation) showed no gain on any
+  corpus** — shipped as an opt-in config, default stays 1. Measured, not
+  adopted.
 
 ## 6. Real external data: KorQuAD 1.0 (한국어 위키피디아, 인간 작성 질문)
 

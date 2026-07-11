@@ -79,7 +79,7 @@ English notes / keyword shorthand / typos; full-support@8):
 
 | | original | paraphrase | 한국어 질문 | keyword | typo |
 |---|---|---|---|---|---|
-| **Lemory** | **1.000** | **0.946** | **0.975** | **0.982** | **0.965** |
+| **Lemory** | **1.000** | **0.982** | **1.000** | **0.982** | **0.965** |
 | Vector-only | 0.544 | 0.464 | 0.475 | 0.482 | 0.491 |
 | BM25 | 0.579 | 0.429 | 0.250 | 0.482 | 0.404 |
 
@@ -240,6 +240,14 @@ Each headline number above traces to one specific design choice:
   facts resolve to the newest note unless you ask about the past.
 
 ## Big vaults are fine
+
+Two of the benchmark vaults are real vaults we didn't write: Steph Ango's
+(Obsidian CEO) public personal vault and the official Obsidian Help vault —
+Lemory beats naive RAG on the docs vault (full-support 0.836 vs 0.691) and
+its stub-note enrichment doubles 2-hop recall on the personal vault
+([BENCHMARKS §5d](BENCHMARKS.md)). Real vaults are stub-heavy; short
+property notes get an extra indexed representation built from their
+frontmatter and the sentences that link to them. LLM-free, automatic.
 
 The largest corpus in our benchmarks is real: **1,469 나무위키 documents,
 33,375 chunks, 24,850 real wikilink edges** — one SQLite file, searched at

@@ -97,6 +97,7 @@ class LemoryConfig(BaseSettings):
     graph_expansion: bool = True
     graph_top_docs: int = 6
     graph_hops: int = 1  # link-propagation depth; 2 = HippoRAG-style A→B→C chains
+    graph_expand_budget: int = 8  # max neighbor notes that may receive boosts per query
 
     # stub-note enrichment (real vaults are full of 3-line reference notes that
     # neither BM25 nor embeddings can see): short notes get one extra indexed

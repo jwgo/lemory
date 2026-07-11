@@ -379,19 +379,32 @@ def _graph_expand(
         all_nbrs = store.neighbors(list(frontier))
         nxt: dict[int, float] = {}
         for src, src_gain in frontier.items():
-            for dst, _kind, w in all_nbrs.get(src, []):
-                if dst in visited:
-                    continue  # mass never flows back toward the seeds
-                g = cfg.graph_alpha * src_gain * w
+            nbrs = all_nbrs.get(src, [])
+            # PPR-style degree normalization, hubs only: a note with dozens
+            # of links diffuses its mass (measured on the obsidian-help vault:
+            # unnormalized expansion floods top-k and LOSES to no-graph), while
+            # curated personal linking (2-8 links) keeps full strength.
+            norm = max(1.0, len(nbrs) / 8.0) ** 0.5
+            for dst, _kind, w in nbrs:
+                if dst == src:
+                    continue
+                g = cfg.graph_alpha * src_gain * w / norm
+                # every dst may RECEIVE a boost — including another seed
+                # (a weakly-fused gold note linked from the bridge is the
+                # classic 2-hop case; excluding seeds broke it, measured)
                 if g > neighbor_gain.get(dst, 0.0):
                     neighbor_gain[dst] = g
-                if g > nxt.get(dst, 0.0):
+                # but the WALK only advances to unvisited notes (no cycles)
+                if dst not in visited and g > nxt.get(dst, 0.0):
                     nxt[dst] = g
         visited |= set(nxt)
         frontier = nxt
-    # bound the chunk-similarity workload on hub-heavy graphs
-    if len(neighbor_gain) > cfg.graph_top_docs * 6:
-        keep = sorted(neighbor_gain, key=lambda d: -neighbor_gain[d])[: cfg.graph_top_docs * 6]
+    # workload ceiling before the (costly) chunk-similarity pass; the real
+    # budget is applied AFTER sim-weighting so query relevance breaks ties —
+    # link graphs have uniform edge weights, and cutting on gain alone would
+    # drop gold neighbors arbitrarily
+    if len(neighbor_gain) > 48:
+        keep = sorted(neighbor_gain, key=lambda d: -neighbor_gain[d])[:48]
         neighbor_gain = {d: neighbor_gain[d] for d in keep}
 
     chunk_ids_by_doc = store.doc_chunk_ids_many(list(neighbor_gain))
@@ -403,8 +416,10 @@ def _graph_expand(
     top_direct = max(fused.values(), default=0.0)
     cap = top_direct * 0.98
 
-    expanded = []
-    for dst, gain in sorted(neighbor_gain.items(), key=lambda x: -x[1]):
+    # score every candidate by relevance-gated add, THEN apply the budget —
+    # only the graph_expand_budget most query-relevant neighbors claim slots
+    candidates = []
+    for dst, gain in neighbor_gain.items():
         sims = {c: all_sims[c] for c in chunk_ids_by_doc.get(dst, []) if c in all_sims}
         if not sims:
             continue
@@ -415,8 +430,11 @@ def _graph_expand(
             # irrelevant notes must not displace direct hits (single-hop safety)
             continue
         add = gain * (0.35 + 0.65 * sim)  # relevance-gated: irrelevant neighbors decay
-        if add <= 0:
-            continue
+        if add > 0:
+            candidates.append((add, dst, best_cid, sims))
+
+    expanded = []
+    for add, dst, best_cid, sims in sorted(candidates, reverse=True)[: cfg.graph_expand_budget]:
         fused[best_cid] = min(fused.get(best_cid, 0.0) + add, cap)
         # runner-up chunk at half strength (long notes may hold the fact deeper)
         rest = {c: s for c, s in sims.items() if c != best_cid}
