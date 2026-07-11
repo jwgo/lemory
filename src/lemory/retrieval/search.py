@@ -352,7 +352,12 @@ def hybrid_search(
 
     expanded_docs: list[int] = []
     if use_graph and mode == "hybrid" and qv is not None:
-        expanded_docs = _graph_expand(engine, fused, chunk_meta, qv)
+        # lexical evidence for expansion: a neighbor chunk that already ranks
+        # in the BM25 list is query-relevant no matter what the (possibly
+        # weak) embedder thinks of it — carries "적정 레벨"-style residual
+        # keywords to the linked doc that holds the answer
+        bm25_rank = {cid: r for r, (cid, _) in enumerate(bm25_hits)}
+        expanded_docs = _graph_expand(engine, fused, chunk_meta, qv, bm25_rank)
         new_ids = [cid for cid in fused if cid not in chunk_meta]
         if new_ids:  # only fetch what expansion added, not everything again
             chunk_meta.update(store.get_chunks(new_ids))
@@ -630,6 +635,7 @@ def _graph_expand(
     fused: dict[int, float],
     chunk_meta: dict[int, ChunkHit],
     qv,
+    bm25_rank: dict[int, int] | None = None,
 ) -> list[int]:
     """1-hop expansion: pull in the best chunks of notes linked to top hits.
 
@@ -683,9 +689,19 @@ def _graph_expand(
     # workload ceiling before the (costly) chunk-similarity pass; the real
     # budget is applied AFTER sim-weighting so query relevance breaks ties —
     # link graphs have uniform edge weights, and cutting on gain alone would
-    # drop gold neighbors arbitrarily
+    # drop gold neighbors arbitrarily. Neighbors holding a chunk that already
+    # ranks in the BM25 list carry query keywords — they must survive the
+    # ceiling ahead of gain-ties (a hub's 100+ equal-gain neighbors would
+    # otherwise be cut in arbitrary insertion order).
+    bm25_docs: set[int] = set()
+    if bm25_rank:
+        for cid in bm25_rank:
+            m = chunk_meta.get(cid)
+            if m is not None:
+                bm25_docs.add(m.doc_id)
     if len(neighbor_gain) > 48:
-        keep = sorted(neighbor_gain, key=lambda d: -neighbor_gain[d])[:48]
+        keep = sorted(neighbor_gain,
+                      key=lambda d: (d not in bm25_docs, -neighbor_gain[d]))[:48]
         neighbor_gain = {d: neighbor_gain[d] for d in keep}
 
     chunk_ids_by_doc = store.doc_chunk_ids_many(list(neighbor_gain))
@@ -706,11 +722,25 @@ def _graph_expand(
             continue
         best_cid = max(sims, key=sims.get)
         sim = max(sims[best_cid], 0.0)
-        if sim < cfg.graph_sim_floor:
+        # lexical relevance: best BM25 rank among this neighbor's chunks
+        lex_rel = 0.0
+        if bm25_rank:
+            ranks = [bm25_rank[c] for c in chunk_ids_by_doc.get(dst, ())
+                     if c in bm25_rank]
+            if ranks:
+                r = min(ranks)
+                lex_rel = 1.0 - r / max(48, len(bm25_rank))
+                # a lexically-matching chunk is the better boost target than
+                # the (weak-embedder) cosine pick
+                best_lex_cid = min((c for c in chunk_ids_by_doc.get(dst, ())
+                                    if c in bm25_rank), key=bm25_rank.get)
+                if lex_rel >= sim:
+                    best_cid = best_lex_cid
+        if sim < cfg.graph_sim_floor and lex_rel == 0.0:
             # neighbor's content has nothing to do with the query: linked-but-
             # irrelevant notes must not displace direct hits (single-hop safety)
             continue
-        add = gain * (0.35 + 0.65 * sim)  # relevance-gated: irrelevant neighbors decay
+        add = gain * (0.35 + 0.65 * max(sim, lex_rel))  # relevance-gated
         if add > 0:
             candidates.append((add, dst, best_cid, sims))
 
