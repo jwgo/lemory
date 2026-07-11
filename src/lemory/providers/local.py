@@ -41,9 +41,19 @@ class LocalClient:
     def _embedder(self):
         with self._lock:
             if self._model is None:
+                import warnings
+
                 from fastembed import TextEmbedding
 
-                self._model = TextEmbedding(model_name=self.embed_model)
+                with warnings.catch_warnings():
+                    # fastembed >=0.6 warns that this model now uses mean
+                    # pooling — informational for retrainers, alarming noise
+                    # in every CLI run for users; our index and queries use
+                    # the same pooling either way, so relevance is unaffected.
+                    # (message-level filter: the warning's stacklevel points
+                    # at our call site, so a module= filter can't catch it)
+                    warnings.simplefilter("ignore", UserWarning)
+                    self._model = TextEmbedding(model_name=self.embed_model)
             return self._model
 
     def embed(self, texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> np.ndarray:

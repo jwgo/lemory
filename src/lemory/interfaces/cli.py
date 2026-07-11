@@ -500,7 +500,22 @@ def ask(
 ):
     """Ask a question; the answer is grounded in your notes with citations."""
     eng = _engine(vault)
-    ans = eng.ask(question, k=k, record=True, client="cli")
+    try:
+        ans = eng.ask(question, k=k, record=True, client="cli")
+    except RuntimeError as e:
+        # keyless / local search-only mode: no generator. Degrade to search
+        # instead of dumping a traceback — the evidence is still useful.
+        console.print(f"[yellow]{e}[/yellow]\n")
+        hits = eng.search(question, k=k)
+        if hits:
+            console.print("[bold]대신 가장 관련있는 노트를 보여드립니다 "
+                          "(best-matching notes instead):[/bold]")
+            for i, h in enumerate(hits, 1):
+                sub = h.subheading()
+                loc = h.title + (f" › {sub}" if sub else "")
+                console.print(f"  {i}. [cyan]{loc}[/cyan] — "
+                              + h.text[:140].replace("\n", " "))
+        raise typer.Exit(1)
     console.print(ans.text)
     console.print("\n[dim]" + ans.render_sources() + "[/dim]")
 
