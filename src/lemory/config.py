@@ -105,6 +105,10 @@ class LemoryConfig(BaseSettings):
     # 0.525→0.825, SQuAD 0.690→0.760, paraphrase +1.7pt, every guard flat;
     # 0.60 starts costing multihop (-1.8pt), korean (-2.5pt), keyword (-1.8pt).
     verbatim_pin_gate: float = 0.65
+    # how many of BM25's top ranks the pin locks (0 = the whole candidate
+    # list). Pinning everything freezes ranks 4-8 at a scale graph expansion
+    # can't reach, silencing multi-hop link evidence on pinned queries.
+    verbatim_pin_head: int = 3
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions

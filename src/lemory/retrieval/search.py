@@ -229,6 +229,11 @@ def hybrid_search(
             cov = _bm25_coverage(store, lex_query, bm25_hits)
             if cov >= cfg.verbatim_gate:
                 kw_boost = cfg.keyword_bm25_boost
+        fused = rrf_fuse(
+            [(hits, w * (kw_boost if kind == "bm25" else 1.0))
+             for kind, hits, w in tagged_lists],
+            cfg.rrf_k,
+        )
         if cov >= cfg.verbatim_pin_gate and bm25_hits:
             # the query recites a note nearly token-for-token: BM25's own
             # ordering is authoritative, and rank-interleaved fusion can only
@@ -236,16 +241,8 @@ def hybrid_search(
             # decisive lexical top-1 under RRF, because RRF sees ranks, not
             # margins). Keep every dense candidate — but strictly below the
             # lexical list, as gap-fillers.
-            fused = {cid: 2.0 + 1.0 / (1 + r) for r, (cid, _) in enumerate(bm25_hits)}
-            for r, (cid, _) in enumerate(vec_hits):
-                if cid not in fused:
-                    fused[cid] = 1.0 / (cfg.rrf_k + r + 1)
-        else:
-            fused = rrf_fuse(
-                [(hits, w * (kw_boost if kind == "bm25" else 1.0))
-                 for kind, hits, w in tagged_lists],
-                cfg.rrf_k,
-            )
+            for r, (cid, _) in enumerate(bm25_hits[: cfg.verbatim_pin_head or None]):
+                fused[cid] = 2.0 + 1.0 / (1 + r)
 
     if not fused:
         return SearchResult(hits=[])
