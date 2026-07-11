@@ -354,6 +354,11 @@ extra LLM calls.
   different generators/judges and are quoted as context, not victory laps.
 - Zep reports DMR 94.8 with a GPT-4-class setup; in our identical-model harness
   Lemory beats naive RAG by +4.6 pt. We don't claim their number's beaten.
+- We benchmarked replacing SQLite itself (DuckDB, LanceDB — [full report](docs/STORAGE.md)).
+  LanceDB's FTS is genuinely ~5× faster than our FTS5 path on a worst-case
+  corpus; we publish that and stay on SQLite anyway — it wins the other four
+  axes (incremental sync ×82, PK lookups ×75, two-process access, zero native
+  deps), and its vector story loses to our IVF-int8 on every axis measured.
 
 ## Roadmap
 

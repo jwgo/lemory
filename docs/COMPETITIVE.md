@@ -155,3 +155,8 @@ Smart Connections/Copilot, qmd, memory-vault류 MCP 서버들)에서:
 - **바이-템포럴 사실 무효화 (Graphiti)** — 노트 기반 볼트에는 "사실 행"이
   없다. 시간 질의 이해 + 최신값 우선(§10)이 같은 사용자 문제를 푼다.
   사실 단위 스토어를 도입하는 순간 "순수 마크다운" 포지셔닝이 죽는다.
+- **스토리지 엔진 교체 (DuckDB / LanceDB)** — "SQLite가 발목이면 바꿔라"까지
+  열어놓고 실측했다. 결과는 [docs/STORAGE.md](STORAGE.md): Lemory의 실제
+  워크로드(증분 FTS·노트 단위 upsert·PK 배치·2프로세스)에서 SQLite가 4/5 축
+  승리, DuckDB는 전 축 탈락(증분 FTS 부재), LanceDB는 FTS만 5배 빠르고(정직하게
+  기록) 벡터·PK·운영 축에서 열세. 교체 근거 없음 — 재검토 트리거만 명시.
