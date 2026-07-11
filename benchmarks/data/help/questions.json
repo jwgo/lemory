@@ -1,0 +1,637 @@
+[
+  {
+    "q": "What file format should be chosen when importing from Google Keep?",
+    "answers": [
+      "Google Keep (.zip)"
+    ],
+    "gold_notes": [
+      "Import from Google Keep"
+    ],
+    "hops": 1,
+    "type": "single:Import from Google Keep"
+  },
+  {
+    "q": "What kind of license is required to receive early access versions when importing from Notion?",
+    "answers": [
+      "Catalyst license"
+    ],
+    "gold_notes": [
+      "Import from Notion",
+      "Settings"
+    ],
+    "hops": 2,
+    "type": "Import from Notion→Settings"
+  },
+  {
+    "q": "Which default property names does Obsidian provide for customizing social media link previews?",
+    "answers": [
+      "tags, cssclasses, and aliases"
+    ],
+    "gold_notes": [
+      "Social media link previews",
+      "Properties"
+    ],
+    "hops": 2,
+    "type": "Social media link previews→Properties"
+  },
+  {
+    "q": "Which team developed the official plugin for importing CSV files into Obsidian?",
+    "answers": [
+      "Obsidian team"
+    ],
+    "gold_notes": [
+      "Import CSV files",
+      "Importer"
+    ],
+    "hops": 2,
+    "type": "Import CSV files→Importer"
+  },
+  {
+    "q": "What is the default payment term for a commercial license purchased using a purchase order?",
+    "answers": [
+      "NET 30 days"
+    ],
+    "gold_notes": [
+      "Commercial license"
+    ],
+    "hops": 1,
+    "type": "single:Commercial license"
+  },
+  {
+    "q": "What is the default behavior in Obsidian Flavored Markdown for creating separate paragraphs?",
+    "answers": [
+      "A blank line between lines of text creates separate paragraphs."
+    ],
+    "gold_notes": [
+      "Obsidian Flavored Markdown",
+      "Basic formatting syntax"
+    ],
+    "hops": 2,
+    "type": "Obsidian Flavored Markdown→Basic formatting syntax"
+  },
+  {
+    "q": "Regarding 'Local and remote vaults', what is the name of the service offered by Obsidian for syncing notes across devices?",
+    "answers": [
+      "Obsidian Sync"
+    ],
+    "gold_notes": [
+      "Local and remote vaults"
+    ],
+    "hops": 1,
+    "type": "single:Local and remote vaults"
+  },
+  {
+    "q": "What algorithm does Obsidian Sync use to merge changes in Markdown files?",
+    "answers": [
+      "Google's diff-match-patch algorithm"
+    ],
+    "gold_notes": [
+      "Troubleshoot Obsidian Sync"
+    ],
+    "hops": 1,
+    "type": "single:Troubleshoot Obsidian Sync"
+  },
+  {
+    "q": "What is the officially supported method for syncing CSS snippets across devices?",
+    "answers": [
+      "Obsidian Sync"
+    ],
+    "gold_notes": [
+      "CSS snippets",
+      "Sync your notes across devices"
+    ],
+    "hops": 2,
+    "type": "CSS snippets→Sync your notes across devices"
+  },
+  {
+    "q": "In the context of Templates, what allows you to automatically select a template based on the current page URL or schema.org data?",
+    "answers": [
+      "Template triggers"
+    ],
+    "gold_notes": [
+      "Templates"
+    ],
+    "hops": 1,
+    "type": "single:Templates"
+  },
+  {
+    "q": "What kind of plugin is used to import notes from Bear?",
+    "answers": [
+      "official Community plugin"
+    ],
+    "gold_notes": [
+      "Import from Bear",
+      "Importer"
+    ],
+    "hops": 2,
+    "type": "Import from Bear→Importer"
+  },
+  {
+    "q": "What character is used to separate columns when creating tables?",
+    "answers": [
+      "vertical bars (|)"
+    ],
+    "gold_notes": [
+      "Basic formatting syntax",
+      "Advanced formatting syntax"
+    ],
+    "hops": 2,
+    "type": "Basic formatting syntax→Advanced formatting syntax"
+  },
+  {
+    "q": "What kind of license is needed to receive early access versions of Obsidian?",
+    "answers": [
+      "Catalyst license"
+    ],
+    "gold_notes": [
+      "Internal links",
+      "Settings"
+    ],
+    "hops": 2,
+    "type": "Internal links→Settings"
+  },
+  {
+    "q": "What programming language can Developers use to create Community plugins for Obsidian?",
+    "answers": [
+      "Typescript"
+    ],
+    "gold_notes": [
+      "Developers"
+    ],
+    "hops": 1,
+    "type": "single:Developers"
+  },
+  {
+    "q": "What type of license is required to receive early access versions of the mobile app?",
+    "answers": [
+      "Catalyst license"
+    ],
+    "gold_notes": [
+      "Mobile app",
+      "Settings"
+    ],
+    "hops": 2,
+    "type": "Mobile app→Settings"
+  },
+  {
+    "q": "Which core team member helps build and maintain Obsidian and is also known as Brandon Martin?",
+    "answers": [
+      "codedmart"
+    ],
+    "gold_notes": [
+      "Callouts",
+      "Credits"
+    ],
+    "hops": 2,
+    "type": "Callouts→Credits"
+  },
+  {
+    "q": "What must you first turn off to install an Importer plugin?",
+    "answers": [
+      "Restricted Mode"
+    ],
+    "gold_notes": [
+      "Importer",
+      "Community plugins"
+    ],
+    "hops": 2,
+    "type": "Importer→Community plugins"
+  },
+  {
+    "q": "What is the editing shortcut to delete the next word?",
+    "answers": [
+      "Ctrl+Delete"
+    ],
+    "gold_notes": [
+      "Editing shortcuts"
+    ],
+    "hops": 1,
+    "type": "single:Editing shortcuts"
+  },
+  {
+    "q": "What is the name of the license required to receive early access versions of Obsidian?",
+    "answers": [
+      "Catalyst license"
+    ],
+    "gold_notes": [
+      "Help and support",
+      "Settings"
+    ],
+    "hops": 2,
+    "type": "Help and support→Settings"
+  },
+  {
+    "q": "Regarding 'Plans and storage limits', what is the maximum file size allowed for the Sync Standard plan?",
+    "answers": [
+      "5 MB"
+    ],
+    "gold_notes": [
+      "Plans and storage limits"
+    ],
+    "hops": 1,
+    "type": "single:Plans and storage limits"
+  },
+  {
+    "q": "What is the name of the core plugin that displays the number of words and characters of the active note and supports CJK languages?",
+    "answers": [
+      "Word count"
+    ],
+    "gold_notes": [
+      "Obsidian CLI",
+      "Word count"
+    ],
+    "hops": 2,
+    "type": "Obsidian CLI→Word count"
+  },
+  {
+    "q": "What is the name of the icon used to create a new note in the default location?",
+    "answers": [
+      "New note !lucide-pen-line.svg"
+    ],
+    "gold_notes": [
+      "Audio recorder",
+      "File explorer"
+    ],
+    "hops": 2,
+    "type": "Audio recorder→File explorer"
+  },
+  {
+    "q": "In the glossary, what do circles represent in a graph visualization?",
+    "answers": [
+      "notes, or nodes"
+    ],
+    "gold_notes": [
+      "Glossary",
+      "Graph view"
+    ],
+    "hops": 2,
+    "type": "Glossary→Graph view"
+  },
+  {
+    "q": "What keyboard key can be pressed to advance to the next slide in a Slides presentation?",
+    "answers": [
+      "Spacebar"
+    ],
+    "gold_notes": [
+      "Slides"
+    ],
+    "hops": 1,
+    "type": "single:Slides"
+  },
+  {
+    "q": "What Obsidian version introduced the Sync history feature, which allows users to view recently synced notes and attachments?",
+    "answers": [
+      "1.7"
+    ],
+    "gold_notes": [
+      "Sync regions",
+      "Version history"
+    ],
+    "hops": 2,
+    "type": "Sync regions→Version history"
+  },
+  {
+    "q": "When importing from Bear, what file format does Obsidian use for Bear's backup files?",
+    "answers": [
+      ".bear2bk"
+    ],
+    "gold_notes": [
+      "Import from Bear"
+    ],
+    "hops": 1,
+    "type": "single:Import from Bear"
+  },
+  {
+    "q": "In Language settings, what icon represents settings?",
+    "answers": [
+      "!lucide-settings.svg"
+    ],
+    "gold_notes": [
+      "Language settings"
+    ],
+    "hops": 1,
+    "type": "single:Language settings"
+  },
+  {
+    "q": "What is the keyboard shortcut to access the Obsidian console on macOS?",
+    "answers": [
+      "Command+Option+I"
+    ],
+    "gold_notes": [
+      "Settings",
+      "Help and support"
+    ],
+    "hops": 2,
+    "type": "Settings→Help and support"
+  },
+  {
+    "q": "What is the currency in which the amount of Obsidian Credit is specified when you buy it?",
+    "answers": [
+      "US dollars"
+    ],
+    "gold_notes": [
+      "Obsidian Credit"
+    ],
+    "hops": 1,
+    "type": "single:Obsidian Credit"
+  },
+  {
+    "q": "When dragging and dropping a file from your native file explorer, what key should you hold on Windows/Linux to create file:/// absolute links instead of importing a copy?",
+    "answers": [
+      "Ctrl"
+    ],
+    "gold_notes": [
+      "Drag and drop"
+    ],
+    "hops": 1,
+    "type": "single:Drag and drop"
+  },
+  {
+    "q": "What is the maximum number of users Obsidian Sync supports for small teams?",
+    "answers": [
+      "20 users"
+    ],
+    "gold_notes": [
+      "Syncing for teams"
+    ],
+    "hops": 1,
+    "type": "single:Syncing for teams"
+  },
+  {
+    "q": "When managing sites, what is the name of the option that allows you to declare other users to have access to edit your published notes?",
+    "answers": [
+      "Site Collaboration"
+    ],
+    "gold_notes": [
+      "Manage sites"
+    ],
+    "hops": 1,
+    "type": "single:Manage sites"
+  },
+  {
+    "q": "What is the default payment term for purchases using a purchase order for Obsidian's software licenses?",
+    "answers": [
+      "NET 30 days"
+    ],
+    "gold_notes": [
+      "Sales tax",
+      "Commercial license"
+    ],
+    "hops": 2,
+    "type": "Sales tax→Commercial license"
+  },
+  {
+    "q": "What is the name of the plugin that lets you record and save audio recordings directly in a note, besides Format converter?",
+    "answers": [
+      "Audio recorder"
+    ],
+    "gold_notes": [
+      "Format converter",
+      "Core plugins"
+    ],
+    "hops": 2,
+    "type": "Format converter→Core plugins"
+  },
+  {
+    "q": "In the 'Sync settings and selective syncing' note, what is the name of the plugin that becomes the place for managing your remote vault when you create and connect to one?",
+    "answers": [
+      "Sync Core plugin"
+    ],
+    "gold_notes": [
+      "Sync settings and selective syncing"
+    ],
+    "hops": 1,
+    "type": "single:Sync settings and selective syncing"
+  },
+  {
+    "q": "What is the maximum storage amount for an Obsidian Sync plan?",
+    "answers": [
+      "100 GB"
+    ],
+    "gold_notes": [
+      "Sync settings and selective syncing",
+      "Frequently asked questions"
+    ],
+    "hops": 2,
+    "type": "Sync settings and selective syncing→Frequently asked questions"
+  },
+  {
+    "q": "Where can you view all the highlights you create with Highlighter?",
+    "answers": [
+      "Highlights page"
+    ],
+    "gold_notes": [
+      "Highlighter"
+    ],
+    "hops": 1,
+    "type": "single:Highlighter"
+  },
+  {
+    "q": "What is the keyboard shortcut to open the tool that allows you to publish changes to a shared site?",
+    "answers": [
+      "Ctrl+P"
+    ],
+    "gold_notes": [
+      "Collaborate on a Publish site",
+      "Command palette"
+    ],
+    "hops": 2,
+    "type": "Collaborate on a Publish site→Command palette"
+  },
+  {
+    "q": "What file format does Obsidian use when importing from Evernote?",
+    "answers": [
+      ".enex"
+    ],
+    "gold_notes": [
+      "Import from Evernote"
+    ],
+    "hops": 1,
+    "type": "single:Import from Evernote"
+  },
+  {
+    "q": "In the 'Files and links' settings, what is the default link format that Obsidian generates?",
+    "answers": [
+      "Wikilink"
+    ],
+    "gold_notes": [
+      "Settings",
+      "Internal links"
+    ],
+    "hops": 2,
+    "type": "Settings→Internal links"
+  },
+  {
+    "q": "What key do you press (or Cmd on macOS) while hovering over a link to preview a page while in Editing view using 'Page preview'?",
+    "answers": [
+      "Ctrl"
+    ],
+    "gold_notes": [
+      "Page preview"
+    ],
+    "hops": 1,
+    "type": "single:Page preview"
+  },
+  {
+    "q": "On which Obsidian device versions is the Sync status icon located in the Status bar?",
+    "answers": [
+      "desktop version"
+    ],
+    "gold_notes": [
+      "Introduction to Obsidian Sync",
+      "Status icon and messages"
+    ],
+    "hops": 2,
+    "type": "Introduction to Obsidian Sync→Status icon and messages"
+  },
+  {
+    "q": "What do circles represent in the core plugin that visualizes relationships between notes?",
+    "answers": [
+      "notes, or nodes"
+    ],
+    "gold_notes": [
+      "Core plugins",
+      "Graph view"
+    ],
+    "hops": 2,
+    "type": "Core plugins→Graph view"
+  },
+  {
+    "q": "What keyboard shortcut is used to open the interface that is similar to Slash commands for running commands?",
+    "answers": [
+      "Ctrl+P"
+    ],
+    "gold_notes": [
+      "Slash commands",
+      "Command palette"
+    ],
+    "hops": 2,
+    "type": "Slash commands→Command palette"
+  },
+  {
+    "q": "What type of license is required to receive early access versions when collaborating on a shared vault?",
+    "answers": [
+      "Catalyst license"
+    ],
+    "gold_notes": [
+      "Collaborate on a shared vault",
+      "Settings"
+    ],
+    "hops": 2,
+    "type": "Collaborate on a shared vault→Settings"
+  },
+  {
+    "q": "Regarding how Obsidian stores data, what type of files are your notes stored as?",
+    "answers": [
+      "Markdown-formatted plain text files"
+    ],
+    "gold_notes": [
+      "How Obsidian stores data"
+    ],
+    "hops": 1,
+    "type": "single:How Obsidian stores data"
+  },
+  {
+    "q": "What kind of password is used to create an end-to-end encrypted vault?",
+    "answers": [
+      "Encryption password"
+    ],
+    "gold_notes": [
+      "Plans and storage limits",
+      "Set up Obsidian Sync"
+    ],
+    "hops": 2,
+    "type": "Plans and storage limits→Set up Obsidian Sync"
+  },
+  {
+    "q": "What is the name of the library developed for Firefox that Web viewer uses to clean content for plain text viewing?",
+    "answers": [
+      "Mozilla's Readability library"
+    ],
+    "gold_notes": [
+      "Web viewer"
+    ],
+    "hops": 1,
+    "type": "single:Web viewer"
+  },
+  {
+    "q": "What is the name of the core plugin that displays the number of words and characters of the active note?",
+    "answers": [
+      "Word count"
+    ],
+    "gold_notes": [
+      "Word count"
+    ],
+    "hops": 1,
+    "type": "single:Word count"
+  },
+  {
+    "q": "What is the name of the folder that contains Obsidian-specific configuration?",
+    "answers": [
+      ".obsidian folder"
+    ],
+    "gold_notes": [
+      "Sync regions",
+      "Local and remote vaults"
+    ],
+    "hops": 2,
+    "type": "Sync regions→Local and remote vaults"
+  },
+  {
+    "q": "When installing Obsidian on Linux, which packaging system requires the use of a '--dangerous' flag?",
+    "answers": [
+      "Snap"
+    ],
+    "gold_notes": [
+      "Home",
+      "Download and install Obsidian"
+    ],
+    "hops": 2,
+    "type": "Home→Download and install Obsidian"
+  },
+  {
+    "q": "What Google service can you use to track SEO for your Obsidian Publish site?",
+    "answers": [
+      "Google Search Console"
+    ],
+    "gold_notes": [
+      "SEO"
+    ],
+    "hops": 1,
+    "type": "single:SEO"
+  },
+  {
+    "q": "What HTML element is used to embed web pages in your notes?",
+    "answers": [
+      "iframe"
+    ],
+    "gold_notes": [
+      "Embed web pages"
+    ],
+    "hops": 1,
+    "type": "single:Embed web pages"
+  },
+  {
+    "q": "In Obsidian, what is the name of the settings section where you can view and manage all Hotkeys?",
+    "answers": [
+      "Settings → Hotkeys"
+    ],
+    "gold_notes": [
+      "Hotkeys"
+    ],
+    "hops": 1,
+    "type": "single:Hotkeys"
+  },
+  {
+    "q": "What is the keyboard shortcut to open the tool that allows you to add a view to a base?",
+    "answers": [
+      "Ctrl+P"
+    ],
+    "gold_notes": [
+      "Views",
+      "Command palette"
+    ],
+    "hops": 2,
+    "type": "Views→Command palette"
+  }
+]

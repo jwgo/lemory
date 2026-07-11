@@ -96,6 +96,15 @@ class LemoryConfig(BaseSettings):
     recency_half_life_days: float = 21.0
     graph_expansion: bool = True
     graph_top_docs: int = 6
+    graph_hops: int = 1  # link-propagation depth; 2 = HippoRAG-style A→B→C chains
+
+    # stub-note enrichment (real vaults are full of 3-line reference notes that
+    # neither BM25 nor embeddings can see): short notes get one extra indexed
+    # pseudo-chunk built from flattened frontmatter properties + the sentences
+    # around inbound links in OTHER notes ("backlink context"). Deterministic,
+    # index-time only, content chunks and their embed cache untouched.
+    stub_enrichment: bool = True
+    stub_chars: int = 400  # body length below which a note counts as a stub
     graph_alpha: float = 0.55  # neighbor score = alpha * src_score * edge_weight * sim
     graph_sim_floor: float = 0.25  # skip neighbors whose best chunk sim is below this
     mention_links: bool = True

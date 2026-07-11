@@ -1,0 +1,79 @@
+[
+  {
+    "q": "Regarding 'Buy wisely', what brand of wool socks is mentioned as an example of prioritizing cost per use?",
+    "answers": [
+      "Darn Tough"
+    ],
+    "gold_notes": [
+      "Buy wisely"
+    ],
+    "hops": 1,
+    "type": "single:Buy wisely"
+  },
+  {
+    "q": "What size tart pan is the brown butter nectarine tart recipe scaled for?",
+    "answers": [
+      "11 inch"
+    ],
+    "gold_notes": [
+      "Brown butter nectarine tart"
+    ],
+    "hops": 1,
+    "type": "single:Brown butter nectarine tart"
+  },
+  {
+    "q": "What concept is defined by the uniqueness and appeal of the combination of elements, if one believes that everything is a remix?",
+    "answers": [
+      "creativity is combinatory uniqueness"
+    ],
+    "gold_notes": [
+      "Evergreen notes turn ideas into objects that you can manipulate"
+    ],
+    "hops": 1,
+    "type": "single:Evergreen notes turn ideas into objects that you can manipulate"
+  },
+  {
+    "q": "In the context of 'In good hands', what Japanese culinary experience aims to embody this feeling?",
+    "answers": [
+      "omakase"
+    ],
+    "gold_notes": [
+      "In good hands"
+    ],
+    "hops": 1,
+    "type": "single:In good hands"
+  },
+  {
+    "q": "What is the name of the note that explains the Obsidian vault structure?",
+    "answers": [
+      "How I use Obsidian"
+    ],
+    "gold_notes": [
+      "Readme"
+    ],
+    "hops": 1,
+    "type": "single:Readme"
+  },
+  {
+    "q": "According to '68 Bits of Unsolicited Advice', what is being enthusiastic worth?",
+    "answers": [
+      "25 IQ points"
+    ],
+    "gold_notes": [
+      "68 Bits of Unsolicited Advice"
+    ],
+    "hops": 1,
+    "type": "single:68 Bits of Unsolicited Advice"
+  },
+  {
+    "q": "In 'The Machine Stops', what did Vashti lecture on?",
+    "answers": [
+      "Australian music"
+    ],
+    "gold_notes": [
+      "The Machine Stops"
+    ],
+    "hops": 1,
+    "type": "single:The Machine Stops"
+  }
+]

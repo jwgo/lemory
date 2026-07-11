@@ -365,13 +365,34 @@ def _graph_expand(
             doc_best[meta.doc_id] = max(doc_best.get(meta.doc_id, 0.0), s)
     top_docs = sorted(doc_best, key=lambda d: -doc_best[d])[: cfg.graph_top_docs]
 
-    all_nbrs = store.neighbors(top_docs)
+    # HippoRAG-style multi-hop propagation (bounded personalized-PageRank
+    # walk): score mass flows outward from the seed notes along link edges,
+    # decaying by graph_alpha per hop. graph_hops=1 is the classic 1-hop
+    # expansion; 2 lets "A links B links C" carry evidence from A to C —
+    # what real chains ("project → person → tool") need on real vaults.
     neighbor_gain: dict[int, float] = {}
-    for src in top_docs:
-        for dst, kind, w in all_nbrs.get(src, []):
-            gain = cfg.graph_alpha * doc_best[src] * w
-            if gain > neighbor_gain.get(dst, 0.0):
-                neighbor_gain[dst] = gain
+    frontier = {src: doc_best[src] for src in top_docs}
+    visited = set(top_docs)
+    for _hop in range(max(1, cfg.graph_hops)):
+        if not frontier:
+            break
+        all_nbrs = store.neighbors(list(frontier))
+        nxt: dict[int, float] = {}
+        for src, src_gain in frontier.items():
+            for dst, _kind, w in all_nbrs.get(src, []):
+                if dst in visited:
+                    continue  # mass never flows back toward the seeds
+                g = cfg.graph_alpha * src_gain * w
+                if g > neighbor_gain.get(dst, 0.0):
+                    neighbor_gain[dst] = g
+                if g > nxt.get(dst, 0.0):
+                    nxt[dst] = g
+        visited |= set(nxt)
+        frontier = nxt
+    # bound the chunk-similarity workload on hub-heavy graphs
+    if len(neighbor_gain) > cfg.graph_top_docs * 6:
+        keep = sorted(neighbor_gain, key=lambda d: -neighbor_gain[d])[: cfg.graph_top_docs * 6]
+        neighbor_gain = {d: neighbor_gain[d] for d in keep}
 
     chunk_ids_by_doc = store.doc_chunk_ids_many(list(neighbor_gain))
     all_sims = store.chunk_sims(qv, [c for ids in chunk_ids_by_doc.values() for c in ids])

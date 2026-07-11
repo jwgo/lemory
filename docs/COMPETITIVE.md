@@ -40,3 +40,48 @@
 > "mem0/supermemory는 앱에 넣는 메모리 API고, cognee는 파이프라인 프레임워크다.
 > Lemory는 **이미 존재하는 당신의 옵시디언 볼트**를 그대로 답하게 만드는 로컬 백엔드다 —
 > 그리고 그 검색이 그들보다 정확하다는 걸 같은 하네스에서 측정해서 보여준다."
+
+---
+
+# 확장 조사 (2026-07-11): 19개 시스템, 그중 6개 실측
+
+README/논문 정독 후 "본받을 점"을 추출하고, 채택은 벤치마크 승리를 조건으로
+걸었다 (measured, not adopted 원칙).
+
+## 실측 완료 (6)
+
+mem0 · cognee · supermemory · LlamaIndex · qmd — 수치는 BENCHMARKS.md.
+KorQuAD의 BM25 열세(0.908 vs 0.923)도 계속 공개 유지.
+
+## 아이디어 조사 (13)
+
+| 시스템 | 형태 | 가장 강한 아이디어 | 채택 |
+|---|---|---|---|
+| **HippoRAG** (OSU) | 연구 라이브러리 | **KG 위 Personalized PageRank — LLM 없는 원패스 멀티홉** | ✅ `graph_hops` 다중 홉 전파 |
+| Smart Connections | 옵시디언 플러그인 | 블록 단위 임베딩 + pin/hide 피드백을 랭킹 prior로 | 부분 (헤딩 청킹 기존); 피드백 prior 로드맵 |
+| obsidian-copilot | 옵시디언 플러그인 | 임베딩 없이도 동작하는 강등 경로; 링크 중첩도 점수화 | 기존 보유 (키 없이 BM25+링크) |
+| khoj | 셀프호스트/클라우드 | `date:`/`file:` 질의 연산자 사전 필터 | temporal 기존; tag/folder 연산자 로드맵 |
+| reor | 로컬 노트앱 | 현재 노트를 질의로 쓰는 수동 관련노트 (LLM 0회) | `/api/related` 후보 |
+| graphiti (Zep) | 시간형 KG 서버 | 앵커 노드로부터 그래프 거리 리랭크; 엣지 유효기간 | 앵커 리랭크 로드맵 (MCP 문맥) |
+| letta (MemGPT) | 상태형 에이전트 | 항상-인-컨텍스트 core memory 분리 | 볼트 요약 core 블록 로드맵 |
+| txtai | 임베딩 DB | 희소 볼트에 kNN 유사도 추론 엣지 밀도 보강 | 스텁 보강과 함께 평가 (아래) |
+| basic-memory | MCP 마크다운 메모리 | 마크다운 관습에서 타입드 관계·frontmatter 스키마 추론 | ✅ frontmatter 평탄화 색인 (아래) |
+| ragflow | 엔터프라이즈 RAG | 문서 타입별 청킹 템플릿 | 폴더/속성 인지 청킹 로드맵 |
+| anything-llm | 프라이빗 ChatGPT | 워크스페이스 단위 검색 네임스페이스 | 멀티볼트 프로파일 로드맵 |
+| microsoft graphrag | 배치 KG 파이프라인 | Leiden 커뮤니티 계층 (LLM-free 부분) | 토픽 클러스터 로드맵 |
+| onyx (Danswer) | 엔터프라이즈 챗+RAG | 커넥터 함대, 학습형 리랭커 | 범위 밖 (조직 규모) |
+
+## 실세계 데이터가 가르쳐준 것
+
+실제 공개 옵시디언 볼트(kepano — MIT)를 벤치마크로 만들면서 확인한 패턴:
+**진짜 볼트는 스텁 노트 투성이다** — 3줄짜리 레퍼런스 노트는 BM25에도
+임베딩에도 거의 안 보이는데, 위키링크 대부분이 그런 노트를 향한다. 이번
+라운드의 채택 두 건이 정확히 이걸 겨냥한다:
+
+1. **다중 홉 전파** (`graph_hops=2`, HippoRAG식): A→B→C 체인을 따라 점수가
+   홉당 감쇠하며 흐름. LLM 0회, 직접 증거 아래 캡 유지.
+2. **스텁 보강** (basic-memory/앵커텍스트식): 본문이 짧은 노트의 색인 표현에
+   frontmatter 속성 평탄화 + **백링크 문맥**(다른 노트에서 이 노트를 링크한
+   문장 주변)을 결정적으로 추가.
+
+측정 결과(안 된 것 포함)는 BENCHMARKS.md에.

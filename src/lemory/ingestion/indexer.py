@@ -254,6 +254,13 @@ class Indexer:
             )
             self.store.set_meta("title_set_hash", title_hash)
 
+        # runs on change, and once on upgrade (pre-enrichment indexes)
+        if self.cfg.stub_enrichment and (
+            rep.changed or self.store.get_meta("stub_enriched") != "1"
+        ):
+            rep.embedded += self._enrich_stubs()
+            self.store.set_meta("stub_enriched", "1")
+
         rep.seconds = time.time() - t0
         self.store.set_meta("last_sync", str(time.time()))
         return rep
@@ -278,6 +285,91 @@ class Indexer:
                 if (dst, "wiki") not in merged:
                     merged[(dst, "mention")] = w
             self.store.replace_links(doc_id, [(dst, kind, w) for (dst, kind), w in merged.items()])
+
+    # -------------------------------------------------------- stub enrichment
+    _SENT_SPLIT = re.compile(r"(?<=[.!?다요음됨])\s+|\n+")
+
+    def _enrich_stubs(self) -> int:
+        """Give stub notes an indexed representation others can find.
+
+        A 3-line reference note is nearly invisible to BM25 and embeddings,
+        yet most wikilinks in real vaults point at exactly such notes. For
+        every doc whose content is shorter than cfg.stub_chars, index one
+        extra pseudo-chunk: flattened frontmatter properties + the sentences
+        surrounding inbound links in other notes (anchor-text style). Runs
+        after every link rebuild; the embed cache absorbs unchanged contexts.
+        Returns the number of enrichment chunks that hit the embedder.
+        """
+        import json as _json
+
+        store = self.store
+        body_len = store.doc_body_len()
+        stubs = [d for d, ln in body_len.items() if ln < self.cfg.stub_chars]
+        if not stubs:
+            return 0
+        docs = {d.id: d for d in store.all_docs()}
+        c = store.conn()
+
+        to_embed: list[tuple[int, str, str]] = []  # (doc_id, title, text)
+        for doc_id in stubs:
+            doc = docs.get(doc_id)
+            if doc is None:
+                continue
+            parts: list[str] = []
+            row = c.execute("SELECT frontmatter FROM documents WHERE id=?", (doc_id,)).fetchone()
+            try:
+                fm = _json.loads(row["frontmatter"]) if row else {}
+            except _json.JSONDecodeError:
+                fm = {}
+            props = []
+            for k, v in fm.items():
+                if isinstance(v, (str, int, float)) and str(v).strip():
+                    props.append(f"{k}: {v}")
+                elif isinstance(v, list):
+                    vals = [str(x) for x in v if isinstance(x, (str, int, float))][:6]
+                    if vals:
+                        props.append(f"{k}: {', '.join(vals)}")
+            if props:
+                parts.append(" · ".join(props[:10]))
+
+            # backlink contexts: sentences in OTHER notes around links/mentions here
+            srcs = [r["src_doc"] for r in c.execute(
+                "SELECT DISTINCT src_doc FROM links WHERE dst_doc=? "
+                "AND kind IN ('wiki','mention') LIMIT 6", (doc_id,))]
+            tl = doc.title.lower()
+            ctx: list[str] = []
+            for src in srcs:
+                src_doc = docs.get(src)
+                if src_doc is None:
+                    continue
+                rows = c.execute(
+                    "SELECT text FROM chunks WHERE doc_id=? AND heading != ? ORDER BY ord",
+                    (src, store.ENRICH_HEADING)).fetchall()
+                for r in rows:
+                    for sent in self._SENT_SPLIT.split(r["text"]):
+                        if tl in sent.lower() and 20 <= len(sent) <= 400:
+                            ctx.append(f"({src_doc.title}) {sent.strip()}")
+                            break
+                    if len(ctx) and ctx[-1].startswith(f"({src_doc.title})"):
+                        break
+            if ctx:
+                parts.append("\n".join(ctx[:6]))
+
+            text = "\n".join(parts).strip()
+            existing = c.execute(
+                "SELECT text FROM chunks WHERE doc_id=? AND heading=?",
+                (doc_id, store.ENRICH_HEADING)).fetchone()
+            if (existing["text"] if existing else "") == text:
+                continue  # unchanged — don't dirty the matrix
+            to_embed.append((doc_id, doc.title, text))
+
+        if not to_embed:
+            return 0
+        embed_texts = [embed_text_for_chunk(t, "", txt) for _, t, txt in to_embed]
+        vectors, misses = self.engine.embed_documents_cached(embed_texts)
+        for i, (doc_id, title, text) in enumerate(to_embed):
+            store.replace_enrichment_chunk(doc_id, title, text, vectors[i] if text else None)
+        return misses
 
     def _cached_mention_targets(self, title_to_id: dict[str, int]) -> list[tuple[re.Pattern, int]]:
         """Compiled mention regexes, cached across syncs until titles change."""

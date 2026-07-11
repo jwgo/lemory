@@ -583,6 +583,41 @@ class Store:
         top = top[np.argsort(-sims[top])]
         return [(int(ids[i]), float(sims[i])) for i in top]
 
+    ENRICH_HEADING = "↩ context"  # marker for index-time enrichment pseudo-chunks
+
+    def replace_enrichment_chunk(self, doc_id: int, title: str, text: str,
+                                 vec: Optional[np.ndarray]) -> None:
+        """Replace a doc's enrichment pseudo-chunk (frontmatter + backlink
+        context for stub notes). Kept separate from content chunks so normal
+        re-chunking and the embed cache are untouched."""
+        c = self.conn()
+        old = [r["id"] for r in c.execute(
+            "SELECT id FROM chunks WHERE doc_id=? AND heading=?",
+            (doc_id, self.ENRICH_HEADING))]
+        for cid in old:
+            c.execute("DELETE FROM chunks_fts WHERE rowid=?", (cid,))
+        c.execute("DELETE FROM chunks WHERE doc_id=? AND heading=?",
+                  (doc_id, self.ENRICH_HEADING))
+        if text.strip():
+            nxt = c.execute(
+                "SELECT COALESCE(MAX(ord), -1) + 1 AS o FROM chunks WHERE doc_id=?",
+                (doc_id,)).fetchone()["o"]
+            blob = vec.astype(np.float32).tobytes() if vec is not None else None
+            cur = c.execute(
+                "INSERT INTO chunks(doc_id, ord, heading, text, vec) VALUES(?,?,?,?,?)",
+                (doc_id, nxt, self.ENRICH_HEADING, text, blob))
+            c.execute(
+                "INSERT INTO chunks_fts(rowid, text, title, heading) VALUES(?,?,?,?)",
+                (int(cur.lastrowid), fts_index_text(text), fts_index_text(title), ""))
+        c.commit()
+        self._mark_dirty()
+
+    def doc_body_len(self) -> dict[int, int]:
+        """doc_id -> total chars of content chunks (enrichment excluded)."""
+        return {r["d"]: r["n"] for r in self.conn().execute(
+            "SELECT doc_id AS d, SUM(LENGTH(text)) AS n FROM chunks "
+            "WHERE heading != ? GROUP BY doc_id", (self.ENRICH_HEADING,))}
+
     def chunk_vectors(self, chunk_ids: list[int]) -> dict[int, "np.ndarray"]:
         """Raw stored vectors for specific chunks (unit-norm rows of the matrix)."""
         matrix, _ids, pos = self._ensure_matrix()
