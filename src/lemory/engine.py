@@ -119,6 +119,7 @@ class Engine:
     def search(
         self, query: str, k: int = 8, graph: bool | None = None, mode: str = "hybrid",
         expand: bool | None = None, rerank: bool | None = None, record: bool = False,
+        client: str = "",
     ) -> list[ChunkHit]:
         from .retrieval import hybrid_search
 
@@ -129,14 +130,21 @@ class Engine:
         # usage; library calls, tests and benchmarks stay invisible
         if record and hits:
             self.store.record_hits([h.doc_id for h in hits])
+        if record and self.cfg.event_log:
+            self.store.log_event("search", client=client, query=query,
+                                 detail={"top": [h.path for h in hits[:3]]})
         return hits
 
-    def ask(self, question: str, k: int = 8, record: bool = False) -> "Answer":
+    def ask(self, question: str, k: int = 8, record: bool = False,
+            client: str = "") -> "Answer":
         from .retrieval import answer
 
         ans = answer(self, question, k=k)
         if record and ans.sources:
             self.store.record_hits([h.doc_id for h in ans.sources])
+        if record and self.cfg.event_log:
+            self.store.log_event("ask", client=client, query=question,
+                                 detail={"top": [h.path for h in ans.sources[:3]]})
         return ans
 
     def status(self) -> dict[str, Any]:

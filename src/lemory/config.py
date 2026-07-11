@@ -128,6 +128,12 @@ class LemoryConfig(BaseSettings):
     # --- attachments ---
     index_pdf: bool = False  # index PDF text too (pip install 'lemory[pdf]')
 
+    # --- middleware dashboard ---
+    # local-only timeline of what passed through: queries (with top sources),
+    # AI memory writes, per-client stats. Lives in the same SQLite file,
+    # capped ring buffer, never transmitted. Set false to keep no logs.
+    event_log: bool = True
+
     # --- optional LLM retrieval stages (qmd-style; each costs LLM calls) ---
     query_expansion: bool = False   # rewrite the query into variants pre-search
     expansion_variants: int = 2

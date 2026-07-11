@@ -89,6 +89,16 @@ CREATE TABLE IF NOT EXISTS note_hits (
     hits INTEGER NOT NULL DEFAULT 0,
     last_hit REAL NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS event_log (
+    id INTEGER PRIMARY KEY,
+    ts REAL NOT NULL,
+    kind TEXT NOT NULL,               -- 'search' | 'ask' | 'memory' | 'append' | 'trash'
+    client TEXT NOT NULL DEFAULT '',  -- who passed through: cli / http / mcp / ...
+    query TEXT,                       -- for search/ask
+    path TEXT,                        -- for memory/append/trash
+    detail TEXT                       -- JSON: top result paths, note title, ...
+);
 """
 
 
@@ -776,6 +786,64 @@ class Store:
         """doc_id -> (hits, last_hit)."""
         return {r["doc_id"]: (r["hits"], r["last_hit"]) for r in self.conn().execute(
             "SELECT doc_id, hits, last_hit FROM note_hits")}
+
+    # -------------------------------------------------------------- event log
+    EVENT_LOG_MAX = 1000  # ring buffer: the dashboard needs a timeline, not history
+
+    def log_event(self, kind: str, client: str = "", query: Optional[str] = None,
+                  path: Optional[str] = None, detail: Optional[dict] = None) -> None:
+        """One line in the middleware timeline: what passed through, from whom.
+        Local-only (never leaves the SQLite file); capped as a ring buffer."""
+        import time as _t
+
+        c = self.conn()
+        c.execute(
+            "INSERT INTO event_log(ts, kind, client, query, path, detail) "
+            "VALUES(?,?,?,?,?,?)",
+            (_t.time(), kind, client, query, path,
+             json.dumps(detail, ensure_ascii=False) if detail else None),
+        )
+        c.execute(
+            "DELETE FROM event_log WHERE id <= ("
+            "  SELECT id FROM event_log ORDER BY id DESC "
+            f"  LIMIT 1 OFFSET {self.EVENT_LOG_MAX})")
+        c.commit()
+
+    def events(self, kinds: Optional[list[str]] = None, limit: int = 100) -> list[dict]:
+        """Newest-first timeline rows, optionally filtered by kind."""
+        sql = "SELECT ts, kind, client, query, path, detail FROM event_log"
+        args: list = []
+        if kinds:
+            sql += f" WHERE kind IN ({','.join('?' * len(kinds))})"
+            args.extend(kinds)
+        sql += " ORDER BY id DESC LIMIT ?"
+        args.append(limit)
+        out = []
+        for r in self.conn().execute(sql, args):
+            try:
+                detail = json.loads(r["detail"]) if r["detail"] else None
+            except json.JSONDecodeError:
+                detail = None
+            out.append({"ts": r["ts"], "kind": r["kind"], "client": r["client"],
+                        "query": r["query"], "path": r["path"], "detail": detail})
+        return out
+
+    def client_stats(self, days: float = 7.0) -> list[dict]:
+        """Per-client event counts in the window — who is using this memory."""
+        import time as _t
+
+        cutoff = _t.time() - days * 86400
+        return [
+            {"client": r["client"] or "unknown", "events": r["n"],
+             "queries": r["q"], "writes": r["w"], "last": r["last"]}
+            for r in self.conn().execute(
+                "SELECT client, COUNT(*) AS n, "
+                "  SUM(kind IN ('search','ask')) AS q, "
+                "  SUM(kind IN ('memory','append')) AS w, "
+                "  MAX(ts) AS last "
+                "FROM event_log WHERE ts >= ? GROUP BY client ORDER BY n DESC",
+                (cutoff,))
+        ]
 
     def doc_body_len(self) -> dict[int, int]:
         """doc_id -> total chars of content chunks (enrichment excluded)."""

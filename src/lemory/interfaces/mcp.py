@@ -21,7 +21,7 @@ import json
 from ..engine import Engine
 
 
-def run_mcp(engine: Engine) -> None:
+def run_mcp(engine: Engine, client: str = "mcp") -> None:
     from mcp.server.fastmcp import FastMCP
 
     mcp = FastMCP("lemory")
@@ -32,7 +32,7 @@ def run_mcp(engine: Engine) -> None:
         """Hybrid search (semantic + keyword + link-graph) over the user's
         Obsidian vault. Returns the top matching note excerpts."""
         engine.index()  # incremental: no-op unless files changed
-        hits = engine.search(query, k=k)
+        hits = engine.search(query, k=k, record=True, client=client)
         return json.dumps(
             [
                 {"note": h.title, "path": h.path, "heading": h.heading,
@@ -47,7 +47,7 @@ def run_mcp(engine: Engine) -> None:
         """Answer a question grounded ONLY in the user's Obsidian vault,
         with note citations."""
         engine.index()
-        ans = engine.ask(question)
+        ans = engine.ask(question, record=True, client=client)
         return json.dumps(
             {"answer": ans.text,
              "sources": [{"note": h.title, "path": h.path} for h in ans.sources]},
@@ -140,7 +140,7 @@ def run_mcp(engine: Engine) -> None:
 
         tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
         try:
-            path = _save(engine, content, title=title, folder=folder, tags=tag_list)
+            path = _save(engine, content, title=title, folder=folder, tags=tag_list, client=client)
         except ValueError as e:
             return json.dumps({"error": str(e)})
         return json.dumps({"saved": path}, ensure_ascii=False)
@@ -153,7 +153,7 @@ def run_mcp(engine: Engine) -> None:
         from ..ingestion.memory import append_to_note
 
         try:
-            rel = append_to_note(engine, path, content)
+            rel = append_to_note(engine, path, content, client=client)
         except ValueError as e:
             return json.dumps({"error": str(e)})
         return json.dumps({"appended": rel}, ensure_ascii=False)

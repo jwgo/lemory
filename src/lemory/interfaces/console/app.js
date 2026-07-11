@@ -91,11 +91,16 @@ async function renderOverview() {
     <div class="tiles" id="tiles">${'<div class="tile"><div class="skel" style="height:24px;width:70px"></div><div class="skel" style="height:12px;width:44px;margin-top:8px"></div></div>'.repeat(4)}</div>
     <div class="cols-2">
       <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card" id="memFeedCard" hidden><div class="card-head">AI 메모리 피드 <span style="font-weight:400;color:var(--text-3)">AI가 볼트에 적은 것 — 전부 마크다운 파일</span></div><div class="act-list" id="memFeed"></div></div>
+        <div class="card" id="qlogCard" hidden><div class="card-head">최근 질의 <span style="font-weight:400;color:var(--text-3)">이 메모리를 지나간 검색·질문</span></div><div class="act-list" id="qlog"></div></div>
         <div class="card"><div class="card-head">색인 활동</div><div class="act-list" id="acts"><div class="empty">불러오는 중…</div></div></div>
         <div class="card"><div class="card-head">최근 수정된 노트</div><div class="act-list" id="recent"></div></div>
         <div class="card" id="hotCard" hidden><div class="card-head">자주 참조되는 노트 <span style="font-weight:400;color:var(--text-3)">검색·질문에 오른 횟수</span></div><div class="act-list" id="hot"></div></div>
       </div>
-      <div class="card"><div class="card-head">시스템</div><div class="kv" id="sys"></div></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card"><div class="card-head">시스템</div><div class="kv" id="sys"></div></div>
+        <div class="card" id="clientsCard" hidden><div class="card-head">클라이언트 <span style="font-weight:400;color:var(--text-3)">최근 7일, 누가 이 메모리를 쓰는가</span></div><div class="act-list" id="clients"></div></div>
+      </div>
     </div>
   </div>`;
 
@@ -128,6 +133,54 @@ async function renderOverview() {
       <span class="act-time" title="${new Date(a.ts * 1000).toLocaleString("ko-KR")}">${rel(a.ts)}</span>
     </div>`).join("")
     : `<div class="empty">아직 색인 활동이 없습니다</div>`;
+
+  // middleware timeline: AI writes (with undo), queries, per-client stats
+  api("/api/events?limit=80").then(evts => {
+    const clientChip = c => c ? `<span class="chip">${esc(c)}</span>` : "";
+    const writes = evts.filter(e => e.kind === "memory" || e.kind === "append").slice(0, 6);
+    if (writes.length) {
+      $("#memFeedCard").hidden = false;
+      $("#memFeed").innerHTML = writes.map(e => `
+        <div class="act-row">
+          <span class="act-kind ${e.kind === "memory" ? "manual" : "watch"}">${e.kind === "memory" ? "새 기억" : "덧붙임"}</span>
+          <span style="font-weight:550;cursor:pointer" data-goto-note="${esc(e.path)}">${esc((e.detail && e.detail.title) || e.path)}</span>
+          ${clientChip(e.client)}
+          ${e.kind === "memory" ? `<button class="btn ghost" style="height:22px;padding:0 8px;font-size:11px" data-trash="${esc(e.path)}">휴지통</button>` : ""}
+          <span class="act-time">${rel(e.ts)}</span>
+        </div>`).join("");
+      $$("#memFeed [data-goto-note]").forEach(el =>
+        el.onclick = () => go("#/knowledge/" + encodeURIComponent(el.dataset.gotoNote)));
+      $$("#memFeed [data-trash]").forEach(btn => btn.onclick = async () => {
+        if (!confirm(`"${btn.dataset.trash}" 노트를 볼트 휴지통(.trash)으로 옮길까요?`)) return;
+        try {
+          await jpost("/memory/trash", { path: btn.dataset.trash });
+          toast("휴지통으로 이동했습니다", "ok");
+          renderOverview();
+        } catch (e) { toast(e.message, "err"); }
+      });
+    }
+    const queries = evts.filter(e => e.kind === "search" || e.kind === "ask").slice(0, 6);
+    if (queries.length) {
+      $("#qlogCard").hidden = false;
+      $("#qlog").innerHTML = queries.map(e => `
+        <div class="act-row">
+          <span class="act-kind ${e.kind === "ask" ? "manual" : "startup"}">${e.kind === "ask" ? "질문" : "검색"}</span>
+          <span style="font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px" title="${esc(e.query || "")}">${esc(e.query || "")}</span>
+          ${clientChip(e.client)}
+          <span class="act-time">${rel(e.ts)}</span>
+        </div>`).join("");
+    }
+  }).catch(() => {});
+  api("/api/clients").then(rows => {
+    if (!rows.length) return;
+    $("#clientsCard").hidden = false;
+    $("#clients").innerHTML = rows.map(r => `
+      <div class="act-row">
+        <span style="font-weight:550">${esc(r.client)}</span>
+        <span class="act-delta">질의 ${r.queries || 0} · 쓰기 ${r.writes || 0}</span>
+        <span class="act-time">${rel(r.last)}</span>
+      </div>`).join("");
+  }).catch(() => {});
 
   loadNotes().then(notes => {
     const hot = [...notes].filter(n => n.hits > 0).sort((a, b) => b.hits - a.hits).slice(0, 6);
@@ -527,6 +580,7 @@ async function renderSearch() {
 const SETTINGS_META = [
   ["검색 품질", [
     ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
+    ["event_log", "미들웨어 타임라인", "질의·AI 쓰기 기록 (이 기기 SQLite에만 저장, 외부 전송 없음)", "bool"],
     ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 — 높을수록 연결 노트가 잘 올라옵니다", "float"],
     ["graph_sim_floor", "그래프 유사도 하한", "질의와 이 유사도 미만인 이웃은 무시 (노이즈 차단)", "float"],
     ["title_boost", "제목 부스트", "질의가 노트 제목과 겹치면 가산점", "float"],

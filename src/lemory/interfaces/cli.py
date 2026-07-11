@@ -307,7 +307,7 @@ def remember(
 
     eng = _engine(vault)
     tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
-    path = save_memory(eng, content, title=title, folder=folder, tags=tag_list)
+    path = save_memory(eng, content, title=title, folder=folder, tags=tag_list, client="cli")
     console.print(f"[green]saved[/green] {path}")
 
 
@@ -377,7 +377,7 @@ def search(
 ):
     """Hybrid search over the indexed vault."""
     eng = _engine(vault)
-    hits = eng.search(query, k=k, mode=mode, expand=expand or None, rerank=rerank or None, record=True)
+    hits = eng.search(query, k=k, mode=mode, expand=expand or None, rerank=rerank or None, record=True, client="cli")
     table = Table(show_lines=True)
     table.add_column("#", width=3)
     table.add_column("note")
@@ -397,7 +397,7 @@ def ask(
 ):
     """Ask a question; the answer is grounded in your notes with citations."""
     eng = _engine(vault)
-    ans = eng.ask(question, k=k, record=True)
+    ans = eng.ask(question, k=k, record=True, client="cli")
     console.print(ans.text)
     console.print("\n[dim]" + ans.render_sources() + "[/dim]")
 
@@ -426,11 +426,12 @@ def serve(
 
 
 @app.command()
-def mcp(vault: Optional[Path] = typer.Option(None)):
+def mcp(vault: Optional[Path] = typer.Option(None),
+        client: str = typer.Option("mcp", help="Name shown in the dashboard timeline (set per app: claude-desktop, cursor, ...)")):
     """Run as an MCP server (stdio) for Claude Desktop / Claude Code."""
     from .mcp import run_mcp
 
-    run_mcp(_engine(vault))
+    run_mcp(_engine(vault), client=client)
 
 
 @app.command()

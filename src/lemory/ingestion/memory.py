@@ -43,6 +43,7 @@ def save_memory(
     folder: str = "memories",
     tags: list[str] | None = None,
     source: str = "assistant",
+    client: str = "",
 ) -> str:
     """Persist a memory as a new Markdown note. Returns the vault-relative path."""
     if not content.strip():
@@ -72,10 +73,13 @@ def save_memory(
     target.write_text(body, encoding="utf-8")
     rel = str(target.relative_to(vault))
     engine.index(paths={rel})  # searchable immediately
+    if engine.cfg.event_log:
+        engine.store.log_event("memory", client=client, path=rel,
+                               detail={"title": target.stem, "chars": len(content)})
     return rel
 
 
-def append_to_note(engine, path: str, content: str) -> str:
+def append_to_note(engine, path: str, content: str, client: str = "") -> str:
     """Append a timestamped section to an existing note (daily logs, running
     decision records). Creates the note if it does not exist yet."""
     if not content.strip():
@@ -94,7 +98,44 @@ def append_to_note(engine, path: str, content: str) -> str:
         target.write_text(f"# {title}{block}", encoding="utf-8")
     rel = str(target.relative_to(vault))
     engine.index(paths={rel})
+    if engine.cfg.event_log:
+        engine.store.log_event("append", client=client, path=rel,
+                               detail={"chars": len(content)})
     return rel
+
+
+def trash_ai_note(engine, path: str, client: str = "") -> str:
+    """Undo for the write path: move an AI-written note to <vault>/.trash
+    (Obsidian's own trash folder, so it shows up in Obsidian's trash too).
+
+    Guarded twice: the path must stay inside the vault, and the note's
+    frontmatter must carry a `source:` line — i.e. it was created by
+    save_memory / import-chats. Human-authored notes are refused; this
+    endpoint can never delete something the user wrote."""
+    vault = engine.cfg.resolved_vault()
+    target = _safe_target(vault, path)
+    if not target.is_file():
+        raise ValueError(f"no such note: {path}")
+    head = target.read_text(encoding="utf-8", errors="replace")[:400]
+    ai_written = False
+    if head.startswith("---") and head.count("---") >= 2:
+        frontmatter = head.split("---", 2)[1]
+        ai_written = "\nsource:" in frontmatter or frontmatter.startswith("source:")
+    if not ai_written:
+        raise ValueError("refusing: not an AI-written note (no source: frontmatter)")
+    trash = vault / ".trash"
+    trash.mkdir(exist_ok=True)
+    dest = trash / target.name
+    n = 2
+    while dest.exists():
+        dest = trash / f"{target.stem} {n}{target.suffix}"
+        n += 1
+    target.rename(dest)
+    rel = str(Path(path))
+    engine.index(paths={rel})  # removes it from the index
+    if engine.cfg.event_log:
+        engine.store.log_event("trash", client=client, path=rel)
+    return str(dest.relative_to(vault))
 
 
 def context_block(engine, max_chars: int = 2400) -> str:

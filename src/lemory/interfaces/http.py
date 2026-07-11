@@ -27,7 +27,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
@@ -39,6 +39,7 @@ log = logging.getLogger("lemory.server")
 # /status or requires a restart (models, vault path) — keeping the writable
 # surface small makes PATCH safe.
 TUNABLE_FIELDS: dict[str, type] = {
+    "event_log": bool,
     "graph_expansion": bool,
     "mention_links": bool,
     "typo_correction": bool,
@@ -82,6 +83,17 @@ class MemoryBody(BaseModel):
 class AppendBody(BaseModel):
     path: str
     content: str
+
+
+class TrashBody(BaseModel):
+    path: str
+
+
+def _client(request: "Request") -> str:
+    """Client attribution for the middleware timeline. Callers self-identify
+    with the X-Lemory-Client header (the Obsidian plugin, scripts, agents);
+    anonymous callers show up as plain 'http'."""
+    return (request.headers.get("x-lemory-client") or "http").strip()[:40]
 
 
 def _console_file(name: str) -> Path:
@@ -172,17 +184,18 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         }
 
     @app.get("/search")
-    def search(q: str, k: int = 8, mode: str = "hybrid",
+    def search(request: Request, q: str, k: int = 8, mode: str = "hybrid",
                graph: bool | None = None,
                expand: bool | None = None, rerank: bool | None = None):
         if not q.strip():
             raise HTTPException(400, "empty query")
-        hits = engine.search(q, k=k, mode=mode, graph=graph, expand=expand, rerank=rerank, record=True)
+        hits = engine.search(q, k=k, mode=mode, graph=graph, expand=expand,
+                             rerank=rerank, record=True, client=_client(request))
         return [_hit_json(h, text=True) for h in hits]
 
     @app.post("/ask")
-    def ask(body: AskBody):
-        ans = engine.ask(body.question, k=body.k, record=True)
+    def ask(request: Request, body: AskBody):
+        ans = engine.ask(body.question, k=body.k, record=True, client=_client(request))
         return {
             "answer": ans.text,
             "sources": [_hit_json(h, text=True) for h in ans.sources],
@@ -197,27 +210,52 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         return {"context": context_block(engine, max_chars=max_chars)}
 
     @app.post("/memory")
-    def memory(body: MemoryBody):
+    def memory(request: Request, body: MemoryBody):
         """Write path: persist a memory as a new Markdown note in the vault."""
         from ..ingestion.memory import save_memory
 
         try:
             path = save_memory(engine, body.content, title=body.title,
-                               folder=body.folder, tags=body.tags)
+                               folder=body.folder, tags=body.tags,
+                               client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"saved": path}
 
     @app.post("/append")
-    def append(body: AppendBody):
+    def append(request: Request, body: AppendBody):
         """Append-only write to an existing note (creates it if missing)."""
         from ..ingestion.memory import append_to_note
 
         try:
-            rel = append_to_note(engine, body.path, body.content)
+            rel = append_to_note(engine, body.path, body.content,
+                                 client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"appended": rel}
+
+    @app.post("/memory/trash")
+    def memory_trash(request: Request, body: TrashBody):
+        """Undo an AI write: move the note to <vault>/.trash. Refuses notes
+        without `source:` frontmatter, so human-authored files are untouchable."""
+        from ..ingestion.memory import trash_ai_note
+
+        try:
+            dest = trash_ai_note(engine, body.path, client=_client(request))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"trashed": body.path, "moved_to": dest}
+
+    @app.get("/api/events")
+    def api_events(kinds: str = "", limit: int = 60):
+        """The middleware timeline: queries, AI writes, undos — newest first."""
+        kind_list = [k for k in (s.strip() for s in kinds.split(",")) if k] or None
+        return engine.store.events(kinds=kind_list, limit=min(limit, 200))
+
+    @app.get("/api/clients")
+    def api_clients(days: float = 7.0):
+        """Per-client usage in the window — who is reading/writing this memory."""
+        return engine.store.client_stats(days=days)
 
     # ----------------------------------------------------------- console API
     @app.get("/api/overview")
