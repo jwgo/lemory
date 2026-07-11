@@ -262,6 +262,14 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             raise HTTPException(404, f"note not found: {path}")
         return d
 
+    @app.get("/api/related")
+    def related(path: str, k: int = 8):
+        """Related notes by content similarity (the note itself is the query —
+        no LLM, no new embeddings)."""
+        from ..retrieval.search import related_notes
+
+        return related_notes(engine, path, k=k)
+
     @app.get("/api/tags")
     def tags():
         return engine.store.tag_counts()

@@ -118,6 +118,15 @@ class LemoryConfig(BaseSettings):
     mention_links: bool = True
     per_doc_cap: int = 3
     title_boost: float = 0.12
+    # cognee-"memify"-style usage prior: notes that keep getting retrieved in
+    # real use rank slightly higher. Default OFF and it stays off until someone
+    # can measure it on THEIR usage — there is no honest offline benchmark for
+    # a signal that only exists after weeks of personal use, and it feeds back
+    # into itself. Opt-in: 0.05-0.15 is a sane range.
+    usage_prior: float = 0.0
+
+    # --- attachments ---
+    index_pdf: bool = False  # index PDF text too (pip install 'lemory[pdf]')
 
     # --- optional LLM retrieval stages (qmd-style; each costs LLM calls) ---
     query_expansion: bool = False   # rewrite the query into variants pre-search

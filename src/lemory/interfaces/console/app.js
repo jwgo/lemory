@@ -378,11 +378,29 @@ async function drawNoteDetail(path) {
       ${d.links_out.length ? `<div class="link-grid">${d.links_out.map(linkPill).join("")}</div>` : `<div class="view-sub">없음</div>`}</div>
     <div class="nd-sec"><div class="nd-sec-title">들어오는 연결 (백링크) · ${d.links_in.length}</div>
       ${d.links_in.length ? `<div class="link-grid">${d.links_in.map(linkPill).join("")}</div>` : `<div class="view-sub">없음</div>`}</div>
+    <div class="nd-sec" id="relatedSec"><div class="nd-sec-title">관련 노트</div>
+      <div class="view-sub">불러오는 중…</div></div>
     <div class="nd-sec"><div class="nd-sec-title">색인된 내용</div>
       ${d.chunks.map(c => `<div class="chunk">${subHeading(d.title, c.heading) ? `<div class="h">${esc(subHeading(d.title, c.heading))}</div>` : ""}
         <div class="x">${esc(c.text)}</div>
         ${c.text.length > 400 ? `<div class="more">더 보기</div>` : ""}</div>`).join("")}</div>
   </div>`;
+
+  // related notes load async — content similarity, not just links
+  api("/api/related?path=" + encodeURIComponent(path) + "&k=6").then(rel_ => {
+    const sec = $("#relatedSec", pane);
+    if (!sec) return;
+    sec.innerHTML = `<div class="nd-sec-title">관련 노트 <span class="view-sub" style="display:inline">내용 유사도 기준</span></div>` +
+      (rel_.length
+        ? `<div class="link-grid">${rel_.map(r => `<span class="link-pill" data-goto="${esc(r.path)}">
+             <span class="k entity">${(r.score * 100).toFixed(0)}%</span>${esc(r.title)}</span>`).join("")}</div>`
+        : `<div class="view-sub">없음</div>`);
+    $$("[data-goto]", sec).forEach(p => p.onclick = () => {
+      S.knowledge.sel = p.dataset.goto;
+      drawNoteRows();
+      drawNoteDetail(p.dataset.goto);
+    });
+  }).catch(() => {});
 
   $$("[data-goto]", pane).forEach(p => p.onclick = () => {
     S.knowledge.sel = p.dataset.goto;

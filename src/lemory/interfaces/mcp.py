@@ -105,6 +105,15 @@ def run_mcp(engine: Engine) -> None:
         )
 
     @mcp.tool()
+    def related_notes(path: str, k: int = 8) -> str:
+        """Notes related to a given note by content similarity (the note
+        itself is the query). Use after read_note to explore context."""
+        from ..retrieval.search import related_notes as _related
+
+        engine.index()
+        return json.dumps(_related(engine, path, k=k), ensure_ascii=False)
+
+    @mcp.tool()
     def vault_status() -> str:
         """Index statistics for the connected vault."""
         return json.dumps(engine.status())

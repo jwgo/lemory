@@ -84,6 +84,32 @@ def iter_vault_files(vault: Path, include: list[str], exclude_dirs: list[str]) -
     return sorted(set(out))
 
 
+def active_globs(cfg) -> list[str]:
+    """include_globs plus attachment types enabled in config."""
+    globs = list(cfg.include_globs)
+    if getattr(cfg, "index_pdf", False) and "**/*.pdf" not in globs:
+        globs.append("**/*.pdf")
+    return globs
+
+
+def read_note_text(f: Path) -> str:
+    """File → indexable text. Markdown is read verbatim; PDFs (opt-in via
+    cfg.index_pdf) go through pypdf text extraction. Raises OSError on
+    unreadable files so callers' existing error paths apply."""
+    if f.suffix.lower() != ".pdf":
+        return f.read_text(encoding="utf-8", errors="replace")
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise OSError("PDF indexing requires pypdf — pip install 'lemory[pdf]'")
+    try:
+        reader = PdfReader(str(f))
+        pages = [(p.extract_text() or "") for p in reader.pages]
+    except Exception as e:  # pypdf raises a zoo of types on corrupt files
+        raise OSError(f"unreadable PDF: {e}")
+    return "\n\n".join(pages).strip()
+
+
 class Indexer:
     def __init__(self, engine: "Engine"):
         self.engine = engine
@@ -103,7 +129,7 @@ class Indexer:
         """
         p = IndexPlan()
         vault = self.cfg.resolved_vault()
-        files = iter_vault_files(vault, self.cfg.include_globs, self.cfg.exclude_dirs)
+        files = iter_vault_files(vault, active_globs(self.cfg), self.cfg.exclude_dirs)
         p.files_total = len(files)
         seen: set[str] = set()
 
@@ -119,7 +145,7 @@ class Indexer:
             rel = str(f.relative_to(vault))
             seen.add(rel)
             try:
-                raw = f.read_text(encoding="utf-8", errors="replace")
+                raw = read_note_text(f)
             except OSError:
                 continue
             content_hash = hashlib.sha256(raw.encode()).hexdigest()
@@ -184,7 +210,7 @@ class Indexer:
                     if progress:
                         progress(f"removed {rel}")
         else:
-            files = iter_vault_files(vault, self.cfg.include_globs, self.cfg.exclude_dirs)
+            files = iter_vault_files(vault, active_globs(self.cfg), self.cfg.exclude_dirs)
         seen_paths: set[str] = set()
         changed_docs: list[tuple[int, list[str]]] = []  # (doc_id, wikilinks)
 
@@ -192,7 +218,7 @@ class Indexer:
             rel = str(f.relative_to(vault))
             seen_paths.add(rel)
             try:
-                raw = f.read_text(encoding="utf-8", errors="replace")
+                raw = read_note_text(f)
             except OSError as e:
                 rep.errors.append(f"{rel}: {e}")
                 continue
@@ -454,7 +480,7 @@ def watch(engine: "Engine", debounce: float = 2.0, on_sync: Optional[Callable] =
     lock = threading.Lock()
     pending: dict = {"paths": set(), "last": 0.0, "overflow": False}
     # react to whatever the include globs cover, not just .md
-    suffixes = {Path(g).suffix for g in engine.cfg.include_globs if Path(g).suffix} or {".md"}
+    suffixes = {Path(g).suffix for g in active_globs(engine.cfg) if Path(g).suffix} or {".md"}
 
     def note_path(p: str) -> Optional[str]:
         pp = Path(p)

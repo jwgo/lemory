@@ -9,7 +9,7 @@
     "support_recall@8": 1.0,
     "full_support@8_hops1": 1.0,
     "full_support@8_hops2": 1.0,
-    "ms_per_query": 2.1388739870305646
+    "ms_per_query": 2.185829898767304
   },
   "lemory-nograph": {
     "recall@1": 1.0,
@@ -17,11 +17,11 @@
     "recall@5": 1.0,
     "recall@8": 1.0,
     "mrr@10": 1.0,
-    "full_support@8": 0.5263157894736842,
-    "support_recall@8": 0.7631578947368421,
+    "full_support@8": 0.631578947368421,
+    "support_recall@8": 0.8157894736842105,
     "full_support@8_hops1": 1.0,
-    "full_support@8_hops2": 0.35714285714285715,
-    "ms_per_query": 1.3955434163411458
+    "full_support@8_hops2": 0.5,
+    "ms_per_query": 1.659309654905085
   },
   "vector": {
     "recall@1": 0.9649122807017544,
@@ -29,22 +29,22 @@
     "recall@5": 1.0,
     "recall@8": 1.0,
     "mrr@10": 0.9824561403508771,
-    "full_support@8": 0.543859649122807,
-    "support_recall@8": 0.7719298245614035,
+    "full_support@8": 0.631578947368421,
+    "support_recall@8": 0.8157894736842105,
     "full_support@8_hops1": 1.0,
-    "full_support@8_hops2": 0.38095238095238093,
-    "ms_per_query": 0.24877933033725672
+    "full_support@8_hops2": 0.5,
+    "ms_per_query": 0.2757080814294648
   },
   "bm25": {
-    "recall@1": 0.8245614035087719,
+    "recall@1": 0.7368421052631579,
     "recall@3": 1.0,
     "recall@5": 1.0,
     "recall@8": 1.0,
-    "mrr@10": 0.9122807017543859,
-    "full_support@8": 0.5789473684210527,
-    "support_recall@8": 0.7894736842105263,
+    "mrr@10": 0.8625730994152048,
+    "full_support@8": 0.5964912280701754,
+    "support_recall@8": 0.7982456140350878,
     "full_support@8_hops1": 1.0,
-    "full_support@8_hops2": 0.42857142857142855,
-    "ms_per_query": 0.7610237389280085
+    "full_support@8_hops2": 0.4523809523809524,
+    "ms_per_query": 0.850761145876165
   }
 }

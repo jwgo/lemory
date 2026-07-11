@@ -52,6 +52,31 @@ class SearchResult:
     expanded_docs: list[int] = field(default_factory=list)
 
 
+# khoj-style scoping operators: `tag:프로젝트 folder:회의록 예산 결정` restricts
+# retrieval before ranking. Values with spaces are quoted: tag:"프로젝트 A".
+_OPERATOR_RE = re.compile(r'(?:^|\s)(tag|folder|path)\s*:\s*(?:"([^"]+)"|(\S+))',
+                          re.IGNORECASE)
+
+
+def parse_operators(query: str) -> tuple[str, list[str], list[str]]:
+    """Split scoping operators out of a query.
+
+    Returns (clean_query, tags, folders). Multiple tags AND together; multiple
+    folders OR together (two disjoint folders can never AND). `path:` is a
+    synonym for `folder:`."""
+    tags: list[str] = []
+    folders: list[str] = []
+
+    def _grab(m: re.Match) -> str:
+        val = (m.group(2) or m.group(3)).strip().lstrip("#")
+        if val:
+            (tags if m.group(1).lower() == "tag" else folders).append(val)
+        return " "
+
+    clean = _OPERATOR_RE.sub(_grab, query).strip()
+    return clean, tags, folders
+
+
 def rrf_fuse(
     ranked_lists: list[tuple[list[tuple[int, float]], float]], rrf_k: int
 ) -> dict[int, float]:
@@ -125,6 +150,20 @@ def hybrid_search(
     use_expand = (cfg.query_expansion if expand is None else expand) and mode == "hybrid"
     use_rerank = (cfg.rerank if rerank is None else rerank) and mode == "hybrid"
 
+    # scoping operators (`tag:x folder:y ...`) restrict retrieval to a doc
+    # subset. Parsed in every mode so `tag:회의록 예산` behaves the same in
+    # vector/bm25 ablations as in hybrid.
+    allowed_docs: set[int] | None = None
+    clean, op_tags, op_folders = parse_operators(query)
+    if op_tags or op_folders:
+        allowed_docs = store.docs_matching(op_tags, op_folders)
+        if not allowed_docs:
+            return SearchResult(hits=[])
+        query = clean
+        if not query:
+            # bare filter ("tag:회의록") = scoped listing, newest first
+            return _filtered_listing(store, allowed_docs, k)
+
     # local typo repair: the lexical legs (BM25, title boost) die on typos the
     # embedding leg shrugs off; correcting only unknown words is safe because
     # a word that matches the index is never touched
@@ -151,13 +190,16 @@ def hybrid_search(
     for q_text, weight, legs in queries:
         v_hits: list[tuple[int, float]] = []
         b_hits: list[tuple[int, float]] = []
+        # scoped queries over-fetch: the filter discards candidates, so the
+        # legs must dig deeper to keep k results inside the scope
+        depth = 4 if allowed_docs is not None else 1
         if mode in ("hybrid", "vector") and legs != "bm25":
             v = engine.embed_query_cached(q_text)
             if q_text == query:
                 qv = v
-            v_hits = store.vector_search(v, cfg.k_vector)
+            v_hits = store.vector_search(v, cfg.k_vector * depth)
         if mode in ("hybrid", "bm25"):
-            b_hits = store.bm25_search(q_text, cfg.k_bm25)
+            b_hits = store.bm25_search(q_text, cfg.k_bm25 * depth)
         if q_text == query:
             vec_hits, bm25_hits = v_hits, b_hits
         tagged_lists.append(("vec", v_hits, cfg.w_vector * weight))
@@ -224,6 +266,20 @@ def hybrid_search(
             if t_tokens and _covers(t_tokens, q_tokens):
                 fused[cid] += cfg.title_boost * (len(t_tokens) / max(1, len(q_tokens)))
 
+    # usage prior (opt-in, cfg.usage_prior=0 by default — see config.py for
+    # why): multiplicative like recency, so it amplifies relevance only
+    if mode == "hybrid" and cfg.usage_prior > 0:
+        stats = store.hit_stats()
+        if stats:
+            import math
+
+            mx = math.log1p(max(h for h, _ in stats.values()))
+            if mx > 0:
+                for cid, meta in chunk_meta.items():
+                    s = stats.get(meta.doc_id)
+                    if s and cid in fused:
+                        fused[cid] *= 1.0 + cfg.usage_prior * math.log1p(s[0]) / mx
+
     expanded_docs: list[int] = []
     if use_graph and mode == "hybrid" and qv is not None:
         expanded_docs = _graph_expand(engine, fused, chunk_meta, qv)
@@ -235,6 +291,12 @@ def hybrid_search(
     # with the fusion score (costs one LLM call per search)
     if use_rerank and fused:
         _llm_rerank(engine, query, fused, chunk_meta)
+
+    if allowed_docs is not None:
+        fused = {
+            cid: s for cid, s in fused.items()
+            if (m := chunk_meta.get(cid)) is not None and m.doc_id in allowed_docs
+        }
 
     ranked = sorted(fused.items(), key=lambda x: -x[1])
 
@@ -255,6 +317,63 @@ def hybrid_search(
         if len(hits) >= k:
             break
     return SearchResult(hits=hits, fused=fused, expanded_docs=expanded_docs)
+
+
+def related_notes(engine: "Engine", path: str, k: int = 8) -> list[dict]:
+    """reor-style related notes: the note itself is the query — zero LLM calls,
+    zero embedding calls (its chunk vectors are already in the index).
+
+    Score = best chunk-to-chunk cosine against the target note's centroid,
+    with a small bonus for notes already link-connected to it (they're related
+    by declaration, not just by wording)."""
+    store = engine.store
+    doc = store.get_doc_by_path(path)
+    if doc is None:
+        return []
+    ids = store.doc_chunk_ids(doc.id)
+    vecs = store.chunk_vectors(ids)
+    if not vecs:
+        return []
+    import numpy as np
+
+    centroid = np.mean(list(vecs.values()), axis=0)
+    norm = np.linalg.norm(centroid)
+    if norm < 1e-9:
+        return []
+    centroid /= norm
+
+    linked = {n_id for n_id, _kind, _w in store.neighbors([doc.id]).get(doc.id, [])}
+    best: dict[int, float] = {}
+    for cid, sim in store.vector_search(centroid, max(48, k * 6)):
+        meta = store.get_chunks([cid]).get(cid)
+        if meta is None or meta.doc_id == doc.id:
+            continue
+        score = sim + (0.05 if meta.doc_id in linked else 0.0)
+        if score > best.get(meta.doc_id, -1.0):
+            best[meta.doc_id] = score
+
+    docs = {d.id: d for d in store.all_docs()}
+    out = []
+    for did, score in sorted(best.items(), key=lambda x: -x[1])[:k]:
+        d = docs.get(did)
+        if d:
+            out.append({"path": d.path, "title": d.title, "score": round(float(score), 4)})
+    return out
+
+
+def _filtered_listing(store: Store, allowed: set[int], k: int) -> SearchResult:
+    """A bare scope filter with no residual query ('tag:회의록') lists the
+    scope's notes newest-first — one representative chunk per note."""
+    dates = store.doc_dates()
+    hits: list[ChunkHit] = []
+    for did in sorted(allowed, key=lambda d: -dates.get(d, 0.0))[:k]:
+        ids = store.doc_chunk_ids(did)
+        if not ids:
+            continue
+        meta = store.get_chunks([ids[0]])[ids[0]]
+        meta.score = 0.0
+        hits.append(meta)
+    return SearchResult(hits=hits)
 
 
 _QUESTION_WORDS = {

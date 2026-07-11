@@ -311,6 +311,25 @@ def remember(
     console.print(f"[green]saved[/green] {path}")
 
 
+@app.command("import-chats")
+def import_chats(
+    file: Path = typer.Argument(..., help="ChatGPT/Claude export conversations.json"),
+    folder: str = typer.Option("chats", help="Vault folder for imported notes"),
+    limit: Optional[int] = typer.Option(None, help="Import only the first N conversations"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """Import a ChatGPT/Claude conversation export as vault notes (searchable,
+    dated, idempotent — re-running on a newer export only adds new chats)."""
+    from ..ingestion.chat_import import import_conversations
+
+    eng = _engine(vault)
+    written = import_conversations(eng, file, folder=folder, limit=limit)
+    if written:
+        console.print(f"[green]{len(written)}개 대화[/green]를 {folder}/ 에 저장하고 색인했습니다.")
+    else:
+        console.print("새로 추가된 대화가 없습니다 (이미 가져왔거나 빈 내보내기).")
+
+
 @app.command()
 def index(
     vault: Optional[Path] = typer.Option(None, help="Vault path (else lemory.toml / LEMORY_VAULT)"),

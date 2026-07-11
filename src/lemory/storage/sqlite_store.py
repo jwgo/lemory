@@ -410,6 +410,28 @@ class Store:
     def link_count(self) -> int:
         return int(self.conn().execute("SELECT COUNT(*) AS n FROM links").fetchone()["n"])
 
+    def docs_matching(self, tags: list[str] | None = None,
+                      folders: list[str] | None = None) -> set[int]:
+        """Doc ids satisfying scope filters: ALL tags present (AND), path under
+        ANY of the folders (OR). Case-insensitive; folders match any depth."""
+        want_tags = [t.lower().lstrip("#") for t in (tags or []) if t.strip()]
+        want_dirs = [f.lower().strip().strip("/") for f in (folders or []) if f.strip()]
+        out: set[int] = set()
+        for r in self.conn().execute("SELECT id, path, tags FROM documents"):
+            if want_tags:
+                try:
+                    have = {t.lower().lstrip("#") for t in json.loads(r["tags"])}
+                except json.JSONDecodeError:
+                    have = set()
+                if not all(t in have for t in want_tags):
+                    continue
+            if want_dirs:
+                hay = "/" + r["path"].lower()
+                if not any(f"/{d}/" in hay for d in want_dirs):
+                    continue
+            out.add(r["id"])
+        return out
+
     def link_degrees(self) -> dict[int, int]:
         """doc_id -> total link degree (in + out), for hub detection."""
         out: dict[int, int] = {}
