@@ -291,6 +291,16 @@ Write: `save_memory` · `append_note` — Claude persists decisions and facts
 **as plain Markdown notes in your vault**: visible in Obsidian, versionable,
 searchable next question, zero lock-in. Never overwrites, can't escape the
 vault, append-only edits.
+
+To make it automatic (mem0/supermemory-style lifecycle, minus the cloud),
+drop this into the project's `CLAUDE.md` or your global instructions:
+
+```markdown
+At the start of a session, call lemory's vault_context once for situational
+awareness. When we settle a decision, a fact worth keeping, or a preference,
+save it with save_memory (concise, one memory per note). Search the vault
+with search_notes before asking me things my notes already answer.
+```
 </details>
 
 <details>
