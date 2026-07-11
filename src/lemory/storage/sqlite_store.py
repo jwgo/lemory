@@ -135,6 +135,10 @@ class DocRecord:
 
 
 _HANGUL_RUN = re.compile(r"[가-힣]+")
+# 가나(ぁ-ヿ)·CJK 한자(一-鿿)까지: 한국어 위키는 표기 테이블에 일본어/중국어
+# 명칭을 함께 적고, unicode61은 스크립트가 섞인 연속 런("ナイトロード나이트로드")
+# 을 한 토큰으로 붙여 버려서 바이그램 없이는 영원히 매치되지 않는다
+_CJK_RUN = re.compile(r"[가-힣]+|[ぁ-ヿ]+|[一-鿿]+")
 
 # high-frequency single-syllable suffixes: 조사 that attach to single-syllable
 # nouns ('윌의', '책은') and verbal 어미 on 2-syllable conjugations ('읽던' /
@@ -154,7 +158,7 @@ def hangul_bigrams(text: str) -> list[str]:
     syllables from dominating.
     """
     grams: list[str] = []
-    for run in _HANGUL_RUN.findall(text):
+    for run in _CJK_RUN.findall(text):
         grams.extend(run)
         grams.extend(run[i : i + 2] for i in range(len(run) - 1))
     return grams
@@ -182,7 +186,7 @@ def query_hangul_grams(text: str) -> list[str]:
     QUERY loses only single-shared-syllable noise matches whose IDF weight
     was ~0 anyway."""
     grams: list[str] = []
-    for run in _HANGUL_RUN.findall(text):
+    for run in _CJK_RUN.findall(text):
         if len(run) == 1:
             grams.append(run)
         else:
