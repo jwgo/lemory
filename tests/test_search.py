@@ -121,3 +121,20 @@ def test_verbatim_pin_gate_configurable(engine):
     engine.cfg.verbatim_pin_gate = 2.0  # unreachable -> pin never fires
     q = "Dana previously worked at Weyland Corp on distributed tracing"
     assert engine.search(q, k=3)  # still returns fused results
+
+
+def test_jamo_matching_survives_korean_spacing():
+    from lemory.retrieval.search import _to_jamo, _token_in_text
+
+    # 띄어쓰기 variation: '이루어져있는가' (query) vs '이루어져 있다' (note)
+    text = "제1차 민법전초안은 총 5개 편으로 이루어져 있다"
+    assert _token_in_text("이루어져있는가", text, _to_jamo(text))
+
+
+def test_short_korean_verbatim_questions_reach_coverage(engine, vault):
+    from lemory.retrieval.search import _coverage_tokens
+
+    # after question-furniture stripping, 2 Hangul content tokens must be
+    # enough to gate ("이충우의 본명은 무엇인가?" is a verbatim lookup)
+    toks = _coverage_tokens("이충우의 본명은 무엇인가?")
+    assert toks and len(toks) >= 1

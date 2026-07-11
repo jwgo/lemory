@@ -445,7 +445,9 @@ _JAMO_T = ["", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "�
 def _to_jamo(s: str, drop_last_tail: bool = False) -> str:
     """Decompose Hangul syllables to jamo so conjugation survives matching:
     '만든' vs '만들었다' differ at the syllable level (ㄹ-drop) but share the
-    jamo prefix ㅁㅏㄴㄷㅡ. Non-Hangul characters pass through."""
+    jamo prefix ㅁㅏㄴㄷㅡ. Whitespace is dropped so 띄어쓰기 variation
+    ('이루어져있는가' vs '이루어져 있다') can't break containment; other
+    non-Hangul characters pass through."""
     out = []
     for i, ch in enumerate(s):
         code = ord(ch)
@@ -456,7 +458,7 @@ def _to_jamo(s: str, drop_last_tail: bool = False) -> str:
             out.append(_JAMO_V[v])
             if t and not (drop_last_tail and i == len(s) - 1):
                 out.append(_JAMO_T[t])
-        else:
+        elif not ch.isspace():
             out.append(ch)
     return "".join(out)
 
@@ -487,9 +489,11 @@ def _bm25_coverage(store: Store, query: str, bm25_hits: list[tuple[int, float]])
     top-3 BM25 chunk (title included)."""
     q_tokens = _coverage_tokens(query)
     # Hangul packs more content per token (조사 glue words instead of separate
-    # prepositions), so 3 Korean tokens carry what ~4+ English tokens do
+    # prepositions, question furniture already stripped), so 2 Korean content
+    # tokens carry what ~4+ English tokens do: "이충우의 본명은 무엇인가?"
+    # leaves exactly {이충우의, 본명은} and IS a verbatim lookup
     has_hangul = any(_HANGUL_RE.search(t) for t in q_tokens)
-    min_tokens = 3 if has_hangul else 4
+    min_tokens = 2 if has_hangul else 4
     if len(q_tokens) < min_tokens:
         return 0.0
     meta = store.get_chunks([cid for cid, _ in bm25_hits[:3]])
