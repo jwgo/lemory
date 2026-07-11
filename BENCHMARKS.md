@@ -300,10 +300,13 @@ Two fixes, both LLM-free (`retrieval/search.py`):
   char suffix tolerance, jamo-level fallback with final-받침 drop, final
   topic-marked focus-noun exclusion (explicit questions only), and Korean
   interrogative/glue-word stop list.
-* **The reciting pin** (`verbatim_pin_gate`, default 0.65) — when a top-3
-  BM25 chunk covers ≥65 % of the query's content tokens, the query is
-  reciting a note: BM25's own ordering is kept outright and dense candidates
-  only fill in below it. Paraphrased / cross-lingual / typo'd queries never
+* **The reciting pin** (`verbatim_pin_gate` 0.65, `verbatim_pin_head` 3) —
+  when a top-3 BM25 chunk covers ≥65 % of the query's content tokens, the
+  query is reciting a note: BM25's top-3 is pinned above everything and the
+  tail stays fused (pinning the whole list froze ranks 4-8 at a scale graph
+  expansion and recency reweighting can't reach — head-only pinning gained
+  law recall@1 +10.5 pt and fixed the temporal superseded-trap while keeping
+  every verbatim gain). Paraphrased / cross-lingual / typo'd queries never
   reach this coverage (measured: 0 % at ≥0.9, ≤9 % at ≥0.8 on the robustness
   variants), so their fusion is untouched.
 
