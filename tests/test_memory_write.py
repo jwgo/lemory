@@ -78,3 +78,39 @@ def test_server_memory_endpoints(client):
 
         assert client.post("/memory", json={"content": "x", "folder": "../up"}).status_code == 400
         assert client.post("/append", json={"path": "../up.md", "content": "x"}).status_code == 400
+
+
+def test_save_memory_links_related_and_flags_duplicate(engine, vault):
+    # unit test exercises the mechanism, not the default thresholds (those
+    # are tuned for real embedders; the fake embedder's cosine scale differs)
+    engine.cfg.memory_dedup_sim = engine.cfg.memory_related_sim
+    engine.index()
+    a = save_memory(engine, "결제 서비스 장애 시 우선 연락처는 김지수 (010-1234)", title="장애 연락처")
+    # near-identical fact saved again -> related + duplicate flag
+    b = save_memory(engine, "결제 서비스 장애가 나면 우선 연락처는 김지수 (010-1234)이다", title="장애 연락처 v2")
+    assert getattr(b, "related", None), "second save must see the first memory"
+    top = b.related[0]
+    assert top["title"] == "장애 연락처"
+    assert top["near_duplicate"] is True
+    # the new note's frontmatter carries the links
+    text = (vault / b).read_text()
+    assert "related:" in text and "[[장애 연락처]]" in text
+    assert "possible_duplicate_of:" in text
+
+
+def test_save_memory_unrelated_content_gets_no_duplicate_flag(engine, vault):
+    engine.index()
+    save_memory(engine, "결제 서비스 장애 시 우선 연락처는 김지수", title="장애 연락처")
+    c = save_memory(engine, "완전히 무관한 주제: 화분에 물은 화요일마다 준다", title="화분 물주기")
+    assert all(not r["near_duplicate"] for r in getattr(c, "related", []))
+    text = (vault / c).read_text()
+    assert "possible_duplicate_of:" not in text
+
+
+def test_save_memory_relate_disabled(engine, vault):
+    engine.cfg.memory_relate = False
+    engine.index()
+    save_memory(engine, "fact one about deploys", title="Fact1")
+    d = save_memory(engine, "fact one about deploys again", title="Fact2")
+    assert getattr(d, "related", []) == []
+    assert "related:" not in (vault / d).read_text()

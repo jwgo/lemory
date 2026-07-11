@@ -243,7 +243,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                                client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
-        return {"saved": path}
+        return {"saved": str(path), "related": getattr(path, "related", [])}
 
     @app.post("/append")
     def append(request: Request, body: AppendBody):

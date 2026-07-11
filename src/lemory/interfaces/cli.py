@@ -369,6 +369,9 @@ def remember(
     tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
     path = save_memory(eng, content, title=title, folder=folder, tags=tag_list, client="cli")
     console.print(f"[green]saved[/green] {path}")
+    for r in getattr(path, "related", []):
+        flag = " [yellow](중복일 수 있음 · possible duplicate)[/yellow]" if r["near_duplicate"] else ""
+        console.print(f"  [dim]관련 기억:[/dim] [[{r['title']}]] sim={r['sim']}{flag}")
 
 
 @app.command("import-chats")

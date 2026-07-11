@@ -110,6 +110,18 @@ class LemoryConfig(BaseSettings):
     # can't reach, silencing multi-hop link evidence on pinned queries.
     verbatim_pin_head: int = 3
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
+    # --- memory consolidation (second-brain behavior): every save_memory
+    # looks up what the vault already knows. Related notes become `related:`
+    # wikilinks in the new note's frontmatter; a near-duplicate (high cosine
+    # AND high token overlap — two scales because embedder cosines vary,
+    # Jaccard doesn't) additionally gets `possible_duplicate_of:`. Lemory
+    # links instead of rewriting/deleting old facts (mem0-style LLM update
+    # passes are destructive and wrong often enough to need an undo story;
+    # a wikilink IS the undo story). Zero LLM, skipped in keyless mode.
+    memory_relate: bool = True
+    memory_related_sim: float = 0.60
+    memory_dedup_sim: float = 0.80
+    memory_dedup_overlap: float = 0.35
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
     context_style: str = "full"   # "full" chunks or "compact" fact-sheet context for ask()

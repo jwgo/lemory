@@ -151,7 +151,18 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             path = _save(engine, content, title=title, folder=folder, tags=tag_list, client=client)
         except ValueError as e:
             return json.dumps({"error": str(e)})
-        return json.dumps({"saved": path}, ensure_ascii=False)
+        out: dict = {"saved": str(path)}
+        related = getattr(path, "related", [])
+        if related:
+            # consolidation surface: the agent learns what the vault already
+            # knows the moment it writes — a near-duplicate means "consider
+            # citing/updating that note instead of stacking a copy"
+            out["related_existing"] = related
+            dup = next((r["title"] for r in related if r["near_duplicate"]), None)
+            if dup:
+                out["note"] = (f"possible duplicate of existing memory '{dup}' — "
+                               "both are now linked via frontmatter")
+        return json.dumps(out, ensure_ascii=False)
 
     @mcp.tool(annotations=WRITE)
     def append_note(path: str, content: str) -> str:
