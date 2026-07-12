@@ -20,6 +20,8 @@ def test_provider_local_explicit(tmp_path):
 
 
 def test_auto_falls_back_to_local_without_keys(tmp_path, monkeypatch):
+    import pytest
+    pytest.importorskip("fastembed", reason="pip install 'lemory[local]'")
     for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
     cfg = LemoryConfig(vault=tmp_path)  # fastembed installed in this env
