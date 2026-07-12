@@ -475,7 +475,7 @@ Search is local and LLM-free (~3-13 ms). One embedding call per query
 
 ## Contributing
 
-`uv venv && uv pip install -e ".[dev]" && pytest`: 336 tests, fully offline.
+`uv venv && uv pip install -e ".[dev,mcp,local,pdf]" && pytest`: 338 tests, fully offline.
 [CONTRIBUTING.md](CONTRIBUTING.md) · 한국어 이슈/PR 환영합니다.
 
 Local-first by design. The trust model, the localhost server's guards
