@@ -278,9 +278,9 @@ def hybrid_search(
         # style) also deserve a lexical lean: detected per query by how much of
         # the query's vocabulary the top BM25 chunks already cover. Paraphrased,
         # cross-lingual, or typo'd queries have low coverage and are unaffected.
-        cov = 0.0
+        cov, cov_cid = 0.0, None
         if kw_boost == 1.0 and bm25_hits:
-            cov = _bm25_coverage(store, lex_query, bm25_hits)
+            cov, cov_cid = _bm25_coverage(store, lex_query, bm25_hits)
             if cov >= cfg.verbatim_gate:
                 kw_boost = cfg.keyword_bm25_boost
         fused = rrf_fuse(
@@ -297,6 +297,12 @@ def hybrid_search(
             # lexical list, as gap-fillers.
             for r, (cid, _) in enumerate(bm25_hits[: cfg.verbatim_pin_head or None]):
                 fused[cid] = 2.0 + 1.0 / (1 + r)
+            # ...and the chunk that actually COVERS the query outranks even
+            # that head: a masked-entity identifier often lives at BM25 rank
+            # 4-8 (common tokens outscore it), yet it is the one chunk the
+            # query is quoting — pin it first, wherever BM25 ranked it
+            if cov_cid is not None:
+                fused[cov_cid] = 3.5
 
     if not fused:
         return SearchResult(hits=[])
@@ -543,9 +549,33 @@ def _token_in_text(t: str, text: str, text_jamo: str = "") -> bool:
     return False
 
 
+def _idf_weight(store: Store, token: str) -> float:
+    """Rarity weight for coverage: a quoted identifier ('문브릿지') should
+    dominate the gate while question furniture ('보스', 'mp') barely counts.
+    Uses the typo lexicon's surface-form counts; unseen surfaces (numbers,
+    mixed-script runs the lexicon regex skips) are treated as rare — they
+    are discriminative exactly because the vocabulary never saw them."""
+    import math
+
+    lex = store.lexicon()
+    c = lex.get(token)
+    if c is None and len(token) >= 3:
+        c = lex.get(token[:-1])  # 조사-stripped surface ('문브릿지의'→'문브릿지')
+    if c is None:
+        c = 3
+    return 1.0 / (1.0 + math.log1p(c))
+
+
 def _bm25_coverage(store: Store, query: str, bm25_hits: list[tuple[int, float]]) -> float:
-    """Fraction of the query's content tokens present in the best-covering
-    top-3 BM25 chunk (title included)."""
+    """IDF-weighted fraction of the query's content tokens present in the
+    best-covering top-3 BM25 chunk (title included).
+
+    Count-based coverage under-fired on entity-masked questions: "위치가
+    '문브릿지 : 공허의 눈'인 보스의 MP는?" quotes a unique identifier, but
+    rare tokens were outvoted by unmatched common ones and the pin never
+    fired — measured as hybrid 0.461 vs its own BM25 leg 0.735 on KorMapleQA
+    masked. Weighting by rarity lets the identifier carry the gate while
+    paraphrases (which avoid rare exact tokens by construction) stay below."""
     q_tokens = _coverage_tokens(query)
     # Hangul packs more content per token (조사 glue words instead of separate
     # prepositions, question furniture already stripped), so 2 Korean content
@@ -554,15 +584,22 @@ def _bm25_coverage(store: Store, query: str, bm25_hits: list[tuple[int, float]])
     has_hangul = any(_HANGUL_RE.search(t) for t in q_tokens)
     min_tokens = 2 if has_hangul else 4
     if len(q_tokens) < min_tokens:
-        return 0.0
-    meta = store.get_chunks([cid for cid, _ in bm25_hits[:3]])
-    best = 0.0
-    for m in meta.values():
+        return 0.0, None
+    weights = {t: _idf_weight(store, t) for t in q_tokens}
+    total = sum(weights.values()) or 1.0
+    # top-8, not top-3: a masked-entity query's identifier often sits in the
+    # rank-4..8 chunk (that being the problem the pin exists to fix) — a
+    # 3-chunk window couldn't see the evidence that should open the gate
+    meta = store.get_chunks([cid for cid, _ in bm25_hits[:8]])
+    best, best_cid = 0.0, None
+    for cid, m in meta.items():
         text = (m.text + " " + m.title).lower()
         text_jamo = _to_jamo(text) if has_hangul else ""
-        hit = sum(1 for t in q_tokens if _token_in_text(t, text, text_jamo))
-        best = max(best, hit / len(q_tokens))
-    return best
+        hit = sum(w for t, w in weights.items()
+                  if _token_in_text(t, text, text_jamo))
+        if hit / total > best:
+            best, best_cid = hit / total, cid
+    return best, best_cid
 
 
 def _is_keyword_query(query: str) -> bool:

@@ -109,6 +109,10 @@ class LemoryConfig(BaseSettings):
     # list). Pinning everything freezes ranks 4-8 at a scale graph expansion
     # can't reach, silencing multi-hop link evidence on pinned queries.
     verbatim_pin_head: int = 3
+    # at this IDF-weighted coverage the query quotes a note near-verbatim:
+    # pin BM25's whole candidate list (rank 4-8 gold would otherwise drown
+    # in RRF tail noise from a weak dense leg)
+    verbatim_pin_deep_gate: float = 0.85
     typo_correction: bool = True  # local did-you-mean repair of unknown query words
     # --- memory consolidation (second-brain behavior): every save_memory
     # looks up what the vault already knows. Related notes become `related:`
