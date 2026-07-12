@@ -106,7 +106,7 @@ graph-building some competitors need for a 54-note vault:
 </div>
 
 **New here? Step-by-step: [docs/GUIDE.md](docs/GUIDE.md)
-(한국어: [docs/GUIDE.ko.md](docs/GUIDE.ko.md)).**
+(한국어: [docs/GUIDE.ko.md](docs/GUIDE.ko.md) · 루틴: [docs/ROUTINE.ko.md](docs/ROUTINE.ko.md)).**
 
 ## Give your AI a memory. Any AI.
 

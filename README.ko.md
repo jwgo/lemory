@@ -88,7 +88,7 @@ LLM이 돌지 않아서 **노트 1,000개 색인 = LLM 호출 0회**입니다:
 <img src="docs/assets/chart_ingest.svg" width="840" alt="1,469노트가 검색 가능해질 때까지 걸리는 시간">
 </div>
 
-**처음이라면: [docs/GUIDE.ko.md](docs/GUIDE.ko.md)**
+**처음이라면: [docs/GUIDE.ko.md](docs/GUIDE.ko.md) · 일상 루틴: [docs/ROUTINE.ko.md](docs/ROUTINE.ko.md)**
 
 ## Claude에게 기억을 주기
 
