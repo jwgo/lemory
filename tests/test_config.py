@@ -18,6 +18,8 @@ def test_resolved_vault_requires_vault():
 
 
 def test_keyless_resolves_to_local(monkeypatch):
+    import pytest
+    pytest.importorskip("fastembed", reason="pip install 'lemory[local]'")
     for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
     cfg = LemoryConfig()
