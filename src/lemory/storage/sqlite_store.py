@@ -1065,9 +1065,11 @@ class Store:
         return counts
 
     def lexicon_buckets(self) -> dict[str, list[tuple[str, int]]]:
-        """lexicon() grouped by first character — the typo scan's candidate
-        filter (same first char, similar length) becomes an O(bucket) lookup
-        instead of a 350k-term linear scan per unknown word."""
+        """lexicon() grouped by first AND second character — the typo scan's
+        candidate filter becomes an O(bucket) lookup instead of a 350k-term
+        linear scan. Second-char buckets (prefixed '\x02') let a typo in the
+        FIRST syllable ('메이플' typed '매이플/이메플') still find its word:
+        first-char-equal filtering alone is blind exactly there."""
         with self._matrix_lock:
             buckets = self._lexicon_buckets
         if buckets is not None:
@@ -1075,6 +1077,8 @@ class Store:
         buckets = {}
         for term, count in self.lexicon().items():
             buckets.setdefault(term[0], []).append((term, count))
+            if len(term) >= 2:
+                buckets.setdefault("\x02" + term[1], []).append((term, count))
         with self._matrix_lock:
             self._lexicon_buckets = buckets
         return buckets

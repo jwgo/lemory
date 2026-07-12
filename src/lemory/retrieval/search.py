@@ -177,8 +177,17 @@ def correct_typos(store: Store, query: str) -> str:
             continue
         cap = 1 if len(word) <= 4 else 2
         best, best_key = None, (cap + 1, 0)
-        # first-syllable bucket + length filter: O(bucket), not O(vocab)
-        for term, doc_count in store.lexicon_buckets().get(word[0], ()):
+        # candidates: same first char, or (for first-syllable typos) same
+        # SECOND char — O(two buckets), not O(vocab)
+        buckets = store.lexicon_buckets()
+        cands = list(buckets.get(word[0], ()))
+        if len(word) >= 2:
+            cands += buckets.get("\x02" + word[1], ())
+        seen: set[str] = set()
+        for term, doc_count in cands:
+            if term in seen:
+                continue
+            seen.add(term)
             if abs(len(term) - len(word)) > cap or not _HANGUL_RE.search(term):
                 continue
             d = _dl_distance_capped(word, term, cap)
