@@ -442,6 +442,9 @@ def skill_cmd(
     기억처럼 다룬다."""
     from .skills import render_skill, skill_target
 
+    if action not in ("install", "show"):
+        console.print(f"[red]알 수 없는 동작:[/red] {action} (install | show)")
+        raise typer.Exit(2)
     eng = _engine(vault)
     v = str(eng.cfg.resolved_vault())
     content = render_skill(assistant, v)

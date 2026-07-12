@@ -37,29 +37,37 @@ def detect_drift(engine: "Engine", max_per_kind: int = 50) -> dict:
     stale_duplicates: list[dict] = []
 
     for d in docs:
+        if all(len(x) >= max_per_kind for x in
+               (broken_wikilinks, missing_files, stale_duplicates)):
+            break  # all three kinds saturated — stop scanning the rest
         raw_targets = links_by_doc.get(d.id, [])
         for target in raw_targets:
+            if len(broken_wikilinks) >= max_per_kind:
+                break
             t = target.split("#")[0].split("|")[0].strip()
             if not t:
                 continue
             if t.lower() not in titles and (t.replace("/", "-")).lower() not in titles:
                 broken_wikilinks.append({"note": d.path, "target": target})
-                if len(broken_wikilinks) >= max_per_kind:
-                    break
+        # md-file links live in the body and the duplicate flag in the
+        # frontmatter (stripped from chunks), so this one class of check still
+        # needs the raw file — but the early-exit above means a saturated run
+        # stops re-reading the rest of the vault
         try:
             raw = (vault / d.path).read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
         for m in _MD_LINK_RE.finditer(raw):
+            if len(missing_files) >= max_per_kind:
+                break
             rel = m.group(1)
             if rel.startswith(("http://", "https://")):
                 continue
             if not (vault / d.path).parent.joinpath(rel).exists() \
                     and not (vault / rel).exists():
                 missing_files.append({"note": d.path, "target": rel})
-        fm = raw[:600]
-        dm = _FM_DUP_RE.search(fm)
-        if dm:
+        dm = _FM_DUP_RE.search(raw[:600])
+        if dm and len(stale_duplicates) < max_per_kind:
             other = dm.group(1)
             if other.lower() in titles:
                 stale_duplicates.append({"note": d.path, "duplicate_of": other})

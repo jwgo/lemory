@@ -145,15 +145,14 @@ def correct_typos(store: Store, query: str) -> str:
     Hangul words: syllable-level Damerau-Levenshtein — an adjacent-syllable
     swap ('메이플스토리' 오타 '메이플스퇴리/메이플스토리' 류) is 1 op — over
     the indexed Hangul vocabulary. Both paths only ever touch words the index
-    has never seen, so correct queries are never rewritten."""
-    lexicon = None
-    corrected = query
+    has never seen, so correct queries are never rewritten.
 
-    def _lex():
-        nonlocal lexicon
-        if lexicon is None:
-            lexicon = store.lexicon()
-        return lexicon
+    Replacements are collected as (start, end) spans over the ORIGINAL query
+    and applied once, so a correction can never land inside a different word
+    that merely shares a substring (an unbounded str.replace would rewrite
+    the first occurrence anywhere, corrupting a longer indexed run)."""
+    buckets = store.lexicon_buckets()
+    repls: list[tuple[int, int, str]] = []
 
     for m in _ASCII_WORD_RE.finditer(query):
         word = m.group(0)
@@ -162,14 +161,17 @@ def correct_typos(store: Store, query: str) -> str:
             continue
         cap = 1 if len(lower) <= 5 else 2
         best, best_key = None, (cap + 1, 0)
-        for term, doc_count in _lex().items():
-            if term[0] != lower[0] or abs(len(term) - len(lower)) > cap:
+        # first-char bucket, not the full mixed vocabulary: on a Korean vault
+        # the lexicon holds ~350k Hangul terms too, and a linear scan per
+        # unknown ASCII word would walk all of them
+        for term, doc_count in buckets.get(lower[0], ()):
+            if abs(len(term) - len(lower)) > cap or not term[0].isascii():
                 continue
             d = _edit_distance_capped(lower, term, cap)
             if d <= cap and (d, -doc_count) < (best_key[0], -best_key[1]):
                 best, best_key = term, (d, doc_count)
         if best:
-            corrected = re.sub(rf"(?<!\w){re.escape(word)}(?!\w)", best, corrected)
+            repls.append((m.start(), m.end(), best))
 
     for m in _HANGUL_WORD_RE.finditer(query):
         word = m.group(0)
@@ -181,7 +183,6 @@ def correct_typos(store: Store, query: str) -> str:
         # first-syllable typos — those are single-character events, so the
         # wider bucket is held to distance 1 (letting it use the full cap
         # rewrote valid-but-unindexed words and cost KorQuAD precision)
-        buckets = store.lexicon_buckets()
         seen: set[str] = set()
         pools = [(buckets.get(word[0], ()), cap)]
         if len(word) >= 2:
@@ -197,8 +198,21 @@ def correct_typos(store: Store, query: str) -> str:
                 if d <= pool_cap and (d, -doc_count) < (best_key[0], -best_key[1]):
                     best, best_key = term, (d, doc_count)
         if best and best != word:
-            corrected = corrected.replace(word, best, 1)
-    return corrected
+            repls.append((m.start(), m.end(), best))
+
+    if not repls:
+        return query
+    repls.sort()
+    out: list[str] = []
+    i = 0
+    for start, end, replacement in repls:
+        if start < i:  # overlapping span (shouldn't happen across disjoint
+            continue    # char classes) — keep the earlier correction
+        out.append(query[i:start])
+        out.append(replacement)
+        i = end
+    out.append(query[i:])
+    return "".join(out)
 
 
 def hybrid_search(
@@ -540,7 +554,7 @@ def _to_jamo(s: str, drop_last_tail: bool = False) -> str:
     return "".join(out)
 
 
-def _token_in_text(t: str, text: str, text_jamo: str = "") -> bool:
+def _token_in_text(t: str, text: str, text_jamo: str = "", stem: str = "") -> bool:
     if t in text:
         return True
     # agglutinative Hangul: the query token carries 조사/어미 the note won't
@@ -553,15 +567,18 @@ def _token_in_text(t: str, text: str, text_jamo: str = "") -> bool:
             return True
         # conjugation-proof fallback: '만든'/'만들었다', '넣은'/'넣었다' — match
         # at the jamo level with the final consonant (받침) dropped, which is
-        # where Korean verb endings mutate
+        # where Korean verb endings mutate. `stem` is precomputed by the caller
+        # (it depends only on the token, not the chunk) to avoid recomputing it
+        # per (token x chunk).
         if text_jamo and len(t) >= 2:
-            stem = _to_jamo(t, drop_last_tail=True)
+            if not stem:
+                stem = _to_jamo(t, drop_last_tail=True)
             if len(stem) >= 4 and stem in text_jamo:
                 return True
     return False
 
 
-def _idf_weight(store: Store, token: str) -> float:
+def _idf_weight(lex: dict, token: str) -> float:
     """Rarity weight for coverage: a quoted identifier ('문브릿지') should
     dominate the gate while question furniture ('보스', 'mp') barely counts.
     Uses the typo lexicon's surface-form counts; unseen surfaces (numbers,
@@ -569,7 +586,6 @@ def _idf_weight(store: Store, token: str) -> float:
     are discriminative exactly because the vocabulary never saw them."""
     import math
 
-    lex = store.lexicon()
     c = lex.get(token)
     if c is None and len(token) >= 3:
         c = lex.get(token[:-1])  # 조사-stripped surface ('문브릿지의'→'문브릿지')
@@ -578,9 +594,11 @@ def _idf_weight(store: Store, token: str) -> float:
     return 1.0 / (1.0 + math.log1p(c))
 
 
-def _bm25_coverage(store: Store, query: str, bm25_hits: list[tuple[int, float]]) -> float:
-    """IDF-weighted fraction of the query's content tokens present in the
-    best-covering top-3 BM25 chunk (title included).
+def _bm25_coverage(store: Store, query: str,
+                   bm25_hits: list[tuple[int, float]]) -> tuple[float, int | None]:
+    """(coverage, best_covering_chunk_id): the IDF-weighted fraction of the
+    query's content tokens present in the best-covering top-8 BM25 chunk
+    (title included), and that chunk's id.
 
     Count-based coverage under-fired on entity-masked questions: "위치가
     '문브릿지 : 공허의 눈'인 보스의 MP는?" quotes a unique identifier, but
@@ -597,8 +615,14 @@ def _bm25_coverage(store: Store, query: str, bm25_hits: list[tuple[int, float]])
     min_tokens = 2 if has_hangul else 4
     if len(q_tokens) < min_tokens:
         return 0.0, None
-    weights = {t: _idf_weight(store, t) for t in q_tokens}
+    lex = store.lexicon()  # one cached-dict fetch, not one per token
+    weights = {t: _idf_weight(lex, t) for t in q_tokens}
     total = sum(weights.values()) or 1.0
+    # token stems depend only on the token, so precompute them once instead of
+    # per (token x chunk) inside the loop below
+    stems = {t: (_to_jamo(t, drop_last_tail=True)
+                 if has_hangul and _HANGUL_RE.search(t) and len(t) >= 2 else "")
+             for t in q_tokens}
     # top-8, not top-3: a masked-entity query's identifier often sits in the
     # rank-4..8 chunk (that being the problem the pin exists to fix) — a
     # 3-chunk window couldn't see the evidence that should open the gate
@@ -608,7 +632,7 @@ def _bm25_coverage(store: Store, query: str, bm25_hits: list[tuple[int, float]])
         text = (m.text + " " + m.title).lower()
         text_jamo = _to_jamo(text) if has_hangul else ""
         hit = sum(w for t, w in weights.items()
-                  if _token_in_text(t, text, text_jamo))
+                  if _token_in_text(t, text, text_jamo, stems[t]))
         if hit / total > best:
             best, best_cid = hit / total, cid
     return best, best_cid
@@ -780,18 +804,15 @@ def _graph_expand(
                 r = min(ranks)
                 lex_rel = 1.0 - r / max(48, len(bm25_rank))
                 # a lexically-matching chunk is the better boost target than
-                # the (weak-embedder) cosine pick
-                best_lex_cid = min((c for c in chunk_ids_by_doc.get(dst, ())
+                # the (weak-embedder) cosine pick — redirect the boost to it
+                if lex_rel >= sim:
+                    best_cid = min((c for c in chunk_ids_by_doc.get(dst, ())
                                     if c in bm25_rank), key=bm25_rank.get)
-                # redirect only to chunks the fusion HASN'T ranked: expansion
-                # exists to surface invisible evidence — re-boosting a chunk
-                # that already holds a direct score just reshuffles the head
-                # of the ranking (measured: keyword rank-1 precision loss)
-                if lex_rel >= sim and best_lex_cid not in fused:
-                    best_cid = best_lex_cid
-        if sim < cfg.graph_sim_floor and lex_rel == 0.0:
-            # neighbor's content has nothing to do with the query: linked-but-
-            # irrelevant notes must not displace direct hits (single-hop safety)
+        # relevance floor, applied to the STRONGER of the two signals: a
+        # neighbor needs real cosine OR a real BM25 rank to clear it. A tail
+        # hit at rank ~47 gives lex_rel ~0.02, which no longer sneaks a
+        # semantically-unrelated linked note past the floor (single-hop safety)
+        if max(sim, lex_rel) < cfg.graph_sim_floor:
             continue
         add = gain * (0.35 + 0.65 * max(sim, lex_rel))  # relevance-gated
         if add > 0:

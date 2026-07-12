@@ -208,14 +208,16 @@ function pick(e) {
   }
   show(); draw();
 }
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function show() {
   const el = document.getElementById('sel');
   if (!sel) { el.innerHTML = ''; return; }
   const links = nbrs.get(sel.id).map(id => byId.get(id)).filter(Boolean)
     .sort((a, b) => b.deg - a.deg).slice(0, 20)
-    .map(n => `<span class="nb" data-id="${n.id}">↳ ${n.t}</span>`).join('');
-  el.innerHTML = `<b>${sel.t}</b><br><span style="color:#888">${sel.p}</span><br>` +
-    sel.tags.map(t => `<span class="tag">#${t}</span>`).join('') +
+    .map(n => `<span class="nb" data-id="${n.id}">↳ ${esc(n.t)}</span>`).join('');
+  el.innerHTML = `<b>${esc(sel.t)}</b><br><span style="color:#888">${esc(sel.p)}</span><br>` +
+    sel.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('') +
     `<div style="margin-top:6px;color:#999">links: ${sel.deg}</div>${links}`;
   el.querySelectorAll('.nb').forEach(a => a.onclick = () => {
     sel = byId.get(+a.dataset.id);
@@ -232,9 +234,17 @@ document.getElementById('q').addEventListener('input', e => {
 """
 
 
+def _html_escape(s: str) -> str:
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;"))
+
+
 def render_graph_html(engine: "Engine", title: str = "") -> str:
     data = graph_data(engine)
     name = title or Path(str(engine.cfg.resolved_vault())).name
+    # `</` split so a note titled "</script>" cannot terminate the inline
+    # <script> block; JSON string semantics are unchanged by the backslash
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     return (_TEMPLATE
-            .replace("__TITLE__", name)
-            .replace("__DATA__", json.dumps(data, ensure_ascii=False)))
+            .replace("__TITLE__", _html_escape(name))
+            .replace("__DATA__", payload))

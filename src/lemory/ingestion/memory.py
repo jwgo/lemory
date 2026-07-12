@@ -36,11 +36,22 @@ def _safe_target(vault: Path, rel: str) -> Path:
     return target
 
 
+def _yaml_dq(s: str) -> str:
+    """Escape a string for a double-quoted YAML scalar (backslash then quote),
+    so a note title containing a quote can't break the frontmatter we write."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
 class SavedMemory(str):
     """The vault-relative path of the saved note (a plain str for every
-    existing caller), carrying the consolidation result as `.related`."""
+    existing caller), carrying the consolidation result as `.related`.
 
-    related: list[dict] = []
+    `.related` is set on every instance save_memory returns; the annotation
+    is deliberately not a class-level ``= []`` (that mutable default would be
+    shared across instances). Callers read it defensively via
+    ``getattr(path, "related", [])``."""
+
+    related: list[dict]
 
 
 _TOKEN_RE = re.compile(r"[a-z0-9가-힣]+")
@@ -128,11 +139,11 @@ def save_memory(
             tag_line = "tags: [" + ", ".join(clean) + "]\n"
     related_line = ""
     if related:
-        links = ", ".join(f'"[[{r["title"]}]]"' for r in related)
+        links = ", ".join(f'"[[{_yaml_dq(r["title"])}]]"' for r in related)
         related_line = f"related: [{links}]\n"
         dup = next((r for r in related if r["near_duplicate"]), None)
         if dup:
-            related_line += f'possible_duplicate_of: "[[{dup["title"]}]]"\n'
+            related_line += f'possible_duplicate_of: "[[{_yaml_dq(dup["title"])}]]"\n'
     # lemory_generated is the ONLY thing the trash guard trusts — an
     # unambiguous machine marker a human would never type. `source:` is
     # human-facing metadata (and a common human field: web clippings, quotes),
