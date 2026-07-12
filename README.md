@@ -181,6 +181,13 @@ it is searchable on the next query. The features below are for the notes
   click-to-explore). About 1 second for 1,469 notes and 24,850 edges, zero
   LLM calls. The 2026 graph-tool wave needs an LLM pass per file for the
   same artifact.
+- **`lemory drift`** answers "does my memory still match reality?": broken
+  [[wikilinks]], links to files that no longer exist, duplicate flags nobody
+  resolved. `--prompt` renders the findings as one agent-ready repair prompt.
+  Deterministic, zero tokens. (Tip of the hat to
+  [mex](https://github.com/mex-memory/mex), which pioneered drift detection
+  for coding-agent scaffolds; mex has no ranked retrieval to benchmark, so
+  it lives here as an idea we adopted rather than a row in our tables.)
 - **Time awareness**: "요새 내가 하던 그거 뭐였지?" ranks the current fact
   above the superseded one that has more mentions; "3월에 읽던 책은?" still
   reaches history.

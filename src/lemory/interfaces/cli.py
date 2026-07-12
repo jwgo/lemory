@@ -456,6 +456,43 @@ def skill_cmd(
         console.print("  Claude Code가 다음 세션부터 자동으로 로드합니다.")
 
 
+@app.command("drift")
+def drift_cmd(
+    vault: Optional[Path] = typer.Option(None),
+    as_prompt: bool = typer.Option(False, "--prompt", help="에이전트용 수리 프롬프트로 출력"),
+):
+    """볼트의 기억이 현실과 어긋난 곳을 찾는다 (드리프트 감지, LLM 0회).
+
+    깨진 [[위키링크]], 존재하지 않는 파일로 가는 링크, 해소되지 않은
+    중복 플래그. --prompt는 발견 사항을 그대로 고치라는 에이전트용
+    프롬프트로 렌더링한다 (mex 스타일 sync, 볼트 판)."""
+    from ..retrieval.drift import detect_drift, render_repair_prompt
+
+    eng = _engine(vault)
+    eng.index()
+    findings = detect_drift(eng)
+    if as_prompt:
+        console.print(render_repair_prompt(findings, str(eng.cfg.resolved_vault())))
+        return
+    total = sum(len(v) for k, v in findings.items() if isinstance(v, list))
+    if total == 0:
+        console.print(f"[green]✔ 드리프트 없음[/green] — 노트 {findings['notes_scanned']}개 검사")
+        return
+    for kind, label in (("broken_wikilinks", "깨진 위키링크"),
+                        ("missing_file_links", "없는 파일로 가는 링크"),
+                        ("unresolved_duplicates", "미해소 중복 플래그")):
+        rows = findings[kind]
+        if not rows:
+            continue
+        table = Table(title=f"{label} ({len(rows)})")
+        table.add_column("note")
+        table.add_column("target")
+        for r in rows[:20]:
+            table.add_row(r["note"], r.get("target", r.get("duplicate_of", "")))
+        console.print(table)
+    console.print("[dim]고치려면: lemory drift --prompt | (에이전트에 전달)[/dim]")
+
+
 @app.command("import-chats")
 def import_chats(
     file: Path = typer.Argument(..., help="ChatGPT/Claude export conversations.json"),
