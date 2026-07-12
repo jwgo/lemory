@@ -177,22 +177,25 @@ def correct_typos(store: Store, query: str) -> str:
             continue
         cap = 1 if len(word) <= 4 else 2
         best, best_key = None, (cap + 1, 0)
-        # candidates: same first char, or (for first-syllable typos) same
-        # SECOND char — O(two buckets), not O(vocab)
+        # candidates: same first char (full cap), or same SECOND char for
+        # first-syllable typos — those are single-character events, so the
+        # wider bucket is held to distance 1 (letting it use the full cap
+        # rewrote valid-but-unindexed words and cost KorQuAD precision)
         buckets = store.lexicon_buckets()
-        cands = list(buckets.get(word[0], ()))
-        if len(word) >= 2:
-            cands += buckets.get("\x02" + word[1], ())
         seen: set[str] = set()
-        for term, doc_count in cands:
-            if term in seen:
-                continue
-            seen.add(term)
-            if abs(len(term) - len(word)) > cap or not _HANGUL_RE.search(term):
-                continue
-            d = _dl_distance_capped(word, term, cap)
-            if d <= cap and (d, -doc_count) < (best_key[0], -best_key[1]):
-                best, best_key = term, (d, doc_count)
+        pools = [(buckets.get(word[0], ()), cap)]
+        if len(word) >= 2:
+            pools.append((buckets.get("\x02" + word[1], ()), 1))
+        for pool, pool_cap in pools:
+            for term, doc_count in pool:
+                if term in seen:
+                    continue
+                seen.add(term)
+                if abs(len(term) - len(word)) > pool_cap or not _HANGUL_RE.search(term):
+                    continue
+                d = _dl_distance_capped(word, term, pool_cap)
+                if d <= pool_cap and (d, -doc_count) < (best_key[0], -best_key[1]):
+                    best, best_key = term, (d, doc_count)
         if best and best != word:
             corrected = corrected.replace(word, best, 1)
     return corrected
