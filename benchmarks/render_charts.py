@@ -9,7 +9,6 @@ the benchmarks and cannot drift from the published evidence.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 BENCH = Path(__file__).parent

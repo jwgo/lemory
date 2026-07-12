@@ -21,7 +21,6 @@ import json
 import os
 import random
 import re
-import statistics
 import subprocess
 import sys
 import time
@@ -29,7 +28,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import DATA, WORK, save_json
+from common import DATA, WORK, normalize_ko, save_json
 
 QFILE = DATA / "kormapleqa" / "questions.jsonl"
 OUT = WORK / "kormapleqa-external"
@@ -93,8 +92,7 @@ def mp_run(q: str, timeout: int = 300) -> tuple[list[str], float, str]:
     return titles[:K], dt, out
 
 
-def normalize_ans(s: str) -> str:
-    return re.sub(r"[^\w가-힣]+", "", s.lower())
+normalize_ans = normalize_ko
 
 
 def main() -> None:
@@ -122,7 +120,6 @@ def main() -> None:
                 r = json.loads(line)
                 state[(r["system"], r["mode"], r["id"])] = r
 
-    run = qmd_run if system == "qmd" else (lambda q: mp_run(q))
     ck = open(ck_file, "a", encoding="utf-8")
     n_done = 0
     for q in questions:

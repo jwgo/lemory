@@ -93,6 +93,7 @@ def _tiny_pdf(path, text="Hello PDF budget report"):
 
 
 def test_pdf_ingestion_opt_in(engine, vault):
+    pytest.importorskip("pypdf", reason="pip install 'lemory[pdf]'")
     _tiny_pdf(vault / "report.pdf")
     engine.index()
     assert engine.store.get_doc_by_path("report.pdf") is None  # off by default

@@ -22,7 +22,8 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import DATA, WORK, load_env, make_engine, prewarm_queries, save_json
+from common import (DATA, SYSTEMS, WORK, load_env, make_engine, normalize_ko,
+                    prewarm_queries, save_json)
 
 from lemory.retrieval.search import hybrid_search
 
@@ -30,17 +31,10 @@ QFILE = DATA / "kormapleqa" / "questions.jsonl"
 VAULT = DATA / "maple_real" / "vault"
 K = 8
 
-ARMS = {
-    "lemory": dict(mode="hybrid", graph=True),
-    "lemory-nograph": dict(mode="hybrid", graph=False),
-    "vector": dict(mode="vector", graph=False),
-    "bm25": dict(mode="bm25", graph=False),
-}
+ARMS = SYSTEMS  # one source of truth (benchmarks/common.py)
 
 
-def normalize(s: str) -> str:
-    import re
-    return re.sub(r"[^\w가-힣]+", "", s.lower())
+normalize = normalize_ko
 
 
 def evaluate(eng, questions: list[dict], mode: str, graph: bool) -> dict:

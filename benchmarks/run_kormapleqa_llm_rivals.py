@@ -16,7 +16,6 @@ embedding-001)을 쓴다. Lemory 비교 행도 같은 서브코퍼스로 다시 
 from __future__ import annotations
 
 import json
-import os
 import random
 import shutil
 import sys
@@ -25,7 +24,8 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import DATA, WORK, load_env, make_engine, prewarm_queries, save_json
+from common import (DATA, WORK, load_env, make_engine, normalize_ko,
+                    prewarm_queries, save_json)
 
 from lemory.config import LemoryConfig
 
@@ -40,9 +40,7 @@ N_NOTES = 400
 K = 8
 
 
-def norm(s: str) -> str:
-    import re
-    return re.sub(r"[^\w가-힣]+", "", s.lower())
+norm = normalize_ko
 
 
 def prep() -> None:
