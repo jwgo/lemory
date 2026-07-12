@@ -38,6 +38,12 @@ recall, and anything worth remembering becomes a Markdown file you own.
   every query, every note an AI wrote (with one-click undo), per-client
   usage. All of it local, in one SQLite file.
 
+> **Nothing has to go "through" Lemory.** The vault is just files. Write
+> notes the way you always did (Obsidian, any editor, a shell script) and
+> the live watcher indexes them within a second. `save_memory` and
+> `lemory remember` exist so that *AI* writes get attribution, duplicate
+> checks, and an undo button. They are a courtesy entrance, not a gate.
+
 The industry's memory products want your knowledge as rows in *their*
 database. We think the file you already own is the better database, and we
 spent the benchmarks proving it doesn't cost you accuracy. The opposite,
@@ -157,6 +163,10 @@ indexed before, the flag removes it.
 <div align="center">
 <img src="docs/assets/demo3_secondbrain.gif" width="840" alt="Duplicate memory flagged with a wikilink, unlinked mentions become link suggestions">
 </div>
+
+Human notes never need any of this machinery: drop a file in the vault and
+it is searchable on the next query. The features below are for the notes
+*machines* write.
 
 - **`save_memory` consolidates.** Every new memory is checked against what
   the vault already knows: near-duplicates get `possible_duplicate_of:`
