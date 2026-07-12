@@ -32,3 +32,6 @@ benchmarks/data/dmr/msc_self_instruct.jsonl
 # omnisearch bench harness deps (npm i minisearch in benchmarks/)
 benchmarks/node_modules/
 benchmarks/package-lock.json
+
+# OS junk
+.DS_Store
