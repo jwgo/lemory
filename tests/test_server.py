@@ -136,3 +136,31 @@ def test_hit_recording_via_server_only(engine):
         top = max(rows, key=lambda r: r["hits"])
         d = client.get("/api/note", params={"path": top["path"]}).json()
         assert d["hits"] >= 1
+
+
+# --- graph export + skill packaging ----------------------------------------
+
+def test_graph_html_selfcontained(engine, vault):
+    engine.index()
+    from lemory.interfaces.graph_html import graph_data, render_graph_html
+
+    data = graph_data(engine)
+    assert data["nodes"] and any(n["t"] == "Mercury Initiative" for n in data["nodes"])
+    html = render_graph_html(engine)
+    assert html.startswith("<!doctype html>")
+    assert "Mercury Initiative" in html
+    # self-contained: no external URLs
+    assert "http://" not in html and "https://" not in html
+
+
+def test_skill_render_and_targets(tmp_path):
+    from lemory.interfaces.skills import render_skill, skill_target
+
+    md = render_skill("claude-code", "/tmp/vault")
+    assert md.startswith("---") and "lemory search" in md and "/tmp/vault" in md
+    t = skill_target("claude-code", tmp_path, global_install=False)
+    assert t == tmp_path / ".claude" / "skills" / "lemory-vault" / "SKILL.md"
+    import pytest
+
+    with pytest.raises(ValueError):
+        render_skill("emacs", "/v")

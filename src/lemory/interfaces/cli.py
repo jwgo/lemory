@@ -369,6 +369,131 @@ def remember(
     tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
     path = save_memory(eng, content, title=title, folder=folder, tags=tag_list, client="cli")
     console.print(f"[green]saved[/green] {path}")
+    for r in getattr(path, "related", []):
+        flag = " [yellow](중복일 수 있음 · possible duplicate)[/yellow]" if r["near_duplicate"] else ""
+        console.print(f"  [dim]관련 기억:[/dim] [[{r['title']}]] sim={r['sim']}{flag}")
+
+
+@app.command("suggest-links")
+def suggest_links_cmd(
+    note: Optional[str] = typer.Argument(None, help="Vault-relative note path (omit for vault-wide top suggestions)"),
+    k: int = typer.Option(12, help="Max suggestions"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """Unlinked mentions as [[link]] suggestions — notes that reference each
+    other in text but were never linked. Zero LLM; reads the existing graph."""
+    from ..retrieval.links import suggest_links
+
+    eng = _engine(vault)
+    eng.index()
+    try:
+        rows = suggest_links(eng, path=note, k=k)
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    if not rows:
+        console.print("[dim]제안할 링크가 없습니다 — 언급되지만 연결 안 된 노트가 없어요.[/dim]")
+        return
+    table = Table(title=f"link suggestions ({len(rows)})")
+    table.add_column("from")
+    table.add_column("add link")
+    table.add_column("mention context")
+    for r in rows:
+        table.add_row(r["from_title"], r["suggestion"], r["snippet"][:80])
+    console.print(table)
+
+
+@app.command("graph")
+def graph_cmd(
+    out: Path = typer.Option(Path("graph.html"), help="Output HTML file"),
+    vault: Optional[Path] = typer.Option(None),
+    open_after: bool = typer.Option(False, "--open", help="Open in the default browser"),
+):
+    """볼트 지식그래프를 자체완결 인터랙티브 HTML 한 파일로 내보낸다.
+
+    LLM 0회 — 위키링크·멘션 그래프는 인덱스에 이미 있다. Graphify류가
+    LLM 파이프라인으로 몇 분 걸려 만드는 graph.html을 밀리초에 만든다."""
+    from .graph_html import render_graph_html
+
+    eng = _engine(vault)
+    eng.index()
+    html = render_graph_html(eng)
+    out = out.expanduser()
+    out.write_text(html, encoding="utf-8")
+    st = eng.status()
+    console.print(f"[green]✔[/green] {out}  ({st['documents']} notes, {st['links']} links)")
+    if open_after:
+        import webbrowser
+
+        webbrowser.open(out.resolve().as_uri())
+
+
+@app.command("skill")
+def skill_cmd(
+    action: str = typer.Argument(..., help="install | show"),
+    assistant: str = typer.Argument("claude-code", help="claude-code | codex | cursor"),
+    vault: Optional[Path] = typer.Option(None),
+    global_install: bool = typer.Option(False, "--global", help="Install to the user-level skills dir"),
+):
+    """AI 어시스턴트에 Lemory 스킬을 설치한다 (Graphify/qmd 스타일 원커맨드).
+
+    스킬은 어시스턴트에게 lemory CLI/MCP 사용법(검색 연산자, 기억 저장
+    에티켓, 링크 제안)을 가르치는 마크다운 — 설치 후 어시스턴트가 볼트를
+    기억처럼 다룬다."""
+    from .skills import render_skill, skill_target
+
+    if action not in ("install", "show"):
+        console.print(f"[red]알 수 없는 동작:[/red] {action} (install | show)")
+        raise typer.Exit(2)
+    eng = _engine(vault)
+    v = str(eng.cfg.resolved_vault())
+    content = render_skill(assistant, v)
+    if action == "show":
+        console.print(content)
+        return
+    target = skill_target(assistant, Path.cwd(), global_install)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    console.print(f"[green]✔[/green] skill installed: {target}")
+    if assistant == "claude-code":
+        console.print("  Claude Code가 다음 세션부터 자동으로 로드합니다.")
+
+
+@app.command("drift")
+def drift_cmd(
+    vault: Optional[Path] = typer.Option(None),
+    as_prompt: bool = typer.Option(False, "--prompt", help="에이전트용 수리 프롬프트로 출력"),
+):
+    """볼트의 기억이 현실과 어긋난 곳을 찾는다 (드리프트 감지, LLM 0회).
+
+    깨진 [[위키링크]], 존재하지 않는 파일로 가는 링크, 해소되지 않은
+    중복 플래그. --prompt는 발견 사항을 그대로 고치라는 에이전트용
+    프롬프트로 렌더링한다 (mex 스타일 sync, 볼트 판)."""
+    from ..retrieval.drift import detect_drift, render_repair_prompt
+
+    eng = _engine(vault)
+    eng.index()
+    findings = detect_drift(eng)
+    if as_prompt:
+        console.print(render_repair_prompt(findings, str(eng.cfg.resolved_vault())))
+        return
+    total = sum(len(v) for k, v in findings.items() if isinstance(v, list))
+    if total == 0:
+        console.print(f"[green]✔ 드리프트 없음[/green] — 노트 {findings['notes_scanned']}개 검사")
+        return
+    for kind, label in (("broken_wikilinks", "깨진 위키링크"),
+                        ("missing_file_links", "없는 파일로 가는 링크"),
+                        ("unresolved_duplicates", "미해소 중복 플래그")):
+        rows = findings[kind]
+        if not rows:
+            continue
+        table = Table(title=f"{label} ({len(rows)})")
+        table.add_column("note")
+        table.add_column("target")
+        for r in rows[:20]:
+            table.add_row(r["note"], r.get("target", r.get("duplicate_of", "")))
+        console.print(table)
+    console.print("[dim]고치려면: lemory drift --prompt | (에이전트에 전달)[/dim]")
 
 
 @app.command("import-chats")
@@ -500,7 +625,22 @@ def ask(
 ):
     """Ask a question; the answer is grounded in your notes with citations."""
     eng = _engine(vault)
-    ans = eng.ask(question, k=k, record=True, client="cli")
+    try:
+        ans = eng.ask(question, k=k, record=True, client="cli")
+    except RuntimeError as e:
+        # keyless / local search-only mode: no generator. Degrade to search
+        # instead of dumping a traceback — the evidence is still useful.
+        console.print(f"[yellow]{e}[/yellow]\n")
+        hits = eng.search(question, k=k)
+        if hits:
+            console.print("[bold]대신 가장 관련있는 노트를 보여드립니다 "
+                          "(best-matching notes instead):[/bold]")
+            for i, h in enumerate(hits, 1):
+                sub = h.subheading()
+                loc = h.title + (f" › {sub}" if sub else "")
+                console.print(f"  {i}. [cyan]{loc}[/cyan] — "
+                              + h.text[:140].replace("\n", " "))
+        raise typer.Exit(1)
     console.print(ans.text)
     console.print("\n[dim]" + ans.render_sources() + "[/dim]")
 

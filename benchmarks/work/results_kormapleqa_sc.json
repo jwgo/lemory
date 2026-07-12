@@ -1,0 +1,81 @@
+{
+  "smartconn-class": {
+    "all_n": 2067,
+    "all_doc1": 0.075,
+    "all_doc8": 0.2003,
+    "all_ans1": 0.0039,
+    "all_ans8": 0.0189,
+    "all_full_support@8": 0.0,
+    "casual_n": 220,
+    "casual_doc1": 0.1,
+    "casual_doc8": 0.2136,
+    "casual_ans1": 0.0045,
+    "casual_ans8": 0.0136,
+    "kw_n": 220,
+    "kw_doc1": 0.0727,
+    "kw_doc8": 0.2091,
+    "kw_ans1": 0.0045,
+    "kw_ans8": 0.0136,
+    "masked_n": 215,
+    "masked_doc1": 0.0279,
+    "masked_doc8": 0.0465,
+    "masked_ans1": 0.0093,
+    "masked_ans8": 0.0279,
+    "single_n": 981,
+    "single_doc1": 0.0775,
+    "single_doc8": 0.2202,
+    "single_ans1": 0.0031,
+    "single_ans8": 0.0224,
+    "temporal_n": 83,
+    "temporal_doc1": 0.1807,
+    "temporal_doc8": 0.4337,
+    "temporal_ans1": 0.0,
+    "temporal_ans8": 0.012,
+    "twohop_n": 128,
+    "twohop_doc1": 0.0312,
+    "twohop_doc8": 0.1172,
+    "twohop_ans1": 0.0,
+    "twohop_ans8": 0.0,
+    "twohop_full_support@8": 0.0,
+    "typo_n": 220,
+    "typo_doc1": 0.0727,
+    "typo_doc8": 0.2,
+    "typo_ans1": 0.0045,
+    "typo_ans8": 0.0182,
+    "p50_ms": 15.56,
+    "abstention_top1": [
+      {
+        "q": "보스 발드릭스의 요구 전투력은 얼마인가?",
+        "top1": "서정은(만화가)"
+      },
+      {
+        "q": "솔 에르다 조각의 최대 소지 개수는 몇 개인가?",
+        "top1": "소울웨폰"
+      },
+      {
+        "q": "챌린저스 서버의 참여 조건은 무엇인가?",
+        "top1": "태초의 신"
+      },
+      {
+        "q": "하이퍼 버닝 MAX의 레벨 상한은 몇인가?",
+        "top1": "루디브리엄-스토리 및 퀘스트"
+      },
+      {
+        "q": "감시자 칼로스의 입장 레벨 제한은 몇인가?",
+        "top1": "루디브리엄(메이플스토리M)"
+      },
+      {
+        "q": "헥사 매트릭스 강화에 필요한 재화는 무엇인가?",
+        "top1": "선대 신왕"
+      },
+      {
+        "q": "어둠의 발현 이벤트 보상은 무엇인가?",
+        "top1": "루타비스"
+      },
+      {
+        "q": "에오스탑 리마스터에서 바뀐 몬스터 레벨은 몇인가?",
+        "top1": "리에나 해협-스토리 및 퀘스트"
+      }
+    ]
+  }
+}

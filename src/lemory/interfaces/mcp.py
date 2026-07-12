@@ -151,7 +151,33 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             path = _save(engine, content, title=title, folder=folder, tags=tag_list, client=client)
         except ValueError as e:
             return json.dumps({"error": str(e)})
-        return json.dumps({"saved": path}, ensure_ascii=False)
+        out: dict = {"saved": str(path)}
+        related = getattr(path, "related", [])
+        if related:
+            # consolidation surface: the agent learns what the vault already
+            # knows the moment it writes — a near-duplicate means "consider
+            # citing/updating that note instead of stacking a copy"
+            out["related_existing"] = related
+            dup = next((r["title"] for r in related if r["near_duplicate"]), None)
+            if dup:
+                out["note"] = (f"possible duplicate of existing memory '{dup}' — "
+                               "both are now linked via frontmatter")
+        return json.dumps(out, ensure_ascii=False)
+
+    @mcp.tool(annotations=RO)
+    def suggest_links(path: str = "", k: int = 12) -> str:
+        """Unlinked-mention [[link]] suggestions: notes whose text mentions
+        another note's title without linking it. Pass a vault-relative path
+        for one note's suggestions (both directions), or leave empty for the
+        vault's top suggestions. Each row carries the mention's sentence."""
+        from ..retrieval.links import suggest_links as _suggest
+
+        engine.index()
+        try:
+            rows = _suggest(engine, path=path or None, k=k)
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
+        return json.dumps({"suggestions": rows}, ensure_ascii=False)
 
     @mcp.tool(annotations=WRITE)
     def append_note(path: str, content: str) -> str:

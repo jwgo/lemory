@@ -172,6 +172,19 @@ lemory context                            # one-call vault digest (pipe to any a
 lemory import-chats conversations.json    # ChatGPT/Claude export → searchable notes
 ```
 
+Second-brain maintenance (all zero-LLM, all reading the index you already have):
+
+```bash
+lemory suggest-links          # notes that mention each other but were never linked
+lemory drift                  # broken wikilinks, dead file links, unresolved dup flags
+lemory drift --prompt         # the above as one agent-ready repair prompt
+lemory graph --open           # export the whole vault as an interactive HTML graph
+lemory skill install claude-code   # teach the assistant to search-first and cite notes
+```
+
+A suggested weekly/monthly routine for using this as a second brain is in
+[docs/ROUTINE.ko.md](ROUTINE.ko.md).
+
 ## Big vaults
 
 - Benchmarked on **1,469 real namuwiki documents (33,375 chunks, 24,850 real

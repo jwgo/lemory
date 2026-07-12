@@ -36,6 +36,78 @@ def _safe_target(vault: Path, rel: str) -> Path:
     return target
 
 
+def _yaml_dq(s: str) -> str:
+    """Escape a string for a double-quoted YAML scalar (backslash then quote),
+    so a note title containing a quote can't break the frontmatter we write."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+class SavedMemory(str):
+    """The vault-relative path of the saved note (a plain str for every
+    existing caller), carrying the consolidation result as `.related`.
+
+    `.related` is set on every instance save_memory returns; the annotation
+    is deliberately not a class-level ``= []`` (that mutable default would be
+    shared across instances). Callers read it defensively via
+    ``getattr(path, "related", [])``."""
+
+    related: list[dict]
+
+
+_TOKEN_RE = re.compile(r"[a-z0-9가-힣]+")
+
+
+def _token_overlap(a: str, b: str) -> float:
+    """Jaccard over content tokens — the lexical confirmation for dedup."""
+    ta = {t for t in _TOKEN_RE.findall(a.lower()) if len(t) > 1}
+    tb = {t for t in _TOKEN_RE.findall(b.lower()) if len(t) > 1}
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
+def find_related_memories(engine, content: str, exclude_rel: str = "",
+                          k: int = 3) -> list[dict]:
+    """The consolidation half of a second brain: what does the vault ALREADY
+    know that this new memory relates to — or repeats?
+
+    mem0/Zep resolve this with an LLM pass that rewrites or deletes old
+    facts. Lemory links instead of destroying: the new note gets `related:`
+    wikilinks and a duplicate flag, the human (or agent) decides. Zero LLM —
+    cosine over the existing index plus a lexical-overlap confirmation for
+    the near-duplicate call (two thresholds beat one: embedder cosine scales
+    vary, token overlap doesn't). Empty in keyless mode (no vectors)."""
+    try:
+        qv = engine.embed_query_cached(content[:1200])
+    except Exception:
+        return []
+    if qv is None:
+        return []
+    cfg = engine.cfg
+    cand = engine.store.vector_search(qv, 24)
+    metas = engine.store.get_chunks([cid for cid, _ in cand])
+    best: dict[str, dict] = {}
+    for cid, sim in cand:
+        m = metas.get(cid)
+        if m is None or m.path == exclude_rel:
+            continue
+        cur = best.get(m.path)
+        if cur is None or sim > cur["sim"]:
+            best[m.path] = {"path": m.path, "title": m.title,
+                            "sim": float(sim), "text": m.text}
+    out = []
+    for r in sorted(best.values(), key=lambda x: -x["sim"])[:k]:
+        if r["sim"] < cfg.memory_related_sim:
+            continue
+        overlap = _token_overlap(content, r["text"])
+        out.append({
+            "path": r["path"], "title": r["title"], "sim": round(r["sim"], 3),
+            "near_duplicate": bool(r["sim"] >= cfg.memory_dedup_sim
+                                   and overlap >= cfg.memory_dedup_overlap),
+        })
+    return out
+
+
 def save_memory(
     engine,
     content: str,
@@ -44,8 +116,9 @@ def save_memory(
     tags: list[str] | None = None,
     source: str = "assistant",
     client: str = "",
-) -> str:
-    """Persist a memory as a new Markdown note. Returns the vault-relative path."""
+) -> SavedMemory:
+    """Persist a memory as a new Markdown note. Returns the vault-relative
+    path (a str subclass carrying the consolidation result as `.related`)."""
     if not content.strip():
         raise ValueError("empty memory content")
     vault = engine.cfg.resolved_vault()
@@ -55,17 +128,29 @@ def save_memory(
     base = _safe_target(vault, folder)
     base.mkdir(parents=True, exist_ok=True)
 
+    # consolidation pass BEFORE writing: what the vault already knows.
+    # (computed against the index as-is, so the new note can't match itself)
+    related = find_related_memories(engine, content) if engine.cfg.memory_relate else []
+
     tag_line = ""
     if tags:
         clean = [c for t in tags if (c := t.strip().lstrip("#"))]
         if clean:
             tag_line = "tags: [" + ", ".join(clean) + "]\n"
+    related_line = ""
+    if related:
+        links = ", ".join(f'"[[{_yaml_dq(r["title"])}]]"' for r in related)
+        related_line = f"related: [{links}]\n"
+        dup = next((r for r in related if r["near_duplicate"]), None)
+        if dup:
+            related_line += f'possible_duplicate_of: "[[{_yaml_dq(dup["title"])}]]"\n'
     # lemory_generated is the ONLY thing the trash guard trusts — an
     # unambiguous machine marker a human would never type. `source:` is
     # human-facing metadata (and a common human field: web clippings, quotes),
     # so it must NOT gate deletion.
     body = (
-        f"---\ndate: {today}\nsource: {source}\nlemory_generated: true\n{tag_line}---\n\n"
+        f"---\ndate: {today}\nsource: {source}\nlemory_generated: true\n"
+        f"{tag_line}{related_line}---\n\n"
         f"{content.strip()}\n"
     )
     # exclusive create in the collision loop: `open(..., "x")` fails if the
@@ -83,10 +168,16 @@ def save_memory(
             n += 1
     rel = str(target.relative_to(vault))
     engine.index(paths={rel})  # searchable immediately
+    related_public = [{k: r[k] for k in ("path", "title", "sim", "near_duplicate")}
+                      for r in related]
     if engine.cfg.event_log:
-        engine.store.log_event("memory", client=client, path=rel,
-                               detail={"title": target.stem, "chars": len(content)})
-    return rel
+        detail = {"title": target.stem, "chars": len(content)}
+        if related_public:
+            detail["related"] = related_public
+        engine.store.log_event("memory", client=client, path=rel, detail=detail)
+    out = SavedMemory(rel)
+    out.related = related_public
+    return out
 
 
 def append_to_note(engine, path: str, content: str, client: str = "") -> str:

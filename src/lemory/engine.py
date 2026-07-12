@@ -140,7 +140,22 @@ class Engine:
                 self.store.set_meta("embed_signature", sig)
             if self.cfg.enrich_entities and not self.keyless:
                 self._indexer.enrich_entities()
+            # warm the query-path lexical structures (typo lexicon + first/
+            # second-char buckets) in the background: on a large vault the
+            # first search would otherwise pay a full-vocabulary scan inline
+            # (~1-2s on 30k+ chunks). Writes invalidate them, so re-warm after
+            # each sync. Daemon thread, errors swallowed — purely a cache.
+            if self.store.chunk_count() > 5000:
+                import threading
+
+                threading.Thread(target=self._warm_lexicon, daemon=True).start()
             return rep
+
+    def _warm_lexicon(self) -> None:
+        try:
+            self.store.lexicon_buckets()
+        except Exception:
+            pass
 
     def watch(self, on_sync=None) -> None:
         from .ingestion import watch as _watch

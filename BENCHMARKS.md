@@ -174,6 +174,77 @@ to 0.350 (Lemory's Hangul-bigram FTS + cross-lingual fusion: 0.975).
 
 Optional LLM query expansion (`--expand`) was also measured: paraphrase 0.911, korean 0.950, typo 0.825 — no better than the LLM-free pipeline on this corpus, which is why it stays off by default (saves one LLM call per query).
 
+## 4g. Obsidian-native rivals: Omnisearch (BM25 plugin) · Smart Connections (semantic plugin)
+
+The two search tools an Obsidian user most likely already has. Both measured
+2026-07-11 on the same corpora and metrics as every other row.
+
+**Omnisearch v1.29.3** — headless harness (`benchmarks/run_omnisearch.mjs`)
+built from the plugin's own cloned source: the real MiniSearch library, its
+exact SEPARATORS regex (loaded from `src/globals.ts` at bench time, not
+transcribed), its OR-of-AND-groups query combination, default weights
+(basename 10 / directory 7 / H1-3 6/5/4 / tags 2), default fuzziness 0.1,
+prefix≥3, document-level index — everything except the Obsidian UI around it.
+
+| full-support@8 | natural question | 2-hop | korean | keyword | typo | maple | law |
+|---|---|---|---|---|---|---|---|
+| Omnisearch | 0.000 | 0.000 | 0.000 | 0.232¹ | 0.000 | 0.000 | 0.000 |
+| **Lemory** (local) | **0.860** | **0.810** | **0.850** | **0.893** | **0.772** | **1.000** | **1.000** |
+
+<sub>¹ keyword 1-hop is Omnisearch's home turf and it is genuinely good there
+(0.867 hops-1); the 0.232 overall reflects 2-hop keyword queries (0.000).</sub>
+
+Honest read: this is not a "gotcha" — Omnisearch is a quick-switcher-style
+lookup tool and doesn't claim to answer questions. That's the point: its AND
+semantics return **zero results** for any natural-language phrasing, every
+Korean question (조사-carrying tokens never match), and every typo'd query
+despite its fuzzy matching. A vault search that answers questions, Korean,
+typos AND keyword lookups is a different category of tool.
+
+**Smart Connections (2.4.x)** — measured as its retrieval core: the default
+local embedding model it ships (`TaylorAI/bge-micro-v2`, confirmed from
+smart-embed-model's models.json), pure cosine over the same chunks, no
+lexical leg, no graph (`benchmarks/bench_smartconn.py` runs it through the
+same fastembed runtime as Lemory's local mode — same chunking, so this
+isolates model + architecture, which favors it if anything).
+
+| full-support@8 | multihop | 2-hop | paraphrase | korean | typo | maple | law | kepano |
+|---|---|---|---|---|---|---|---|---|
+| SC-class (bge-micro-v2, cosine) | 0.456 | 0.262 | 0.446 | 0.475 | 0.404 | 0.727 | 0.842 | **1.000** |
+| **Lemory** (local MiniLM) | **0.860** | **0.810** | **0.821** | **0.850** | **0.772** | **1.000** | **1.000** | 0.955 |
+
+Honest read: on the small English personal vault (kepano) dense-only
+saturates and edges Lemory by one question — consistent with §5d. Everywhere
+else the missing lexical leg and missing graph cost it 2-4x on multi-hop and
+~2x on Korean/typo robustness, with an **English-only** embedding model as
+the default for a tool whose users write in every language.
+
+## 4h. The 2026 LLM-knowledge-graph wave (Graphify · Understand-Anything · openwiki · OpenKB · obsidian-second-brain · codegraph)
+
+2026년 봄의 스타 급상승 도구들은 공통 아키텍처를 공유한다: **파일마다 LLM
+파이프라인을 돌려** 그래프/위키를 만들고, 어시스턴트 스킬로 배포하며,
+인터랙티브 graph.html을 대표 산출물로 내민다. 정직한 분류부터: Graphify
+(22k★)·Understand-Anything(54.7k★)·codegraph는 **코드베이스** 도구다 —
+개인 노트/메모리와 도메인이 다르고, 이 문서의 검색 벤치마크 대상이
+아니다. openwiki(LangChain)·OpenKB(Vectify)는 문서→LLM 유지 위키로 직접
+경쟁군이지만 **인제스트와 질의 모두 LLM 키가 필수**라 키 없는 환경
+재현·비교가 불가능하다(키 확보 시 측정 예정).
+
+측정 가능한 축 — 같은 산출물의 비용:
+
+| | 그래프 소스 | 1,469노트 그래프 생성 | 질의 비용 | 배포 |
+|---|---|---|---|---|
+| Graphify/UA류 | LLM 추출(문서 패스) | 문서당 LLM 호출 × 1,469 (+분 단위) | 어시스턴트 LLM | 스킬 |
+| openwiki/OpenKB | LLM이 위키 작성·유지 | 코퍼스 전체 LLM 컴파일 | LLM 추론 검색 | CLI+스킬 |
+| **Lemory** | **사용자가 이미 쓴 wikilink+멘션** | **~1초, LLM 0회** (`lemory graph`) | ~ms 로컬 하이브리드 | MCP + `lemory skill install` |
+
+이 라운드에 추가된 편이성 패리티: `lemory graph`(자체완결 인터랙티브
+HTML — 캔버스 포스 레이아웃, 폴더 색, 검색, 이웃 탐색; 24,850엣지
+나무위키 볼트에서 안정성 헤드리스 검증)와 `lemory skill install
+claude-code|codex|cursor`(볼트를 장기기억으로 다루는 법을 어시스턴트에게
+가르치는 SKILL.md 원커맨드 설치). 성능 축은 §5e KorMapleQA에서 키 없이
+실행 가능한 실경쟁자(qmd·MemPalace)와 직접 비교한다.
+
 ## 5. Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
 
 All documents categorized under 메이플스토리 in the public namuwiki 2021-03-01 dump (867k docs scanned): 33,375 chunks, 24,850 real wikilink edges. QA drafted by LLM, kept only if code-verified: answer appears ONLY in the gold note, no title leakage (see gen_maple_real_qa.py).
@@ -206,6 +277,89 @@ Real statutes (주택임대차보호법, 전세사기특별법 등); QA answers 
 | Lemory w/o graph (ablation) | 0.947 | 1.000 | 1.000 | 1.000 |
 | Vector-only (naive RAG) | 0.895 | 1.000 | 1.000 | 1.000 |
 | BM25 (lexical) | 0.895 | 1.000 | 1.000 | 1.000 |
+
+## 5e. KorMapleQA — 2,075문항 결정적 한국어 RAG 벤치마크 (신규, 자체 공개)
+
+`benchmarks/data/kormapleqa/` — 실제 나무위키 메이플스토리 도메인(1,469
+문서) 위에서 100% 코드로 생성·기계검증된 2,075문항: 인포박스 단일사실
+981 · 엔티티 마스킹 215(제목 부스트 무력화) · 실링크 2-hop 128(지름길
+차단 검증) · 시간 83 · 키워드/반말속어/음절오타 변형 각 220 · 부재검증
+무응답 8. LLM 초안이 없어 API 키 0개로 재현되고 초안 편향이 없다 —
+KorQuAD(문어 단일홉)와 LongMemEval(영어 대화)이 안 재는 축들을 잰다.
+상세: `benchmarks/data/kormapleqa/README.md`.
+
+**gold-doc@1 / gold-doc@8** (문서 수준 — 문서 단위 시스템과 공정 비교;
+로컬 임베더, 2026-07-11):
+
+| 시스템 | 전체 @1 | 전체 @8 | 질문형 @8 | 마스킹 @8 | 2-hop(fs) | 시간 @8 | 키워드 @8 | 구어체 @8 | 오타 @8 |
+|---|---|---|---|---|---|---|---|---|---|
+| **Lemory (Gemini 임베딩)** | **0.664** | **0.906** | **0.915** | **0.856** | **0.977 (0.344)** | **0.928** | **0.982** | **0.900** | **0.796** |
+| **Lemory** (로컬, 키 제로) | 0.526 | 0.738 | 0.747 | 0.461 | 0.797 (0.141) | 0.807 | 0.964 | 0.827 | 0.591 |
+| BM25 (Lemory의 CJK-bigram 인덱스¹) | 0.401 | **0.741** | 0.722 | **0.735** | 0.758 (0.125) | 0.795 | 0.955 | **0.855** | 0.473 |
+| Vector-only (MiniLM) | 0.050 | 0.149 | 0.167 | 0.088 | 0.172 (0.008) | 0.265 | 0.123 | 0.159 | 0.086 |
+| Smart-Connections-class | 0.075 | 0.200 | 0.220 | 0.047 | 0.117 (0.000) | 0.434 | 0.209 | 0.214 | 0.200 |
+| Omnisearch (실제 MiniSearch) | 0.112 | 0.149 | 0.062 | 0.014 | — (0.000) | 0.133 | 0.945² | 0.077 | 0.041 |
+
+<sub>¹ BM25 행도 Lemory의 색인 발명품(한글/CJK 바이그램 FTS) 위에서 돈다 —
+순정 FTS라면 Omnisearch처럼 무너진다. 같은 색인 위에서 하이브리드는 @1
++12.5pt, 오타 +11.8pt, 2-hop fs +1.6pt를 더 얹는다.
+² Omnisearch의 키워드 1-hop 0.945는 진짜 실력(홈그라운드) — 같은 시스템이
+질문형·구어체·오타에서 0.0x인 것이 이 벤치마크의 요점.</sub>
+
+이 벤치마크가 직접 견인한 개선 3건 (각각 가드 배터리 검증 후 채택):
+한국어 음절 Damerau-Levenshtein 오타 교정(오타 축 0.341→0.591), 가나·한자
+CJK 바이그램(마스킹·표기 질문의 원인이 혼합 스크립트 토큰 접착이었다 —
+BM25 마스킹이 0.39→0.74로 뛴 것도 이 색인 변경), **어휘 증거 그래프
+확장**(BM25 top-48에 든 이웃 청크가 코사인 대신 확장을 게이팅 — 이 변경
+하나로 multihop 가드가 로컬 임베더에서 만점(1.000/1.000/1.000), robustness
+0.86/0.80/0.85/0.89/0.77 → **1.00/0.95/0.88/0.98/0.95**, kepano recall@1
+0.864→0.909).
+
+**실제 메모리 시스템 경쟁자 2종** (완전 로컬로 실행 가능한 전부 —
+`run_kormapleqa_external.py`; mem0/cognee/supermemory/LightRAG는 LLM 키
+필수라 키 확보 시 측정):
+
+| | 전체 doc8 | n | p50/query | 비고 |
+|---|---|---|---|---|
+| **Lemory** | **0.738** | 2,067 | **13 ms** | 하이브리드+그래프 |
+| MemPalace 3.5 (57k★) | 0.033 | 2,067 | 0.76 s | sqlite_exact+번들 embeddinggemma — 한국어 대규모에서 붕괴 (자체 §4f korean 0.350과 정합) |
+| qmd `search` (BM25) | 0.092 | 2,067 | 0.09 s | AND 시맨틱스 — 키워드 축만 0.846 |
+| qmd `vsearch` | 0.657 | 280† | 4.2 s | embeddinggemma 벡터 |
+| qmd `query` (로컬 LLM 풀파이프라인) | **0.774** | 84† | **59.5 s** (CPU) | 인제스트 임베딩 33분 56초 |
+
+<sub>† 층화 시드 샘플(지연 제약). **동일 문항 재대결(n=329, 2026-07-12,
+IDF 게이트·앵커 핀·첫음절 오타 교정 이후)**: Lemory-local **doc8 0.775 @
+20.3ms** vs qmd query **0.769 @ 59.5s** — 동률권 품질(차이는 CI 내)을
+**~2,930× 빠르게**. 축별로 Lemory가 키워드(0.98/0.84)·단일사실·시간·마스킹
+우위, qmd가 2-hop doc8(1.00/0.81)·오타(0.53/0.49) 우위 — 전부 기재. 벡터
+모드(vsearch)는 품질·속도 모두 밀린다(0.657@4.2s).</sub>
+
+**LLM 인제스트 경쟁자 (400노트 서브코퍼스 프로토콜, flash-lite 추출,
+동일 질문 310개·같은 Gemini 임베딩 — `run_kormapleqa_llm_rivals.py`)**:
+
+| | 전체 doc8 | 인제스트 | p50/query |
+|---|---|---|---|
+| **Lemory (동일조건)** | **0.926** | 임베딩만 (LLM 0회) | **14 ms** |
+| mem0 OSS | 0.619 | **60분** LLM 사실추출 | 0.44 s |
+| LightRAG (mix) | (측정 중) | 노트당 LLM 그래프추출 | — |
+
+mem0는 전 축 열세(단일사실 0.53/0.95, 2-hop fs 0.05/1.00, 오타 0.52/0.82).
+cognee/supermemory/openwiki/OpenKB는 비용·계정 제약으로 미측정 유지.</sub>
+
+**e2e (생성+채점, flash, 175 층화문항 + 무응답 8)**: containment-EM
+0.617 (kw 0.80 · masked 0.76 · casual 0.68 · single 0.64 · typo 0.56 ·
+temporal/twohop 0.44), **무응답 7/8 정확 거절**(환각 1) — 코퍼스에 없는
+답을 지어내지 않는다. `run_kormapleqa_e2e.py`, p50 7.5s(생성 왕복 포함).
+
+Gemini 임베딩 행(2026-07-12 재측정)은 로컬 체제의 미해결 과제였던 마스킹
+문항을 그대로 해소한다(0.461→0.902 — 약한 벡터 레그가 원인이었다는 가설
+입증). 2-hop full-support도 0.141→0.359로 오르지만 여전히 전 시스템 공통
+난제(qmd query fs 0.333/60초). 로컬 체제 한정 과제로 IDF 인지 커버리지
+게이트가 다음 후보. 무응답 8문항은 e2e 채점용 플래그(answerable=false)로
+분리. Gemini 체제 가드 재검증(동일 날짜): multihop·law·maple·temporal 만점
+유지, robustness 1.000/0.982/0.950/1.000/1.000, KorQuAD recall@1 0.930 —
+**BM25(0.9275)를 처음으로 추월** (§6의 '아직 BM25가 이긴다' 문장은 이제
+역사적 기록).
 
 ## 5d. Real public Obsidian vaults (kepano · obsidian-help)
 
@@ -280,6 +434,79 @@ BM25 (3.6→1.5 pt)** — while the multi-hop (1.000) and robustness
 (0.946/0.975/0.982/0.965) guards stayed exactly unchanged. Pushing the boost
 further (3.0) starts costing paraphrase robustness, so this is the knee of
 the curve, not the end of it.
+
+## 6b. Keyless laptop regime (local MiniLM embedder): Korean morphology + the verbatim pin
+
+Everything above runs on Gemini embeddings. In **keyless local mode**
+(fastembed multilingual MiniLM, CPU, zero API calls) the dense leg is far
+weaker on Korean — and rank-only RRF let that weak leg corrupt decisive
+lexical wins: a chunk mediocre in *both* legs outranks a decisive BM25 top-1,
+because RRF sees ranks, not margins. On KorQuAD/local, hybrid recall@1 was
+0.525 vs BM25's 0.923 — a 40 pt hole (Gemini regime: 1.5 pt).
+
+Two fixes, both LLM-free (`retrieval/search.py`):
+
+* **Korean-aware verbatim coverage** — the coverage detector was blind to
+  Korean morphology: 조사-carrying tokens ("본명은") never substring-match
+  note text, question-focus nouns ("~을 일으킨 인물은?" — the Korean
+  "who/what") deflated the denominator, and conjugation (ㄹ-drop: "만든" /
+  "만들었다") broke syllable-level stem matching. Now: stem match with 1-2
+  char suffix tolerance, jamo-level fallback with final-받침 drop, final
+  topic-marked focus-noun exclusion (explicit questions only), and Korean
+  interrogative/glue-word stop list.
+* **The reciting pin** (`verbatim_pin_gate` 0.65, `verbatim_pin_head` 3) —
+  when a top-3 BM25 chunk covers ≥65 % of the query's content tokens, the
+  query is reciting a note: BM25's top-3 is pinned above everything and the
+  tail stays fused (pinning the whole list froze ranks 4-8 at a scale graph
+  expansion and recency reweighting can't reach — head-only pinning gained
+  law recall@1 +10.5 pt and fixed the temporal superseded-trap while keeping
+  every verbatim gain). Paraphrased / cross-lingual / typo'd queries never
+  reach this coverage (measured: 0 % at ≥0.9, ≤9 % at ≥0.8 on the robustness
+  variants), so their fusion is untouched.
+
+Measured (local embedder, 400 KorQuAD q / 300 SQuAD q, gate swept 0.60–0.90
+with every corpus above as guard):
+
+| | recall@1 | recall@8 | MRR@10 | gap to BM25 @1 |
+|---|---|---|---|---|
+| KorQuAD before | 0.525 | 0.813 | 0.639 | −39.8 pt |
+| **KorQuAD after** | **0.825** | **0.945** | **0.873** | **−9.8 pt** |
+| SQuAD before | 0.690 | — | — | — |
+| **SQuAD after** | **0.760** | — | — | — |
+
+Guards: multihop 0.860, korean 0.850, typo 0.772, keyword 0.893, law/maple
+full-support 1.000, kepano 0.955, temporal 0.818 — all bit-identical to
+pre-change; paraphrase *improved* 0.804 → 0.821 (high-coverage paraphrases
+are lexically close to gold, so the pin helps them too). Gate 0.60 starts
+costing multihop/korean/keyword, which is why 0.65 ships.
+
+**Korean latency at namuwiki scale.** On the real 1,469-note / 33k-chunk
+maple_real corpus, the OR-query's single-syllable grams ('이/은/의') matched
+nearly every row and forced FTS5 to score the whole table: 272 ms/query for
+the BM25 leg, 303 ms for hybrid. Multi-syllable words are already covered by
+their bigrams, so the query now keeps unigrams only for single-syllable runs,
+re-emitting the stem for 2-syllable noun+조사 / verb+어미 forms ('윌의'→'윌',
+'읽던'→'읽' — the forms whose stems bigrams can't see). The index side is
+unchanged (no reindex):
+
+| maple_real (33k chunks, local) | before | after |
+|---|---|---|
+| BM25 leg ms/query | 272 | **48** (5.6×) |
+| hybrid ms/query | 303 | **68** (4.5×) |
+| hybrid recall@1 | 0.700 | **0.720** |
+| KorQuAD recall@1 / ms | 0.825 / 8.3 | **0.845 / 3.4** |
+
+Every guard (multihop / robustness / law / maple / kepano / SQuAD / temporal)
+stayed flat — the dropped unigram matches were noise BM25's IDF already
+scored ≈0; what changed is that FTS5 no longer has to *evaluate* them.
+
+One honest local-regime note: on maple_real with the weak local embedder,
+graph expansion currently *costs* full-support at ranks 5-8 (no-graph 0.660
+vs 0.600) — its relevance gate leans on cosine estimates that are close to
+noise on this corpus (vector-only recall@1 is 0.200 here vs 0.700 for the
+Gemini regime). With Gemini embeddings the same expansion is worth +12 pt
+(§5). Weak-embedder graph gating is an open item; the numbers above are the
+default configuration either way.
 
 ## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 

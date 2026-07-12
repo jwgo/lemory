@@ -193,3 +193,20 @@ def test_subheading_dedupes_title():
     assert ChunkHit(1, 1, "a.md", "회의록", "회의록", "t", 0.0).subheading() == ""
     assert ChunkHit(1, 1, "a.md", "A", "", "t", 0.0).subheading() == ""
     assert ChunkHit(1, 1, "a.md", "A", "Other Section", "t", 0.0).subheading() == "Other Section"
+
+
+def test_query_hangul_grams_drop_interior_unigrams():
+    from lemory.storage.sqlite_store import query_hangul_grams
+
+    grams = query_hangul_grams("메이플스토리 공략")
+    # bigrams present, interior unigrams (the row-melters) absent
+    assert "메이" in grams and "이플" in grams and "공략" in grams
+    assert "이" not in grams and "메" not in grams
+    # single-syllable run keeps its unigram
+    assert query_hangul_grams("책") == ["책"]
+    # single-syllable noun + 조사 re-emits the stem ('윌의' must reach '윌')
+    g2 = query_hangul_grams("윌의 입장")
+    assert "윌" in g2 and "윌의" in g2
+    # 2-syllable conjugation re-emits the verb stem ('읽던' must reach '읽는')
+    g3 = query_hangul_grams("읽던 책")
+    assert "읽" in g3

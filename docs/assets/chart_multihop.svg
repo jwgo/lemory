@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="404" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="880" height="404" rx="12" fill="#0d1117"/>
+<text x="28" y="40" fill="#e6edf3" font-size="22" font-weight="700">2-hop questions: reading your wikilinks beats building LLM graphs</text>
+<text x="28" y="64" fill="#8b949e" font-size="13">Answer-in-context@8 on the multi-hop vault, identical Gemini models for every system.</text>
+<line x1="408" y1="78" x2="408" y2="376" stroke="#21262d"/>
+<line x1="515" y1="78" x2="515" y2="376" stroke="#21262d"/>
+<line x1="622" y1="78" x2="622" y2="376" stroke="#21262d"/>
+<line x1="730" y1="78" x2="730" y2="376" stroke="#21262d"/>
+<text x="288" y="108.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (0 LLM calls to ingest)</text>
+<rect x="300" y="86" width="430" height="34" rx="6" fill="#f7d353"/>
+<text x="740" y="108.0" fill="#e6edf3" font-size="14" font-weight="600">1.000<tspan fill="#8b949e" font-weight="400">  ~3 ms/query</tspan></text>
+<text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">LightRAG mix (165 LLM calls)</text>
+<rect x="300" y="134" width="347" height="34" rx="6" fill="#58a6ff"/>
+<text x="657" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.807<tspan fill="#8b949e" font-weight="400">  7.5 s/query</tspan></text>
+<text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">LlamaIndex VectorStoreIndex</text>
+<rect x="300" y="182" width="279" height="34" rx="6" fill="#6e7681"/>
+<text x="589" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">0.649<tspan fill="#8b949e" font-weight="400">  </tspan></text>
+<text x="288" y="252.0" fill="#e6edf3" font-size="14" text-anchor="end">cognee (45 min cognify)</text>
+<rect x="300" y="230" width="241" height="34" rx="6" fill="#6e7681"/>
+<text x="551" y="252.0" fill="#e6edf3" font-size="14" font-weight="600">0.561<tspan fill="#8b949e" font-weight="400">  5.0 s/query</tspan></text>
+<text x="288" y="300.0" fill="#e6edf3" font-size="14" text-anchor="end">mem0 OSS</text>
+<rect x="300" y="278" width="249" height="34" rx="6" fill="#6e7681"/>
+<text x="559" y="300.0" fill="#e6edf3" font-size="14" font-weight="600">0.579<tspan fill="#8b949e" font-weight="400">  0.2 s/query</tspan></text>
+<text x="288" y="348.0" fill="#e6edf3" font-size="14" text-anchor="end">MemPalace</text>
+<rect x="300" y="326" width="256" height="34" rx="6" fill="#f85149"/>
+<text x="566" y="348.0" fill="#e6edf3" font-size="14" font-weight="600">0.596<tspan fill="#8b949e" font-weight="400">  ~1 s/query</tspan></text>
+</svg>

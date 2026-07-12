@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="320" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="880" height="320" rx="12" fill="#0d1117"/>
+<text x="28" y="40" fill="#e6edf3" font-size="22" font-weight="700">Time until 1,469 notes are searchable</text>
+<text x="28" y="64" fill="#8b949e" font-size="13">Same real Korean corpus. LLM-pipeline systems pay per note; Lemory reads the links you already wrote.</text>
+<line x1="300" y1="78" x2="300" y2="280" stroke="#21262d"/>
+<text x="300" y="298" fill="#8b949e" font-size="11" text-anchor="middle">1ms</text>
+<line x1="366" y1="78" x2="366" y2="280" stroke="#21262d"/>
+<text x="366" y="298" fill="#8b949e" font-size="11" text-anchor="middle">10ms</text>
+<line x1="431" y1="78" x2="431" y2="280" stroke="#21262d"/>
+<text x="431" y="298" fill="#8b949e" font-size="11" text-anchor="middle">0.1s</text>
+<line x1="497" y1="78" x2="497" y2="280" stroke="#21262d"/>
+<text x="497" y="298" fill="#8b949e" font-size="11" text-anchor="middle">1s</text>
+<line x1="562" y1="78" x2="562" y2="280" stroke="#21262d"/>
+<text x="562" y="298" fill="#8b949e" font-size="11" text-anchor="middle">10s</text>
+<line x1="628" y1="78" x2="628" y2="280" stroke="#21262d"/>
+<text x="628" y="298" fill="#8b949e" font-size="11" text-anchor="middle">100s</text>
+<line x1="679" y1="78" x2="679" y2="280" stroke="#21262d"/>
+<text x="679" y="298" fill="#8b949e" font-size="11" text-anchor="middle">10m</text>
+<line x1="730" y1="78" x2="730" y2="280" stroke="#21262d"/>
+<text x="730" y="298" fill="#8b949e" font-size="11" text-anchor="middle">1h</text>
+<text x="288" y="108.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory keyless (BM25+graph)</text>
+<rect x="300" y="86" width="259" height="34" rx="6" fill="#f7d353"/>
+<text x="569" y="108.0" fill="#e6edf3" font-size="14" font-weight="600">9.0s<tspan fill="#8b949e" font-weight="400">  0 LLM calls</tspan></text>
+<text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory + embeddings</text>
+<rect x="300" y="134" width="359" height="34" rx="6" fill="#f7d353"/>
+<text x="669" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">5m 0s<tspan fill="#8b949e" font-weight="400">  one API pass, cached forever</tspan></text>
+<text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd embed</text>
+<rect x="300" y="182" width="414" height="34" rx="6" fill="#58a6ff"/>
+<text x="724" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">34m 56s<tspan fill="#8b949e" font-weight="400">  local models, 27k chunks</tspan></text>
+<text x="288" y="252.0" fill="#e6edf3" font-size="14" text-anchor="end">mem0 (only 400 of the notes)</text>
+<rect x="300" y="230" width="430" height="34" rx="6" fill="#6e7681"/>
+<text x="740" y="252.0" fill="#e6edf3" font-size="14" font-weight="600">60m 55s<tspan fill="#8b949e" font-weight="400">  LLM extraction per note</tspan></text>
+</svg>

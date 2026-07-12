@@ -31,6 +31,13 @@ SYSTEMS = {
 
 
 # ------------------------------------------------------- SQuAD-style scoring
+def normalize_ko(s: str) -> str:
+    """Answer/text normalizer for the Korean corpora: lowercase, drop every
+    non-word / non-Hangul char. Shared by the KorMapleQA generator and every
+    runner so answer-in-context scoring stays comparable across scripts."""
+    return re.sub(r"[^\w\uac00-\ud7a3]+", "", s.lower())
+
+
 def normalize_answer(s: str) -> str:
     s = s.lower()
     s = "".join(ch for ch in s if ch not in set(string.punctuation))

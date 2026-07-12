@@ -28,3 +28,10 @@ benchmarks/data/locomo/locomo10.json
 benchmarks/data/maple_real/vault/
 benchmarks/data/longmemeval/
 benchmarks/data/dmr/msc_self_instruct.jsonl
+
+# omnisearch bench harness deps (npm i minisearch in benchmarks/)
+benchmarks/node_modules/
+benchmarks/package-lock.json
+
+# OS junk
+.DS_Store

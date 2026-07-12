@@ -9,7 +9,7 @@
     "support_recall@8": 1.0,
     "full_support@8_hops1": 1.0,
     "full_support@8_hops2": 1.0,
-    "ms_per_query": 1.7322048996434067
+    "ms_per_query": 0.8006312630393289
   },
   "lemory-nograph": {
     "recall@1": 1.0,
@@ -21,7 +21,7 @@
     "support_recall@8": 0.9090909090909091,
     "full_support@8_hops1": 1.0,
     "full_support@8_hops2": 0.5384615384615384,
-    "ms_per_query": 1.1388677539247456
+    "ms_per_query": 0.6453918688225023
   },
   "vector": {
     "recall@1": 1.0,
@@ -33,18 +33,18 @@
     "support_recall@8": 0.9090909090909091,
     "full_support@8_hops1": 1.0,
     "full_support@8_hops2": 0.5384615384615384,
-    "ms_per_query": 0.4762519489635121
+    "ms_per_query": 0.10993986418752959
   },
   "bm25": {
-    "recall@1": 0.9393939393939394,
+    "recall@1": 1.0,
     "recall@3": 1.0,
     "recall@5": 1.0,
     "recall@8": 1.0,
-    "mrr@10": 0.9646464646464646,
+    "mrr@10": 1.0,
     "full_support@8": 0.8181818181818182,
     "support_recall@8": 0.9090909090909091,
     "full_support@8_hops1": 1.0,
     "full_support@8_hops2": 0.5384615384615384,
-    "ms_per_query": 0.654863588737719
+    "ms_per_query": 0.19115390199603458
   }
 }

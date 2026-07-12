@@ -135,6 +135,15 @@ class DocRecord:
 
 
 _HANGUL_RUN = re.compile(r"[가-힣]+")
+# 가나(ぁ-ヿ)·CJK 한자(一-鿿)까지: 한국어 위키는 표기 테이블에 일본어/중국어
+# 명칭을 함께 적고, unicode61은 스크립트가 섞인 연속 런("ナイトロード나이트로드")
+# 을 한 토큰으로 붙여 버려서 바이그램 없이는 영원히 매치되지 않는다
+_CJK_RUN = re.compile(r"[가-힣]+|[ぁ-ヿ]+|[一-鿿]+")
+
+# high-frequency single-syllable suffixes: 조사 that attach to single-syllable
+# nouns ('윌의', '책은') and verbal 어미 on 2-syllable conjugations ('읽던' /
+# '읽는' share only the stem syllable, which bigrams can't see)
+_SINGLE_PARTICLES = set("의은는이가를을에와과도만로써서던고기다지요며자게니")
 
 
 def hangul_bigrams(text: str) -> list[str]:
@@ -149,7 +158,7 @@ def hangul_bigrams(text: str) -> list[str]:
     syllables from dominating.
     """
     grams: list[str] = []
-    for run in _HANGUL_RUN.findall(text):
+    for run in _CJK_RUN.findall(text):
         grams.extend(run)
         grams.extend(run[i : i + 2] for i in range(len(run) - 1))
     return grams
@@ -165,12 +174,39 @@ def fts_index_text(text: str) -> str:
     return text if not grams else f"{text}\n{' '.join(grams)}"
 
 
+def query_hangul_grams(text: str) -> list[str]:
+    """Query-side Hangul grams: bigrams for multi-syllable runs, the unigram
+    only for single-syllable runs ('책').
+
+    The index stores unigrams AND bigrams (`hangul_bigrams`), but putting
+    unigrams in the OR-query is what melts big Korean corpora: '이'/'은'/'의'
+    match nearly every row, forcing BM25 to score the whole table (~270 ms on
+    the 33k-chunk namuwiki corpus). Every occurrence of a multi-syllable word
+    already contains that word's bigrams, so dropping its unigrams from the
+    QUERY loses only single-shared-syllable noise matches whose IDF weight
+    was ~0 anyway."""
+    grams: list[str] = []
+    for run in _CJK_RUN.findall(text):
+        if len(run) == 1:
+            grams.append(run)
+        else:
+            grams.extend(run[i : i + 2] for i in range(len(run) - 1))
+            if len(run) == 2 and run[1] in _SINGLE_PARTICLES:
+                # '윌의'/'책은': a single-syllable noun + 조사 — the stem
+                # unigram is the only token that can reach the noun's own
+                # mentions ('윌'). Bounded reintroduction: only 2-syllable
+                # runs ending in a particle, so interior syllables of long
+                # words (the row-melters '이/은/의') stay out of the query.
+                grams.append(run[0])
+    return grams
+
+
 def _fts_escape(query: str) -> str:
     """Turn free text into a safe FTS5 OR-query of quoted terms
     (plus Hangul-bigram terms so 조사-suffixed words still match)."""
     terms = [t.replace('"', "") for t in query.split()]
     terms = [t for t in terms if t.strip()][:16]  # cap pathological queries
-    grams = hangul_bigrams(" ".join(terms))[:48]
+    grams = query_hangul_grams(" ".join(terms))[:48]
     all_terms = terms + grams
     if not all_terms:
         return '""'
@@ -204,7 +240,8 @@ class Store:
         self._matrix: Optional[np.ndarray] = None  # [n, dim] float32, L2-normalized
         self._matrix_chunk_ids: Optional[np.ndarray] = None
         self._matrix_pos: dict[int, int] = {}  # chunk_id -> row
-        self._lexicon: Optional[dict[str, int]] = None  # FTS term -> doc count
+        self._lexicon: Optional[dict[str, int]] = None
+        self._lexicon_buckets: Optional[dict] = None  # FTS term -> doc count
         self._doc_dates: Optional[dict[int, float]] = None  # doc_id -> epoch
         self._dirty = True
         try:
@@ -267,6 +304,7 @@ class Store:
             self._ann = None
             self._ann_failed = False  # data changed; a fresh build may fit now
             self._lexicon = None
+            self._lexicon_buckets = None
             self._doc_dates = None
 
     def _upsert_document_tx(
@@ -460,6 +498,28 @@ class Store:
                     continue
             out.add(r["id"])
         return out
+
+    def all_links(self) -> list[tuple[int, int, str, float]]:
+        """Every graph edge (src, dst, kind, weight) — the `lemory graph`
+        export and any future whole-graph consumer."""
+        return [(r["src_doc"], r["dst_doc"], r["kind"], r["weight"])
+                for r in self.conn().execute(
+                    "SELECT src_doc, dst_doc, kind, weight FROM links")]
+
+    def mention_edges(self, doc_id: int | None = None) -> list[tuple[int, int, float]]:
+        """Unlinked-mention edges (src, dst, weight). These exist ONLY where
+        no wiki edge covers the same pair (indexer merge rule), so every row
+        is a live [[link]] suggestion. With doc_id: both directions for that
+        note."""
+        if doc_id is None:
+            q = "SELECT src_doc, dst_doc, weight FROM links WHERE kind='mention'"
+            args: tuple = ()
+        else:
+            q = ("SELECT src_doc, dst_doc, weight FROM links WHERE kind='mention' "
+                 "AND (src_doc=? OR dst_doc=?)")
+            args = (doc_id, doc_id)
+        return [(r["src_doc"], r["dst_doc"], r["weight"])
+                for r in self.conn().execute(q, args)]
 
     def link_degrees(self) -> dict[int, int]:
         """doc_id -> total link degree (in + out), for hub detection."""
@@ -981,7 +1041,7 @@ class Store:
         return rows[:limit]
 
     # ------------------------------------------------------------ typo lexicon
-    _LEX_WORD_RE = re.compile(r"[A-Za-z]{3,}")
+    _LEX_WORD_RE = re.compile(r"[A-Za-z]{3,}|[가-힣]{2,}")
 
     def lexicon(self) -> dict[str, int]:
         """Surface-form vocabulary of the indexed text (word -> frequency),
@@ -1003,6 +1063,25 @@ class Store:
         with self._matrix_lock:
             self._lexicon = counts
         return counts
+
+    def lexicon_buckets(self) -> dict[str, list[tuple[str, int]]]:
+        """lexicon() grouped by first AND second character — the typo scan's
+        candidate filter becomes an O(bucket) lookup instead of a 350k-term
+        linear scan. Second-char buckets (prefixed '\x02') let a typo in the
+        FIRST syllable ('메이플' typed '매이플/이메플') still find its word:
+        first-char-equal filtering alone is blind exactly there."""
+        with self._matrix_lock:
+            buckets = self._lexicon_buckets
+        if buckets is not None:
+            return buckets
+        buckets = {}
+        for term, count in self.lexicon().items():
+            buckets.setdefault(term[0], []).append((term, count))
+            if len(term) >= 2:
+                buckets.setdefault("\x02" + term[1], []).append((term, count))
+        with self._matrix_lock:
+            self._lexicon_buckets = buckets
+        return buckets
 
     def token_known(self, token: str) -> bool:
         """True if the token (after FTS stemming) matches anything indexed."""
