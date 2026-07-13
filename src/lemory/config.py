@@ -46,6 +46,11 @@ class LemoryConfig(BaseSettings):
     ollama_host: str = "http://127.0.0.1:11434"
     ollama_llm_model: str = "gemma3n:e4b"             # Gemma 3n E4B, 4-bit quant
     ollama_embed_model: str = "qwen3-embedding:0.6b"  # Qwen3-Embedding-0.6B
+    # dedicated cross-encoder reranker (opt-in "quality mode": one model call
+    # per candidate, so seconds/query — reach for it when a hard multi-hop
+    # question comes back wrong, not for everyday lookups). Only used when
+    # cfg.reranker is on AND the provider is ollama.
+    ollama_reranker_model: str = "dengcao/Qwen3-Reranker-0.6B:F16"
     ollama_embed_dim: int = 1024
 
     # --- Gemini ---
@@ -169,6 +174,11 @@ class LemoryConfig(BaseSettings):
     rerank: bool = False            # LLM-score the top candidates post-fusion
     rerank_top: int = 12
     rerank_blend: float = 0.5       # 0=fusion score only, 1=LLM score only
+    # dedicated cross-encoder reranker (Qwen3-Reranker via ollama_reranker_model).
+    # A purpose-built reranker judges relevance directly, unlike generic-LLM
+    # self-scoring (which a small model does badly). Opt-in quality mode; when
+    # on it supersedes `rerank`. Slow (one model call per candidate).
+    reranker: bool = False
 
     # --- optional LLM graph enrichment (cognify-style) ---
     enrich_entities: bool = False

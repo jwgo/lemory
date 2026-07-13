@@ -23,6 +23,7 @@ def create_client(cfg: "LemoryConfig") -> LLMClient:
             llm_model=cfg.ollama_llm_model,
             embed_model=cfg.ollama_embed_model,
             embed_dim=cfg.ollama_embed_dim,
+            reranker_model=cfg.ollama_reranker_model,
             max_output_tokens=cfg.llm_max_output_tokens,
         )
     if provider == "local":

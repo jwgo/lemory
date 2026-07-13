@@ -141,3 +141,31 @@ def test_short_korean_verbatim_questions_reach_coverage(engine, vault):
     # enough to gate ("이충우의 본명은 무엇인가?" is a verbatim lookup)
     toks = _coverage_tokens("이충우의 본명은 무엇인가?")
     assert toks and len(toks) >= 1
+
+
+# --- dedicated cross-encoder reranker (opt-in precision mode) ---------------
+
+def test_dedicated_reranker_promotes_relevant(engine, vault):
+    """A reranker verdict lifts a retrieved-but-low-ranked gold chunk to the
+    top without changing WHAT was retrieved (recall@k unchanged)."""
+    engine.index()
+    # attach a fake reranker to the real (embedding-capable) llm: mark only
+    # the Dana note relevant
+    engine.llm.rerank_scores = lambda query, docs: [
+        1.0 if "Dana" in d else 0.0 for d in docs]
+    engine.cfg.reranker = True
+    hits = engine.search("Weyland Corp distributed tracing", k=5)
+    assert hits, "reranker path must still return results"
+    assert "Dana Petrov" in hits[0].title
+
+
+def test_dedicated_reranker_off_by_default(engine, vault):
+    engine.index()
+    calls = {"n": 0}
+    def _rr(query, docs):
+        calls["n"] += 1
+        return [0.0] * len(docs)
+    engine.llm.rerank_scores = _rr
+    # cfg.reranker defaults False -> the reranker is never consulted
+    engine.search("Mercury pricing", k=5)
+    assert calls["n"] == 0
