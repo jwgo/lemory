@@ -39,6 +39,11 @@ log = logging.getLogger("lemory.server")
 # /status or requires a restart (models, vault path) — keeping the writable
 # surface small makes PATCH safe.
 TUNABLE_FIELDS: dict[str, type] = {
+    # embedding backend selection. Unlike the live knobs below, changing these
+    # only takes effect on the next start and needs a full re-index (the vector
+    # space changes); the UI labels them accordingly and persists to lemory.toml.
+    "provider": str,             # auto | gemini | openai | local | ollama
+    "local_embed_backend": str,  # auto | llamacpp | fastembed
     "event_log": bool,
     "graph_expansion": bool,
     "mention_links": bool,
@@ -362,6 +367,10 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                     coerced = typ(value)
             except (TypeError, ValueError):
                 raise HTTPException(400, f"bad value for {key}: {value!r}")
+            if key == "provider" and coerced not in ("auto", "gemini", "openai", "local", "ollama"):
+                raise HTTPException(400, "provider must be auto|gemini|openai|local|ollama")
+            if key == "local_embed_backend" and coerced not in ("auto", "llamacpp", "fastembed"):
+                raise HTTPException(400, "local_embed_backend must be auto|llamacpp|fastembed")
             if key == "context_style" and coerced not in ("full", "compact"):
                 raise HTTPException(400, "context_style must be 'full' or 'compact'")
             if key == "context_order" and coerced not in ("curriculum", "rank"):
