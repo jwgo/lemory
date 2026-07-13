@@ -26,6 +26,22 @@ LOCAL_EMBED_DIM = 384
 _TASK_PREFIX = {"RETRIEVAL_DOCUMENT": "passage: ", "RETRIEVAL_QUERY": "query: "}
 
 
+def _local_generate(prompt: str, system: str | None) -> str:
+    """On-device answer for a keyless local install: LiteRT-LM (Gemma 4 E2B)
+    when `lemory[assistant]` is installed, else a helpful error. Lets ask()
+    and the console search view answer with no API key and no Ollama."""
+    from . import litert
+
+    ok, _ = litert.available()
+    if ok:
+        return litert.generate(system or "", prompt)
+    raise RuntimeError(
+        "로컬 답변 생성기가 없습니다: 검색은 오프라인으로 되지만 ask(답변)는 LLM이 "
+        ' 필요합니다. 온디바이스 답변은 pip install "lemory[assistant]" (Gemma 4 E2B), '
+        "또는 GEMINI_API_KEY(무료)로 켜집니다."
+    )
+
+
 class LocalClient:
     """LLMClient implementation with local embeddings and no generator."""
 
@@ -69,16 +85,13 @@ class LocalClient:
     def generate(self, prompt: str, system: str | None = None, **kw) -> str:
         if self._generator is not None:
             return self._generator.generate(prompt, system=system, **kw)
-        raise RuntimeError(
-            "provider='local' has no answer generator: search works fully "
-            "offline, but ask() needs an LLM. Set GEMINI_API_KEY (free tier "
-            "works) to enable grounded answers — embeddings stay local."
-        )
+        return _local_generate(prompt, system)
 
     def generate_json(self, prompt: str, system: str | None = None, **kw) -> Any:
         if self._generator is not None:
             return self._generator.generate_json(prompt, system=system, **kw)
-        raise RuntimeError("provider='local' has no LLM; set GEMINI_API_KEY for ask()")
+        from .base import parse_json_loose
+        return parse_json_loose(_local_generate(prompt, system))
 
     def close(self) -> None:
         if self._generator is not None:

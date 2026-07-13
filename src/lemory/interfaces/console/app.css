@@ -413,3 +413,7 @@ input::placeholder { color: var(--text-3); }
   border: 1px solid var(--border-2); border-radius: var(--r-md); padding: 10px 12px;
   font: inherit; line-height: 1.5; max-height: 160px; }
 .asst-input textarea:focus { outline: none; border-color: var(--brand); }
+.asst-model { margin-left: auto; display: flex; gap: 4px; }
+.asst-size { padding: 3px 10px; font-size: 12px; border: 1px solid var(--border-2);
+  background: var(--surface); color: var(--text-2); border-radius: var(--r-sm); cursor: pointer; }
+.asst-size.on { background: var(--brand-soft); color: var(--brand); border-color: var(--brand); }

@@ -22,6 +22,15 @@ def _isolate_global_env(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_litert(monkeypatch):
+    """Tests never load the 2.6GB LiteRT-LM model. Stub the on-device brain as
+    unavailable so the keyless local generate() takes its documented raise
+    path; a test that wants LiteRT overrides this explicitly."""
+    import lemory.providers.litert as lt
+    monkeypatch.setattr(lt, "available", lambda: (False, "litert stubbed in tests"))
+
+
+@pytest.fixture(autouse=True)
 def _default_local_fastembed(monkeypatch):
     """Keep the 'auto' local embed backend = fastembed in tests even when
     llama-cpp-python happens to be installed in the dev env. Tests that want

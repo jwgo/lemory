@@ -584,7 +584,8 @@ async function renderAssistant() {
   const m = $("#main");
   m.innerHTML = `<div class="view asst">
     <div class="view-head"><div class="view-title">비서</div>
-      <div class="view-sub">지식베이스 기반 대화 — 로컬 모델로 스트리밍, 출처 인용</div></div>
+      <div class="view-sub">지식베이스 기반 대화 — 로컬 모델로 스트리밍, 출처 인용</div>
+      <div id="asstModel" class="asst-model"></div></div>
     <div id="asstGate"></div>
     <div id="asstWrap" hidden>
       <div class="asst-log" id="asstLog"></div>
@@ -611,6 +612,17 @@ async function renderAssistant() {
   }
 
   $("#asstWrap").hidden = false;
+  if (st.sizes && st.sizes.length > 1) {
+    const mb = $("#asstModel");
+    mb.innerHTML = st.sizes.map(s =>
+      `<button class="asst-size ${s === st.size ? "on" : ""}" data-size="${s}">${s}</button>`).join("");
+    $$(".asst-size", mb).forEach(b => b.onclick = async () => {
+      if (b.classList.contains("on")) return;
+      try { await api("/api/assistant/model", { method: "POST", body: JSON.stringify({ size: b.dataset.size }) });
+        toast(`비서 모델 → ${b.dataset.size}`, "ok"); renderAssistant(); }
+      catch (e) { toast(e.message, "err"); }
+    });
+  }
   const log = $("#asstLog"), input = $("#asstIn"), send = $("#asstSend");
   ASSIST.history.forEach(msg => appendBubble(log, msg.role, msg.content, msg.sources));
   if (!ASSIST.history.length)

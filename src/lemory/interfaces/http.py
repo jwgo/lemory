@@ -234,33 +234,48 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         }
 
     # ------------------------------------------------- assistant (console chat)
-    def _assistant_client():
-        from ..providers.ollama import OllamaClient
-        cfg = engine.cfg
-        return OllamaClient(host=cfg.ollama_host, llm_model=cfg.assistant_model)
-
     @app.get("/api/assistant/status")
     def assistant_status():
-        """Is the always-local assistant reachable? (Ollama up + model pulled.)
-        The console gates 'assistant mode' on this — E2B has to be running."""
+        """Is the on-device assistant brain ready? Default is LiteRT-LM (Gemma
+        4 E2B, .litertlm); the console gates 'assistant mode' on this."""
         cfg = engine.cfg
-        c = _assistant_client()
-        try:
-            if not c.server_alive():
-                return {"available": False, "model": cfg.assistant_model,
-                        "reason": "Ollama가 실행 중이 아닙니다. 설치: https://ollama.com "
-                                  "· 실행: `ollama serve`"}
-            if not c.has_model(cfg.assistant_model):
-                return {"available": False, "model": cfg.assistant_model,
-                        "reason": f"모델이 없습니다 — `ollama pull {cfg.assistant_model}`"}
-            return {"available": True, "model": cfg.assistant_model}
-        finally:
-            c.close()
+        if cfg.assistant_backend == "ollama":
+            from ..providers.ollama import OllamaClient
+            c = OllamaClient(host=cfg.ollama_host, llm_model=cfg.assistant_model)
+            try:
+                if not c.server_alive():
+                    return {"available": False, "model": cfg.assistant_model,
+                            "reason": "Ollama가 실행 중이 아닙니다. 실행: `ollama serve`"}
+                if not c.has_model(cfg.assistant_model):
+                    return {"available": False, "model": cfg.assistant_model,
+                            "reason": f"모델이 없습니다 — `ollama pull {cfg.assistant_model}`"}
+                return {"available": True, "model": cfg.assistant_model}
+            finally:
+                c.close()
+        from ..providers import litert
+        ok, reason = litert.available()
+        size = next((k for k, (r, f) in litert.MODELS.items()
+                     if f == cfg.assistant_litert_file), "E2B")
+        return {"available": ok, "model": cfg.assistant_litert_file, "reason": reason,
+                "size": size, "sizes": list(litert.MODELS)}
+
+    @app.post("/api/assistant/model")
+    def assistant_model(body: dict[str, Any]):
+        """Switch the on-device brain size (E2B fast / E4B quality); persisted."""
+        from ..providers import litert
+        size = str(body.get("size", "")).upper()
+        if size not in litert.MODELS:
+            raise HTTPException(400, f"size must be one of {list(litert.MODELS)}")
+        repo, file = litert.MODELS[size]
+        engine.cfg.assistant_litert_repo = repo
+        engine.cfg.assistant_litert_file = file
+        _persist_config(engine, {"assistant_litert_repo": repo, "assistant_litert_file": file})
+        return {"size": size, "model": file}
 
     @app.post("/api/assistant/chat")
     def assistant_chat(request: Request, body: ChatBody):
         """Grounded, streaming chat over the vault. Retrieves for the latest
-        user turn, streams a cited answer from the local assistant model."""
+        user turn, streams a cited answer from the on-device assistant brain."""
         from ..retrieval.answer import SYSTEM, build_context
         cfg = engine.cfg
         msgs = [m for m in body.messages
@@ -271,8 +286,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         hits = engine.search(question, k=cfg.assistant_k)
         context = build_context(hits) if hits else "(관련 노트를 찾지 못했습니다.)"
         system = (SYSTEM + "\n\nNOTES (cite as [n]):\n" + context)
-        chat_messages = [{"role": "system", "content": system}] + [
-            {"role": m["role"], "content": str(m["content"])} for m in msgs[-8:]]
+        history = [{"role": m["role"], "content": str(m["content"])} for m in msgs[:-1][-6:]]
         sources = [{"n": i + 1, "title": h.title, "path": h.path,
                     "snippet": h.text[:180]} for i, h in enumerate(hits)]
         if cfg.event_log:
@@ -281,17 +295,30 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         if hits:
             engine.store.record_hits([h.doc_id for h in hits])
 
+        def deltas():
+            if cfg.assistant_backend == "ollama":
+                from ..providers.ollama import OllamaClient
+                c = OllamaClient(host=cfg.ollama_host, llm_model=cfg.assistant_model)
+                try:
+                    chat = [{"role": "system", "content": system}] + history + \
+                           [{"role": "user", "content": question}]
+                    yield from c.chat_stream(chat, model=cfg.assistant_model)
+                finally:
+                    c.close()
+            else:
+                from ..providers import litert
+                yield from litert.chat_stream(
+                    system, history, question,
+                    repo=cfg.assistant_litert_repo, file=cfg.assistant_litert_file)
+
         def gen():
-            client = _assistant_client()
             try:
                 yield "data: " + json.dumps({"sources": sources}, ensure_ascii=False) + "\n\n"
-                for delta in client.chat_stream(chat_messages, model=cfg.assistant_model):
+                for delta in deltas():
                     yield "data: " + json.dumps({"delta": delta}, ensure_ascii=False) + "\n\n"
                 yield "data: " + json.dumps({"done": True}) + "\n\n"
             except Exception as e:  # surface a friendly error into the stream
                 yield "data: " + json.dumps({"error": str(e)[:200]}, ensure_ascii=False) + "\n\n"
-            finally:
-                client.close()
 
         return StreamingResponse(gen(), media_type="text/event-stream")
 
