@@ -1,20 +1,20 @@
-"""KorMapleQA — 실제 나무위키 메이플스토리 코퍼스(1,469 문서) 위의
+"""KorMapleQA - 실제 나무위키 메이플스토리 코퍼스(1,469 문서) 위의
 결정적·코드검증 한국어 RAG 벤치마크 생성기.
 
 LLM 초안 없이 100% 코드로 생성되므로 (a) API 키 없이 재현 가능하고
 (b) 모든 문항이 기계 검증 가능한 불변식을 갖는다:
 
-  S  단일 사실   인포박스 표/불릿의 (키, 값) — 정답이 골드 문서에 존재
+  S  단일 사실   인포박스 표/불릿의 (키, 값) - 정답이 골드 문서에 존재
   M  마스킹      엔티티를 제목 대신 '코퍼스 전체에서 유일한 속성값'으로
-                 지칭 — 제목 부스트가 아니라 내용 검색을 강제
+                 지칭 - 제목 부스트가 아니라 내용 검색을 강제
   H  2-hop      A 문서 인포박스의 위키링크 값 → B 문서의 사실.
                  정답은 B에만 있고 A에는 없음을 검증 (지름길 차단)
   T  시간       "YYYY년 M월 D일 ... 등장/출시/추가" 서술
-  A  무응답     덤프(2021-03-01) 이후 콘텐츠 — 코퍼스 전체 부재를 검증.
+  A  무응답     덤프(2021-03-01) 이후 콘텐츠 - 코퍼스 전체 부재를 검증.
                  e2e 시스템은 '모른다'가 정답, 검색 시스템은 별도 리포트
 
 변형(robustness) 축: 문어체 원문 → 구어체(반말+동의어), 키워드, 오타
-(자모 시드 고정) — 같은 골드로 재질의.
+(자모 시드 고정) - 같은 골드로 재질의.
 
 사용:
     python benchmarks/gen_kormapleqa.py            # 생성 + 검증 + 통계
@@ -58,7 +58,7 @@ def _last_hangul(word: str) -> str:
     return ""
 
 
-def _topic(word: str) -> str:  # 은/는 — 조사는 마지막 한글 음절 기준
+def _topic(word: str) -> str:  # 은/는 - 조사는 마지막 한글 음절 기준
     ch = _last_hangul(word)
     return "은" if ch and _jong(ch) else "는"
 
@@ -281,7 +281,7 @@ def gen_single(docs: dict) -> list[dict]:
             ans_norm = normalize(f["value"])
             if not ans_norm or ans_norm not in d["norm"]:
                 continue
-            # 문서 안에서 같은 키가 여러 값이면 (페이즈별 표 등) 모호 — 스킵
+            # 문서 안에서 같은 키가 여러 값이면 (페이즈별 표 등) 모호 - 스킵
             vals = {normalize(x["value"]) for x in d["kv"] if x["key"].strip() == key}
             if len(vals) > 1:
                 continue
@@ -430,7 +430,7 @@ def gen_temporal(docs: dict) -> list[dict]:
     return out
 
 
-# 덤프(2021-03-01) 이후에 등장한 콘텐츠 — 코퍼스에 답이 없어야 정상
+# 덤프(2021-03-01) 이후에 등장한 콘텐츠 - 코퍼스에 답이 없어야 정상
 _ABSTENTION_ENTITIES = [
     ("데스티니(업데이트)", "데스티니 업데이트에서 리마스터된 직업군은 무엇인가?"),
     ("이그니션(업데이트)", "이그니션 업데이트의 시작일은 언제인가?"),
@@ -457,7 +457,7 @@ def gen_abstention(docs: dict) -> list[dict]:
         key = normalize(ident.split("(")[0])
         holders = [t for t, d in docs.items() if key in d["norm"]]
         if holders:
-            continue  # 코퍼스에 존재 — 무응답 문항으로 부적격
+            continue  # 코퍼스에 존재 - 무응답 문항으로 부적격
         out.append({
             "type": "abstention", "q": q, "answers": [],
             "gold_notes": [], "masked": True, "key": ident,
@@ -471,7 +471,7 @@ def gen_abstention(docs: dict) -> list[dict]:
 _TYPO_RNG = random.Random(SEED)
 
 
-# question-ending words must never receive the typo — a typo belongs on the
+# question-ending words must never receive the typo - a typo belongs on the
 # entity/topic the user is asking about, not on the interrogative
 _ENDING_STEMS = {e.rstrip("?") for pool in _ENDINGS.values() for e in pool} | {
     "무엇인가", "언제인가", "날짜는", "무엇", "언제", "얼마"}
