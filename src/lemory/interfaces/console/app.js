@@ -625,6 +625,29 @@ async function renderAssistant() {
       catch (e) { toast(e.message, "err"); }
     });
   }
+  // preload on-device models once, with visible progress — the first turn used
+  // to hang silently while several GB downloaded/loaded
+  if (!ASSIST.warmed) {
+    ASSIST.warmed = true;
+    (async () => {
+      const sEl = $("#asstStatus");
+      try {
+        const res = await fetch("/api/assistant/warmup");
+        const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+        for (;;) {
+          const { value, done } = await reader.read(); if (done) break;
+          buf += dec.decode(value, { stream: true }); let i;
+          while ((i = buf.indexOf("\n\n")) >= 0) {
+            const line = buf.slice(0, i); buf = buf.slice(i + 2);
+            if (!line.startsWith("data:")) continue;
+            const d = JSON.parse(line.slice(5).trim());
+            if (d.stage === "done") { if (sEl && sEl.textContent.startsWith("⏳")) sEl.textContent = ""; }
+            else if (d.status === "loading" && sEl) sEl.textContent = "⏳ " + d.msg + " (첫 실행은 모델 다운로드로 몇 분 걸릴 수 있어요)";
+          }
+        }
+      } catch (_) {}
+    })();
+  }
   const log = $("#asstLog"), input = $("#asstIn"), send = $("#asstSend");
   ASSIST.history.forEach(msg => appendBubble(log, msg.role, msg.content, msg.sources));
   if (!ASSIST.history.length)
