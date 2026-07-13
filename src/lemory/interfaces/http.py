@@ -296,6 +296,34 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             raise HTTPException(500, f"TTS 실패: {str(e)[:160]}")
         return Response(content=wav, media_type="audio/wav")
 
+    @app.get("/api/assistant/warmup")
+    def assistant_warmup():
+        """Preload the on-device models and stream progress, so the first turn
+        is not a silent multi-second (first-run: multi-GB download) hang."""
+        cfg = engine.cfg
+        stages = [
+            ("brain", f"답변 모델 준비 중… ({cfg.assistant_litert_file})", lambda: __import__(
+                "lemory.providers.litert", fromlist=["_engine"])._engine(
+                cfg.assistant_litert_repo, cfg.assistant_litert_file)),
+            ("stt", "음성 인식(Whisper) 준비 중…", lambda: __import__(
+                "lemory.providers.whisper_stt", fromlist=["_model"])._model(
+                __import__("lemory.providers.whisper_stt", fromlist=["DEFAULT_SIZE"]).DEFAULT_SIZE)),
+            ("tts", "음성 합성(Supertonic) 준비 중…", lambda: __import__(
+                "lemory.providers.supertonic_tts", fromlist=["_tts"])._tts()),
+        ]
+
+        def gen():
+            for key, msg, load in stages:
+                yield "data: " + json.dumps({"stage": key, "status": "loading", "msg": msg}, ensure_ascii=False) + "\n\n"
+                try:
+                    load()
+                    yield "data: " + json.dumps({"stage": key, "status": "ready"}, ensure_ascii=False) + "\n\n"
+                except Exception as e:
+                    yield "data: " + json.dumps({"stage": key, "status": "skip", "msg": str(e)[:140]}, ensure_ascii=False) + "\n\n"
+            yield "data: " + json.dumps({"stage": "done"}) + "\n\n"
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
     @app.post("/api/assistant/stt")
     async def assistant_stt(request: Request):
         """On-device speech-to-text (faster-whisper): the mic clip is
