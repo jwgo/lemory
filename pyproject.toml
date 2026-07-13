@@ -1,12 +1,26 @@
 [project]
 name = "lemory"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local memory middleware for your Markdown: your Obsidian vault becomes the memory of every AI (MCP read+write), with Korean-first hybrid retrieval, memory consolidation, and an interactive knowledge graph on a zero-service SQLite+numpy stack."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 keywords = ["obsidian", "mcp", "memory", "rag", "knowledge-base", "local-first", "markdown", "ai-memory"]
 authors = [{ name = "Lemory" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Natural Language :: Korean",
+    "Natural Language :: English",
+]
 dependencies = [
     "httpx>=0.27",
     "numpy>=1.26",
@@ -41,6 +55,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lemory"]
+
+# Keep the sdist lean: ship the package, docs, and tests — NOT the ~20MB
+# benchmark corpora, the Obsidian plugin's node_modules, or doc image assets.
+[tool.hatch.build.targets.sdist]
+only-include = ["src/lemory", "tests", "README.md", "README.ko.md",
+                "CHANGELOG.md", "LICENSE", "pyproject.toml",
+                "docs/GUIDE.md", "docs/GUIDE.ko.md", "BENCHMARKS.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

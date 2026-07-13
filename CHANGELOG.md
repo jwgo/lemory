@@ -2,6 +2,38 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## 0.3.0 · Stronger local embeddings (Harrier), dedicated reranker, KorMapleQA v2
+
+### Local embeddings
+
+- **In-process Harrier-OSS-0.6B is the new default local embedder**
+  (`pip install "lemory[llama]"`). Microsoft's Qwen3-based multilingual
+  embedder (Q8 GGUF) runs inside the process via llama.cpp on Metal/GPU, no
+  daemon, the same runtime qmd uses. Measured hybrid **doc@8 0.853 on
+  KorMapleQA vs fastembed MiniLM's 0.788** (+6.5pt), closing over half the gap
+  to the Gemini ceiling (0.906) with zero keys. The GGUF auto-downloads from
+  HuggingFace once. `local_embed_backend = "auto"` falls back to fastembed
+  MiniLM (0.788, pure-Python, no native compile) when llama-cpp-python is not
+  installed; `provider = "ollama"` runs the identical GGUF via a shared daemon.
+- The same Harrier GGUF is the Ollama embed default too
+  (`hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`), resolvable by a plain
+  `ollama pull`.
+
+### Retrieval quality
+
+- **Dedicated cross-encoder reranker** (`reranker = true`): Qwen3-Reranker
+  scores fused candidates instead of a chat model grading itself. +6.7pt
+  recall@1 on hard single/masked questions (it reorders, so it cannot fix a
+  deep-multi-hop recall miss). Off by default; seconds per query.
+
+### Benchmark
+
+- **KorMapleQA v2**: question phrasing de-monotonized (the share ending in the
+  identical `~은 무엇인가?` dropped 72% to 12%, varied by answer type) and the
+  seeded typo now lands on the entity rather than the question word. Every
+  zero-key system re-measured; ranking and story unchanged (all moved
+  <2.5 doc@8 points). Published at github.com/jwgo/KorMapleQA.
+
 ## 0.2.0 · Korean-first retrieval, second-brain behaviors, KorMapleQA
 
 ### Retrieval quality (Korean)
