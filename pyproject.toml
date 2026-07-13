@@ -32,6 +32,10 @@ dependencies = [
     "watchdog>=4.0",
     "fastapi>=0.111",
     "uvicorn>=0.30",
+    # semantic search works out of the box on every OS: fastembed is pure-Python
+    # ONNX (prebuilt wheels for win/mac/linux, no compiler, no API key). Without
+    # it a fresh install would fall back to lexical-only (BM25 + link graph).
+    "fastembed>=0.3",
 ]
 
 [project.urls]
@@ -42,7 +46,7 @@ Benchmarks = "https://github.com/jwgo/lemory/blob/main/BENCHMARKS.md"
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 mcp = ["mcp>=1.0"]
-local = ["fastembed>=0.3"]
+local = []  # fastembed is now a base dependency; kept so `lemory[local]` still resolves
 llama = ["llama-cpp-python>=0.3", "huggingface-hub>=0.23"]
 pdf = ["pypdf>=4.0"]
 

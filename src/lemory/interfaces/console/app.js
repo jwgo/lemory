@@ -578,6 +578,10 @@ async function renderSearch() {
 
 /* --------------------------------------------------------------- settings */
 const SETTINGS_META = [
+  ["임베딩 · 모델  ⟳ 저장 후 재시작 + 재색인 필요 (벡터 공간이 바뀝니다)", [
+    ["provider", "프로바이더", "auto: 키 있으면 클라우드·없으면 로컬 / local: 로컬 임베딩(키 불필요) / gemini·openai: API 키 필요(.env) / ollama: 로컬 데몬", "select", ["auto", "local", "gemini", "openai", "ollama"]],
+    ["local_embed_backend", "로컬 임베더", "auto: llama 설치 시 Harrier(1024d)·아니면 MiniLM(384d) / llamacpp: Harrier 고품질 (lemory[llama]) / fastembed: MiniLM 경량·전 OS", "select", ["auto", "llamacpp", "fastembed"]],
+  ]],
   ["검색 품질", [
     ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
     ["event_log", "미들웨어 타임라인", "질의·AI 쓰기 기록 (이 기기 SQLite에만 저장, 외부 전송 없음)", "bool"],
