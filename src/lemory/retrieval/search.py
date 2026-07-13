@@ -399,7 +399,7 @@ def hybrid_search(
     # self-scoring which a small model does badly. Falls back to the
     # generic LLM rerank when only `rerank` is set.
     use_reranker = cfg.reranker and mode == "hybrid"
-    if use_reranker and fused and hasattr(engine.llm, "rerank_scores"):
+    if use_reranker and fused:
         _dedicated_rerank(engine, query, fused, chunk_meta)
     elif use_rerank and fused:
         _llm_rerank(engine, query, fused, chunk_meta)
@@ -729,18 +729,40 @@ def _dedicated_rerank(
         docs.append((m.title + ". " + m.text)[:1200])
     if not cids:
         return
-    try:
-        scores = engine.llm.rerank_scores(query, docs)
-    except Exception:
+    scores = _reranker_scores(engine, query, docs)
+    if scores is None or len(scores) != len(cids):
         return  # keep fusion ranking on any reranker failure
-    if len(scores) != len(cids):
-        return
-    # additive lift above the whole fused range for relevant chunks; the
-    # existing fused score stays as the intra-group tiebreaker
     top_fused = max(fused.values(), default=1.0) or 1.0
-    for cid, s in zip(cids, scores):
-        if s > 0:
-            fused[cid] += top_fused
+    if cfg.reranker_backend == "ollama":
+        # Ollama Qwen3-Reranker returns a 1.0/0.0 relevance verdict: lift every
+        # relevant chunk above the fused range, fused score as intra-group tiebreak
+        for cid, s in zip(cids, scores):
+            if s > 0:
+                fused[cid] += top_fused
+    else:
+        # cross-encoder continuous scores: reorder the candidates by relevance,
+        # all lifted above the fused range (best first), so the reranker only
+        # reorders what retrieval already surfaced
+        order = sorted(range(len(cids)), key=lambda i: -scores[i])
+        n = len(order)
+        for rank, i in enumerate(order):
+            fused[cids[i]] = top_fused + (n - rank)
+
+
+def _reranker_scores(engine: "Engine", query: str, docs: list[str]) -> "list[float] | None":
+    cfg = engine.cfg
+    if cfg.reranker_backend == "ollama":
+        if not hasattr(engine.llm, "rerank_scores"):
+            return None
+        try:
+            return list(engine.llm.rerank_scores(query, docs))
+        except Exception:
+            return None
+    from ..providers import reranker
+    try:
+        return reranker.rerank_scores(query, docs, model=cfg.reranker_model)
+    except Exception:
+        return None
 
 
 def _graph_expand(

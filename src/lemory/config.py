@@ -207,11 +207,14 @@ class LemoryConfig(BaseSettings):
     rerank: bool = False            # LLM-score the top candidates post-fusion
     rerank_top: int = 12
     rerank_blend: float = 0.5       # 0=fusion score only, 1=LLM score only
-    # dedicated cross-encoder reranker (Qwen3-Reranker via ollama_reranker_model).
-    # A purpose-built reranker judges relevance directly, unlike generic-LLM
-    # self-scoring (which a small model does badly). Opt-in quality mode; when
-    # on it supersedes `rerank`. Slow (one model call per candidate).
+    # dedicated cross-encoder reranker. Default backend is fastembed (in-process
+    # ONNX jina-reranker-v2-multilingual, strong Korean, no daemon, ~ms/query),
+    # so this needs no Ollama; set reranker_backend="ollama" for the Qwen3-
+    # Reranker GGUF instead. A purpose-built reranker judges relevance directly
+    # (unlike generic-LLM self-scoring); when on it supersedes `rerank`.
     reranker: bool = False
+    reranker_backend: str = "fastembed"  # fastembed | ollama
+    reranker_model: str = "jinaai/jina-reranker-v2-base-multilingual"
 
     # --- optional LLM graph enrichment (cognify-style) ---
     enrich_entities: bool = False
