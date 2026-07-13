@@ -52,9 +52,12 @@ def up(
 
     * Gemini key found        → full mode (answers + embeddings)
     * no key, fastembed there → local search-only mode
-    * neither                 → keyless mode (BM25 + link graph; still useful)
+    * Gemini key found          → full mode (answers + cloud embeddings)
+    * no key, Harrier installed  → local Harrier embeddings (best, keyless)
+    * no key, fastembed (base)   → local MiniLM embeddings (keyless)
+    * none of the above (rare)   → keyless mode (BM25 + link graph)
     """
-    from ..config import load_config
+    from ..config import _has_module, load_config
 
     v = vault.expanduser().resolve()
     if not v.is_dir():
@@ -65,14 +68,14 @@ def up(
     extra = ""
     if load_config().resolved_gemini_key():
         mode_desc = "Gemini (키 감지됨 — 질문·답변 포함)"
+    elif _has_module("llama_cpp"):
+        extra = 'provider = "local"\n'
+        mode_desc = "로컬 Harrier 임베딩 (1024d, 키 없음)"
+    elif _has_module("fastembed"):
+        extra = 'provider = "local"\n'
+        mode_desc = "로컬 MiniLM 임베딩 (384d, 키 없음 · Harrier는 pip install \"lemory[llama]\")"
     else:
-        try:
-            import fastembed  # noqa: F401
-
-            extra = 'provider = "local"\n'
-            mode_desc = "로컬 검색 전용 (fastembed — 키 없음)"
-        except ImportError:
-            mode_desc = "키 없음 — BM25+링크 그래프 검색 (키를 넣으면 자동 업그레이드)"
+        mode_desc = "키 없음 — BM25+링크 그래프 (pip install \"lemory[local]\"로 시맨틱 켜짐)"
 
     cfg_file = v / "lemory.toml"
     if not cfg_file.exists():
@@ -105,9 +108,11 @@ def setup(
     key: Optional[str] = typer.Option(None, help="Gemini API key (prompted if omitted)"),
     index_now: bool = typer.Option(True, help="Run the first index at the end"),
 ):
-    """One-shot setup: vault + API key + health check + first index.
+    """One-shot setup: vault + embedding tier (API key optional) + first index.
 
-    The key is stored in ~/.lemory/env (owner-only), so Obsidian/Claude/VS Code
+    Semantic search works with no key at all (local embeddings ship by
+    default); a key only adds AI answers (`ask`). Any key you do provide is
+    stored in ~/.lemory/env (owner-only), so Obsidian/Claude/VS Code
     integrations work without shell environment tricks.
     """
     from ..config import load_config, save_global_env
@@ -125,25 +130,29 @@ def setup(
     n_md = sum(1 for _ in v.rglob("*.md"))
     console.print(f"   [green]✔[/green] {v} ({n_md}개 노트)")
 
-    # 2. execution mode
+    # 2. execution mode. Semantic embeddings already work out of the box
+    # (fastembed ships as a base dependency), so the choice here is about
+    # embedding quality + whether you also want AI answers (`ask`).
     extra_toml = ""
     if key is not None:
-        mode = "1"  # explicit --key means Gemini mode
+        mode = "3"  # explicit --key means Gemini mode
     else:
         console.print(
-            "\n2) 실행 모드를 고르세요:\n"
-            "   [bold]1[/bold]  Gemini 무료 API — 답변 생성 포함, 카드 등록 불필요 [dim](추천)[/dim]\n"
-            "   [bold]2[/bold]  완전 로컬 (Ollama) — Gemma 3n E4B 4bit + Harrier-0.6B(Q8),\n"
-            "      인터넷·키 없이 질문까지 전부 [dim](RAM 8GB+, 다운로드 ~6GB)[/dim]\n"
-            "   [bold]3[/bold]  경량 로컬 검색 전용 — MiniLM 220MB, ask 제외 [dim](RAM 4GB면 충분)[/dim]"
+            "\n2) 어떻게 쓸까요?  [dim](검색·시맨틱 임베딩은 이미 로컬에서 기본 동작합니다)[/dim]\n"
+            "   [bold]1[/bold]  이대로 로컬 — 키 없이 바로. 임베딩 MiniLM(384d),\n"
+            "      답변(ask)은 나중에 키를 넣으면 켜집니다 [dim](추천·제로설정)[/dim]\n"
+            "   [bold]2[/bold]  로컬 고품질 임베딩 — Harrier-0.6B(1024d, 한국어 검색 +6.5pt)\n"
+            "      [dim]pip install \"lemory[llama]\" 필요, 데몬 없음[/dim]\n"
+            "   [bold]3[/bold]  Gemini 무료 API — 임베딩+답변까지 클라우드 [dim](카드 불필요)[/dim]\n"
+            "   [bold]4[/bold]  완전 로컬 답변 (Ollama) — Gemma로 ask까지 오프라인 [dim](RAM 8GB+)[/dim]"
         )
         mode = typer.prompt("   선택", default="1").strip()
 
     if mode == "2":
+        extra_toml = _setup_local("llamacpp")
+    elif mode == "4":
         extra_toml = _setup_ollama()
     elif mode == "3":
-        extra_toml = _setup_fastembed()
-    else:
         existing = load_config().resolved_gemini_key()
         if key is None and existing:
             console.print("   [green]✔[/green] Gemini 키가 이미 설정되어 있습니다")
@@ -151,6 +160,8 @@ def setup(
             k = key or typer.prompt("   Gemini API 키 (무료: https://aistudio.google.com)", hide_input=True)
             env_file = save_global_env({"GEMINI_API_KEY": k.strip()})
             console.print(f"   [green]✔[/green] 키 저장: {env_file} (권한 600)")
+    else:
+        extra_toml = _setup_local("auto")
 
     # 3. config file
     cfg_file = Path.cwd() / "lemory.toml"
@@ -193,7 +204,7 @@ def _setup_ollama() -> str:
     if 0 < ram < 8:
         console.print(
             f"   [yellow]⚠ RAM {ram:.0f}GB 감지 — Gemma 3n E4B는 8GB 이상을 권장합니다."
-            " 느리거나 스왑이 발생할 수 있어요 (모드 3이 가벼운 대안).[/yellow]"
+            " 느리거나 스왑이 발생할 수 있어요 (모드 1 로컬이 가벼운 대안).[/yellow]"
         )
     client = OllamaClient(host=DEFAULT_HOST)
     if not client.server_alive():
@@ -225,19 +236,32 @@ def _setup_ollama() -> str:
     return 'provider = "ollama"\n'
 
 
-def _setup_fastembed() -> str:
-    """Search-only local mode. Returns extra lemory.toml lines."""
-    try:
-        import fastembed  # noqa: F401
+def _setup_local(backend: str) -> str:
+    """Local-embeddings mode. backend='auto' keeps the default (Harrier if
+    lemory[llama] is installed, else MiniLM); 'llamacpp' asks for Harrier
+    explicitly. Returns extra lemory.toml lines."""
+    from ..config import _has_module
 
-        console.print("   [green]✔[/green] fastembed 준비됨 (첫 색인 때 모델 220MB 자동 다운로드)")
-    except ImportError:
-        console.print(
-            "   [red]✘ fastembed가 없습니다.[/red] 먼저:\n"
-            "     pip install \"lemory[local]\"   (또는 pipx inject lemory fastembed)"
-        )
-        raise typer.Exit(1)
-    console.print("   [dim]검색·색인·콘솔은 전부 되고, ask(답변 생성)만 키가 필요합니다.[/dim]")
+    if backend == "llamacpp":
+        if not _has_module("llama_cpp"):
+            console.print(
+                "   [yellow]![/yellow] Harrier는 llama-cpp-python이 필요합니다. 설치 후 다시:\n"
+                "     [bold]pip install \"lemory[llama]\"[/bold]  →  [bold]lemory setup[/bold]\n"
+                "   [dim](지금은 경량 MiniLM으로 계속합니다 — 나중에 위 명령이면 자동 전환)[/dim]"
+            )
+            backend = "auto"
+        else:
+            console.print("   [green]✔[/green] Harrier-0.6B (1024d) — 첫 색인 때 GGUF ~640MB 자동 다운로드")
+            console.print("   [dim]데몬 없이 프로세스 안에서 Metal/GPU로 실행됩니다.[/dim]")
+            return 'provider = "local"\nlocal_embed_backend = "llamacpp"\n'
+
+    # auto / default: fastembed is a base dependency, so this always works
+    if _has_module("llama_cpp"):
+        console.print("   [green]✔[/green] Harrier-0.6B (1024d) 감지 — 로컬 고품질 임베딩 사용")
+    elif _has_module("fastembed"):
+        console.print("   [green]✔[/green] MiniLM (384d) — 첫 색인 때 모델 ~220MB 자동 다운로드")
+        console.print("   [dim]한국어 검색을 더 올리려면: pip install \"lemory[llama]\" (Harrier, +6.5pt)[/dim]")
+    console.print("   [dim]검색·색인·콘솔은 전부 로컬로 되고, ask(답변)만 키/Ollama가 필요합니다.[/dim]")
     return 'provider = "local"\n'
 
 
@@ -268,19 +292,37 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
     # failure: lexical search (BM25 + link graph) works without any key.
     try:
         provider = cfg.resolved_provider()
-        check("provider", True, f"{provider}")
+        model = cfg.active_embed_model()
+        tier = ("Harrier 1024d · 로컬 고품질" if "harrier" in model.lower()
+                else "MiniLM 384d · 로컬 경량" if "minilm" in model.lower() or "multilingual" in model.lower()
+                else f"{model} · 클라우드" if provider in ("gemini", "openai")
+                else f"{model} · Ollama" if provider == "ollama"
+                else model)
+        check("provider", True, f"{provider}  ({tier})")
         try:
             eng = _engine(vault)
             vec = eng.llm.embed(["lemory doctor ping"])
-            ok &= check("embedding API", vec.shape[-1] == cfg.active_embed_dim(),
-                        f"{cfg.active_embed_model()} @{vec.shape[-1]}d")
+            ok &= check("시맨틱 임베딩", vec.shape[-1] == cfg.active_embed_dim(),
+                        f"@{vec.shape[-1]}d 동작 확인")
         except Exception as e:
-            ok = check("embedding API", False, str(e)[:120])
+            ok = check("시맨틱 임베딩", False, str(e)[:120])
+        # answers (ask) need a generator LLM; embeddings alone do not
+        ask_ok = provider in ("gemini", "openai", "ollama") or bool(
+            cfg.resolved_gemini_key() or cfg.resolved_openai_key())
+        if ask_ok:
+            check("답변 생성 (ask)", True, "사용 가능")
+        else:
+            console.print(" [yellow]⚠[/yellow] 답변 생성 (ask) — 검색은 되지만 ask는 LLM이 필요합니다: "
+                          "GEMINI_API_KEY(무료) 또는 provider=ollama")
+        # upgrade hint: on the light local tier, Harrier is a keyless win
+        if "minilm" in model.lower() or "multilingual" in model.lower():
+            console.print(" [dim]↑ 한국어 검색 품질 +6.5pt: pip install \"lemory[llama]\" "
+                          "(Harrier 1024d, 데몬 없음) 후 lemory index[/dim]")
     except RuntimeError:
         console.print(
-            " [yellow]⚠[/yellow] provider — 키 없음: 렉시컬 모드로 동작 중 "
-            "(BM25+링크 그래프). 시맨틱 검색·ask는 GEMINI_API_KEY를 넣으면 "
-            "다음 색인에서 자동 활성화됩니다")
+            " [yellow]⚠[/yellow] provider — 로컬 임베더 없음(희귀): 렉시컬 모드로 동작 중 "
+            "(BM25+링크 그래프). 시맨틱 검색을 켜려면 [bold]pip install \"lemory[local]\"[/bold] "
+            "(또는 [bold]lemory[llama][/bold]) 후 다음 색인에서 자동 활성화")
 
     # 3. sqlite features
     import sqlite3
