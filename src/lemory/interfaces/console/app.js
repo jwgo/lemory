@@ -590,6 +590,7 @@ async function renderAssistant() {
     <div id="asstWrap" hidden>
       <div class="asst-log" id="asstLog"></div>
       <div class="asst-input">
+        <button class="btn asst-mic" id="asstMic" title='음성 모드 — "레모리야" 하고 물어보세요' hidden>🎙</button>
         <textarea id="asstIn" rows="1" placeholder="볼트에 대해 물어보세요… (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
         <button class="btn primary" id="asstSend">전송</button>
       </div>
@@ -630,11 +631,60 @@ async function renderAssistant() {
 
   input.oninput = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; };
   input.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } };
-  send.onclick = doSend;
+  send.onclick = () => doSend();
   input.focus();
 
-  async function doSend() {
-    const text = input.value.trim();
+  /* -------- hands-free voice: wake word "레모리야" → ask → spoken answer ------ */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = $("#asstMic");
+  const WAKE = "레모리야";
+  let rec = null, voiceOn = false, speaking = false, awaiting = false;
+
+  function speak(text) {
+    if (!voiceOn || !text || !window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text.replace(/\[\d+\]/g, "").trim());
+    u.lang = "ko-KR"; u.rate = 1.05;
+    const kv = speechSynthesis.getVoices().find(v => (v.lang || "").toLowerCase().startsWith("ko"));
+    if (kv) u.voice = kv;
+    speaking = true;
+    if (rec) try { rec.stop(); } catch (_) {}          // don't transcribe our own voice
+    u.onend = u.onerror = () => { speaking = false; if (voiceOn) startRec(); };
+    speechSynthesis.speak(u);
+  }
+
+  function onTranscript(t) {
+    t = (t || "").trim();
+    if (!t) return;
+    if (awaiting) { awaiting = false; doSend(t); return; }   // wake word heard last turn
+    const wi = t.indexOf(WAKE);
+    if (wi < 0) return;                                       // ignore everything but the wake word
+    const q = t.slice(wi + WAKE.length).replace(/^[\s,.!?~]+/, "").trim();
+    if (q) doSend(q); else { awaiting = true; toast("네, 말씀하세요", "ok"); }
+  }
+
+  function startRec() {
+    if (!SR || !voiceOn || speaking) return;
+    rec = new SR(); rec.lang = "ko-KR"; rec.continuous = true; rec.interimResults = false;
+    rec.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++)
+      if (e.results[i].isFinal) onTranscript(e.results[i][0].transcript); };
+    rec.onend = () => { if (voiceOn && !speaking) { try { rec.start(); } catch (_) {} } };
+    rec.onerror = ev => { if (ev.error === "not-allowed") { voiceOn = false; mic.classList.remove("on"); toast("마이크 권한이 필요합니다", "err"); } };
+    try { rec.start(); } catch (_) {}
+  }
+
+  if (SR && window.speechSynthesis) {
+    mic.hidden = false;
+    speechSynthesis.getVoices();  // warm the voice list
+    mic.onclick = () => {
+      voiceOn = !voiceOn; mic.classList.toggle("on", voiceOn);
+      if (voiceOn) { startRec(); toast('음성 모드 ON — "레모리야" 하고 물어보세요', "ok"); }
+      else { if (rec) try { rec.stop(); } catch (_) {} rec = null; speechSynthesis.cancel(); toast("음성 모드 OFF", ""); }
+    };
+  }
+
+  async function doSend(voiceText) {
+    const text = (voiceText != null ? voiceText : input.value).trim();
     if (!text || ASSIST.busy) return;
     input.value = ""; input.style.height = "auto";
     if (!ASSIST.history.length) log.innerHTML = "";
@@ -669,6 +719,7 @@ async function renderAssistant() {
       }
       if (sources && sources.length) bubble.appendChild(sourceEl(sources));
       ASSIST.history.push({ role: "assistant", content: answer, sources });
+      speak(answer);
     } catch (e) {
       body.innerHTML = `<span class="asst-err">응답 실패: ${esc(e.message)}</span>`;
     } finally {
