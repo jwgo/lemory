@@ -417,3 +417,7 @@ input::placeholder { color: var(--text-3); }
 .asst-size { padding: 3px 10px; font-size: 12px; border: 1px solid var(--border-2);
   background: var(--surface); color: var(--text-2); border-radius: var(--r-sm); cursor: pointer; }
 .asst-size.on { background: var(--brand-soft); color: var(--brand); border-color: var(--brand); }
+.asst-mic { align-self: flex-end; font-size: 16px; padding: 8px 12px; line-height: 1; }
+.asst-mic.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand);
+  animation: micPulse 1.4s infinite; }
+@keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 var(--brand-soft); } 50% { box-shadow: 0 0 0 6px var(--brand-soft); } }
