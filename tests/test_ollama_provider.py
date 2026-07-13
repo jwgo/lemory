@@ -71,7 +71,7 @@ def test_config_wires_ollama_provider():
     assert cfg.resolved_provider() == "ollama"
     assert cfg.active_embed_model() == "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"
     assert cfg.active_embed_dim() == 1024
-    assert cfg.active_llm_model() == "gemma3n:e4b"
+    assert cfg.active_llm_model() == "gemma4:e4b"
     assert cfg.resolved_api_key() == ""  # keyless
 
     from lemory.providers import create_client

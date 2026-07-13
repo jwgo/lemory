@@ -55,22 +55,50 @@ local), health-checks the connection, and runs the first index. Then:
 lemory ask "what did we decide in last week's meeting?"
 ```
 
-## 4. Leave it running — backend mode
+## 4. How to use it — set up once, then keep using it
 
+The mental model is simple: **Lemory is a local backend that stays running**,
+and everything else (the Obsidian plugin, Claude/MCP, the web UI, the CLI)
+talks to it.
+
+**1. Once (setup)**
 ```bash
-lemory serve
+lemory up ~/Obsidian/MyVault      # config + first index + serve, in one go
+```
+Search works with no key at all (local embeddings). Want AI answers (`ask`)?
+run `lemory setup` and pick a Gemini key or Ollama.
+
+**2. Keep it running (recommended — the always-on backend)**
+```bash
+lemory serve                       # http://127.0.0.1:8377
+```
+- Web console: **Overview** (stats, one-click reindex) · **Knowledge** (folder
+  tree, backlinks) · **Search** (cited answers, or ms-fast search) · **Settings**
+  (embedder + retrieval knobs, from the screen) · <kbd>⌘K</kbd> jump anywhere.
+- **While it runs, vault edits re-index within seconds** — no manual indexing.
+- **When you need it on:** the Obsidian plugin, the web dashboard, and the REST
+  API all require `serve`. Start it on login and you have "always-there memory".
+
+**3. One-off, no server needed**
+```bash
+lemory ask "where did I leave that project?"   # straight from the terminal
+lemory search "pricing policy" · lemory recent · lemory remember "..."
+```
+These open the index directly, so they work whether or not `serve` is running.
+
+**4. When to re-run something**
+- Changed a lot of notes while `serve` was off → `lemory index` (incremental).
+- **Switched the embedding model/provider** → `lemory index` (the vector space
+  changes, so it re-embeds everything).
+- Moved the vault, or a new machine → `lemory up` again.
+
+**Wiring it into Claude/Cursor** — MCP spins its own engine, no `serve` needed:
+```bash
+claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault --client claude-code
 ```
 
-Open **http://127.0.0.1:8377** for the web console:
-
-- **Overview** — notes/chunks/graph stats, sync activity, one-click reindex
-- **Knowledge** — browse the vault as a hierarchy: folder tree, tags,
-  per-note chunks, outgoing links and backlinks
-- **Search** — ms-fast hybrid search, or ask and get a cited answer
-- **Settings** — retrieval knobs, applied live, saved to `lemory.toml`
-- <kbd>⌘K</kbd> — jump anywhere, fuzzy-find any note
-
-While it runs, edits to the vault are re-indexed **within seconds**.
+Stuck? `lemory doctor` tells you which tier you're on, whether `ask` works, and
+what to do next.
 
 ---
 
@@ -95,7 +123,7 @@ Pick a number in `lemory setup`:
 
 **Mode 2 — fully local (Ollama): even answers run offline**
 
-- LLM: **Gemma 3n E4B** (4-bit quant, ~5.6 GB) — `ask()` answers locally
+- LLM: **Gemma 4 E4B** (~4.5B, `ask()` answers locally; `lemory setup` also offers the lighter E2B)
 - Embeddings: **Harrier-OSS-0.6B** (Q8, ~640 MB, 1024d, Qwen3-based multilingual)
 - Setup: install [ollama.com](https://ollama.com/download) → `lemory setup` → `2`.
   The wizard offers to run the `ollama pull`s for you.
@@ -293,7 +321,7 @@ want in `lemory setup` or `lemory.toml`:
    `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
 4. **Precision mode (+ dedicated reranker):** `reranker = true` adds the
    Qwen3-Reranker pass above (needs Ollama). Seconds per query, +recall@1.
-5. **Grounded answers (+ Gemma):** `ollama_llm_model` (default `gemma3n:e4b`)
+5. **Grounded answers (+ Gemma):** `ollama_llm_model` (default `gemma4:e4b`, or the lighter `gemma4:e2b`)
    powers `lemory ask` fully offline. Retrieval never needs it; only `ask`
    does.
 

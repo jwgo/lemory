@@ -3,7 +3,7 @@
     [lemory]
     provider = "ollama"
     # defaults, override if you like:
-    # ollama_llm_model = "gemma3n:e4b"            # Gemma 3n E4B, 4-bit quant (~5.6GB)
+    # ollama_llm_model = "gemma4:e4b"             # Gemma 4 E4B (or gemma4:e2b, lighter)
     # ollama_embed_model = "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"  # (~640MB, 1024d)
     # ollama_host = "http://127.0.0.1:11434"
 
@@ -26,7 +26,7 @@ import numpy as np
 from .base import normalize_embeddings, parse_json_loose
 
 DEFAULT_HOST = "http://127.0.0.1:11434"
-DEFAULT_LLM = "gemma3n:e4b"
+DEFAULT_LLM = "gemma4:e4b"
 DEFAULT_EMBED = "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"
 DEFAULT_EMBED_DIM = 1024
 

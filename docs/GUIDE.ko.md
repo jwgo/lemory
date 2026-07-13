@@ -58,22 +58,48 @@ lemory setup
 lemory ask "지난주 회의에서 뭐 결정했지?"
 ```
 
-## 4. 켜 두기 — 백엔드 모드
+## 4. 쓰는 법 — 한 번 설정, 그다음엔 계속
 
+머릿속 모델은 간단합니다: **Lemory는 상시 떠 있는 로컬 백엔드**이고, 나머지 전부
+(옵시디언 플러그인, Claude/MCP, 웹 UI, CLI)가 거기에 붙습니다.
+
+**① 한 번만 (설정)**
 ```bash
-lemory serve
+lemory up ~/Obsidian/MyVault      # 설정 + 첫 색인 + 서버까지 한 번에
+```
+키가 없어도 로컬 임베딩으로 바로 검색됩니다. 답변(ask)까지 원하면 `lemory setup`에서
+Gemini 키나 Ollama를 고르세요.
+
+**② 계속 켜두기 (권장 — 상시 백엔드)**
+```bash
+lemory serve                       # http://127.0.0.1:8377
+```
+- 브라우저에서 웹 콘솔: **현황**(노트/청크/그래프·원클릭 재색인) · **지식**(폴더
+  트리 탐색·백링크) · **검색**(출처 달린 답변, 검색만 하면 ms 즉답) · **설정**
+  (임베딩 모델·검색 동작을 화면에서) · <kbd>⌘K</kbd> 어디서든 점프.
+- **켜둔 동안 볼트를 편집하면 몇 초 안에 자동 재색인** — 수동 색인 불필요.
+- **언제 켜둬야 하나:** 옵시디언 플러그인, 웹 대시보드, REST/자체 에이전트를 쓸 때는
+  serve가 떠 있어야 합니다. 로그인 시 자동 시작으로 두면 "항상 있는 기억"이 됩니다.
+
+**③ 가끔 한 줄 (서버 없이도 됨)**
+```bash
+lemory ask "요새 하던 그거 어디까지 했지?"   # 터미널에서 바로
+lemory search "결제 정책" · lemory recent · lemory remember "..."
+```
+이 CLI들은 인덱스를 직접 열어 동작하므로 `serve`가 꺼져 있어도 됩니다.
+
+**④ 다시 해야 할 때**
+- serve를 안 켜둔 채 노트를 많이 바꿨다 → `lemory index` (변경분만, 빠름)
+- **임베딩 모델/프로바이더를 바꿨다** → `lemory index` (벡터 공간이 달라 전체 재색인)
+- 볼트 경로가 바뀌었거나 새 PC → `lemory up` 다시
+
+**Claude/Cursor 등에 붙이기** — MCP는 `serve` 없이도 자체 엔진으로 뜹니다:
+```bash
+claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault --client claude-code
 ```
 
-브라우저에서 **http://127.0.0.1:8377** 을 열면 웹 콘솔이 뜹니다:
-
-- **현황** — 노트/청크/그래프 수, 색인 활동, 원클릭 재색인
-- **지식** — 폴더 트리로 볼트 탐색, 노트별 청크·백링크 확인
-- **검색** — 질문하면 출처 달린 답변, 검색만 하면 ms 단위 즉답
-- **설정** — 검색 동작을 토글로 조정 (재시작 불필요)
-- <kbd>⌘K</kbd> — 어디서든 노트 점프
-
-서버가 켜져 있는 동안 볼트를 편집하면 **몇 초 안에 자동으로 재색인**됩니다.
-옵시디언에서 노트를 저장하고 바로 물어봐도 됩니다.
+막히면 언제든 `lemory doctor` — 지금 어느 티어인지, ask가 되는지, 뭘 하면 되는지
+알려줍니다.
 
 ---
 
@@ -98,7 +124,7 @@ Gemini 무료 티어 기준, Lemory의 실제 소비량은 이렇습니다:
 
 **모드 2 — 완전 로컬 (Ollama): 질문·답변까지 전부 오프라인**
 
-- LLM: **Gemma 3n E4B** (4bit 양자화, ~5.6GB) — `ask` 답변 생성까지 로컬에서
+- LLM: **Gemma 4 E4B** (~4.5B) — `ask` 답변 생성까지 로컬에서 (`lemory setup`이 더 가벼운 E2B도 제안)
 - 임베딩: **Harrier-OSS-0.6B** (Q8, ~640MB, 1024차원, Qwen3 기반 멀티링구얼).
   KorMapleQA 하이브리드 doc@8 0.788→0.853(+6.5pt), 키 없이 Gemini(0.906) 격차의
   절반 이상을 메움. `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`
@@ -288,7 +314,7 @@ single/masked 30문항, 로컬 Qwen3-Reranker-0.6B 실측:
    `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
 4. **정밀 모드 (+ 전용 리랭커):** `reranker = true`면 위의 Qwen3-Reranker
    패스를 추가(Ollama 필요). 질의당 초 단위, recall@1 상승.
-5. **근거 있는 답변 (+ Gemma):** `ollama_llm_model`(기본 `gemma3n:e4b`)이
+5. **근거 있는 답변 (+ Gemma):** `ollama_llm_model`(기본 `gemma4:e4b`, 더 가벼운 `gemma4:e2b`도)이
    `lemory ask`를 완전 오프라인으로 굴립니다. 검색엔 전혀 필요 없고 `ask`만 씀.
 
 둘째, LLM을 돌릴 때는 **무료 티어 API가 아니라 로컬로** 돌리세요. LLM

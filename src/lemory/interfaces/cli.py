@@ -14,8 +14,32 @@ from rich.table import Table
 
 from ..engine import create_engine
 
-app = typer.Typer(help="Lemory — 당신의 마크다운을 위한 로컬 메모리 미들웨어 (local memory middleware for your Markdown).", no_args_is_help=True)
+app = typer.Typer(
+    help="Lemory — 당신의 마크다운을 위한 로컬 메모리 미들웨어 (local memory middleware for your Markdown).",
+    invoke_without_command=True)
 console = Console()
+
+
+@app.callback(invoke_without_command=True)
+def _welcome(ctx: typer.Context):
+    """Bare `lemory` shows a short 'do this next' quickstart instead of the
+    full command dump, so a first run is never a guessing game."""
+    if ctx.invoked_subcommand is not None:
+        return
+    console.print("[bold]🍋 Lemory[/bold] — 로컬 메모리 미들웨어\n")
+    if (Path.cwd() / "lemory.toml").exists():
+        console.print(
+            "설정이 있습니다. 바로 쓰세요:\n"
+            "  [bold]lemory serve[/bold]           웹 UI + Obsidian/Claude 백엔드 → http://127.0.0.1:8377\n"
+            "  [bold]lemory ask \"질문\"[/bold]        터미널에서 바로 질문\n"
+            "  [bold]lemory doctor[/bold]           상태 점검\n")
+    else:
+        console.print(
+            "처음이세요? [bold]이 한 줄이면 설정·색인·서버까지 전부[/bold] 됩니다:\n\n"
+            "  [bold cyan]lemory up ~/내볼트경로[/bold cyan]\n\n"
+            "  [dim]키 없이 로컬 임베딩으로 바로 검색돼요. 답변(ask)까지 원하면"
+            " 대화형 [bold]lemory setup[/bold]에서 Gemini 키나 Ollama를 고르세요.[/dim]\n")
+    console.print("[dim]전체 명령: [bold]lemory --help[/bold][/dim]")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -47,8 +71,9 @@ def up(
     serve_after: bool = typer.Option(True, "--serve/--no-serve",
                                      help="Start the server after indexing"),
 ):
-    """딸깍 — zero questions asked: detect a key (env/.env/~/.lemory/env),
-    pick the best available mode, write config, index, and serve.
+    """🍋 시작은 이것 하나 (config + index + serve 한 번에). 질문 안 물어봄:
+    detect a key (env/.env/~/.lemory/env), pick the best available mode, write
+    config, index, and serve.
 
     * Gemini key found        → full mode (answers + embeddings)
     * no key, fastembed there → local search-only mode
@@ -201,11 +226,6 @@ def _setup_ollama() -> str:
     from ..providers.ollama import DEFAULT_EMBED, DEFAULT_HOST, DEFAULT_LLM, OllamaClient
 
     ram = _machine_ram_gb()
-    if 0 < ram < 8:
-        console.print(
-            f"   [yellow]⚠ RAM {ram:.0f}GB 감지 — Gemma 3n E4B는 8GB 이상을 권장합니다."
-            " 느리거나 스왑이 발생할 수 있어요 (모드 1 로컬이 가벼운 대안).[/yellow]"
-        )
     client = OllamaClient(host=DEFAULT_HOST)
     if not client.server_alive():
         console.print(
@@ -217,8 +237,18 @@ def _setup_ollama() -> str:
         raise typer.Exit(1)
     console.print("   [green]✔[/green] Ollama 서버 연결됨")
 
+    # answer LLM: Gemma 4, two sizes
+    console.print(
+        "   답변(ask) 모델을 고르세요:\n"
+        "     [bold]1[/bold]  Gemma 4 E4B — 품질 우선, ~4.5B [dim](Google 권장·기본)[/dim]\n"
+        "     [bold]2[/bold]  Gemma 4 E2B — 가벼움, ~2.3B [dim](RAM 적을 때)[/dim]")
+    llm = "gemma4:e2b" if typer.prompt("     선택", default="1").strip() == "2" else "gemma4:e4b"
+    if 0 < ram < 8 and llm == "gemma4:e4b":
+        console.print(f"   [yellow]⚠ RAM {ram:.0f}GB — E4B는 8GB+ 권장. E2B(2) 또는 모드 1 로컬이 가벼운 대안.[/yellow]")
+    llm_extra = "" if llm == DEFAULT_LLM else f'ollama_llm_model = "{llm}"\n'
+
     installed = client.installed_models()
-    for model, size in ((DEFAULT_LLM, "~5.6GB"), (DEFAULT_EMBED, "~640MB")):
+    for model, size in ((llm, "답변 모델"), (DEFAULT_EMBED, "임베딩 ~640MB")):
         if any(m.startswith(model) for m in installed):
             console.print(f"   [green]✔[/green] {model} 설치됨")
             continue
@@ -233,7 +263,7 @@ def _setup_ollama() -> str:
             console.print(f"   나중에 직접 받아주세요: [bold]ollama pull {model}[/bold]")
     client.close()
     console.print("   [green]✔[/green] 완전 로컬 모드 — 볼트 내용이 컴퓨터 밖으로 나가지 않습니다")
-    return 'provider = "ollama"\n'
+    return 'provider = "ollama"\n' + llm_extra
 
 
 def _setup_local(backend: str) -> str:
@@ -701,7 +731,8 @@ def serve(
     port: int = typer.Option(8377),
     watch: bool = typer.Option(True, help="Keep the index live while serving"),
 ):
-    """Run the HTTP API (and vault watcher) — the 'backend that just runs'."""
+    """서버만 실행 (웹 UI + Obsidian/Claude 백엔드). 이미 색인돼 있을 때 씀 —
+    처음이면 대신 `lemory up`. Run the HTTP API + vault watcher."""
     import uvicorn
 
     from .http import build_app

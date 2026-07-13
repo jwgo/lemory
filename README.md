@@ -93,10 +93,18 @@ lemory up ~/Obsidian/MyVault     # 딸깍: detect key → pick mode → index �
 lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"
 ```
 
-`lemory up` asks zero questions: a Gemini key in the environment gives full
-mode; no key but fastembed installed gives local search mode; neither gives
-**keyless mode** (BM25 + your link graph, still useful, and it upgrades in
-place the moment a key appears). Prefer a guided wizard? `lemory setup`.
+`lemory up` asks zero questions: it uses a Gemini key if it finds one (cloud
+embeddings + answers), otherwise the **local embeddings that ship by default**
+(MiniLM out of the box, or Harrier-0.6B with `pip install "lemory[llama]"`), so
+semantic search works with no key and no extra setup. Prefer a guided
+wizard? `lemory setup`.
+
+Then just **keep `lemory serve` running**: it's the always-on backend for the
+Obsidian plugin, Claude/MCP, and the web dashboard, and it re-indexes your
+edits within seconds. One-off `lemory ask "..."` works without it. The full
+day-to-day flow (when to keep it on, when to re-index) is in the
+[guide](docs/GUIDE.md#4-how-to-use-it--set-up-once-then-keep-using-it).
+
 No LLM pipeline runs at ingest either way. **Indexing 1,000 notes costs 0
 LLM calls** and is searchable in seconds, not the ~45 minutes of LLM
 graph-building some competitors need for a 54-note vault:

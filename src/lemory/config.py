@@ -63,7 +63,9 @@ class LemoryConfig(BaseSettings):
 
     # --- ollama (fully-local LLM + embeddings; `lemory setup` configures this) ---
     ollama_host: str = "http://127.0.0.1:11434"
-    ollama_llm_model: str = "gemma3n:e4b"             # Gemma 3n E4B, 4-bit quant
+    # Gemma 4 E4B (2026-04, ~4.5B effective, 128K ctx) — Google's recommended
+    # general-purpose local model. `lemory setup` also offers the lighter E2B.
+    ollama_llm_model: str = "gemma4:e4b"
     # Harrier-OSS-0.6B (Q8, Qwen3-based multilingual): KorMapleQA hybrid doc@8
     # 0.853 vs MiniLM's 0.788 (+6.5pt), closing over half the gap to Gemini's
     # 0.906 with zero keys. `ollama pull` resolves it straight from HuggingFace.
