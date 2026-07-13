@@ -101,10 +101,22 @@ Pick a number in `lemory setup`:
   The wizard offers to run the `ollama pull`s for you.
 - Not a byte of your vault ever leaves the machine.
 
-**Mode 3 — light local (fastembed): search-only**
+**Mode 3 — light local (in-process, no daemon): search-only**
 
-- Multilingual MiniLM embeddings (220 MB, 384d). Everything except `ask()`.
-- Setup: `pip install "lemory[local]"` → `lemory setup` → `3`.
+Two backends, both keyless and daemon-free (embeddings run inside the process,
+the way qmd uses node-llama-cpp):
+
+- **Harrier (recommended): `pip install "lemory[llama]"`.** Microsoft's
+  Harrier-OSS-0.6B (Qwen3-based multilingual, Q8 GGUF, ~640 MB, 1024d) runs
+  in-process via llama.cpp with Metal/GPU. Measured hybrid **doc@8 0.853** on
+  KorMapleQA (vs MiniLM's 0.788), the same score as the Ollama path since it is
+  the same GGUF. The GGUF auto-downloads from HuggingFace on first index.
+- **MiniLM (lighter): `pip install "lemory[local]"`.** Multilingual MiniLM via
+  fastembed (pure-Python ONNX, ~220 MB, 384d), doc@8 0.788. No native compile,
+  smallest footprint. The right pick if `lemory[llama]` won't build on your box.
+
+`auto` uses Harrier when `lemory[llama]` is installed, else MiniLM. Everything
+except `ask()` works; `ask()` needs a generator (Gemini key or Ollama Gemma).
 
 **Minimum specs**
 
@@ -263,20 +275,25 @@ seconds-per-query cost, and keep it off for everyday lookups.
 Everything above is opt-in on top of a fast, free default. Pick the tier you
 want in `lemory setup` or `lemory.toml`:
 
-1. **Default (fastembed MiniLM):** zero keys, ~220 MB, milliseconds. The
-   right choice for almost everyone.
-2. **Stronger embeddings (Ollama, Harrier-OSS-0.6B Q8):** `provider = ollama`
-   swaps the vector leg to Microsoft's Qwen3-based multilingual embedder.
-   Measured on KorMapleQA: hybrid **doc@8 0.788 → 0.853 (+6.5pt)**, closing
-   over half the gap to the Gemini ceiling (0.906) with zero keys. The gains
-   land on the hard types (masked +11, 2-hop full-support 0.18 to 0.29, typo
-   +7). The trade is query latency (~100 ms vs ~18 ms: an Ollama embed
-   round-trip) and slow first-index of a very large vault (Ollama embeds a
-   33k-chunk corpus in ~2 h on an M4 vs fastembed's minutes; it is one-time).
+1. **Best local, no daemon (`lemory[llama]`, Harrier-OSS-0.6B):** in-process
+   llama.cpp (Metal/GPU), the same runtime qmd uses. Hybrid **doc@8 0.853**,
+   closing over half the gap to the Gemini ceiling (0.906) with zero keys and
+   no server to run. Gains land on the hard types (masked +11, 2-hop
+   full-support 0.18 to 0.29, typo +7). Costs: a native wheel (compiles if no
+   prebuilt), ~640 MB GGUF (auto-downloaded once), and query latency ~100 ms vs
+   MiniLM's ~18 ms. `pip install "lemory[llama]"`.
+2. **Lightest local (`lemory[local]`, fastembed MiniLM):** pure-Python ONNX,
+   ~220 MB, milliseconds, no native compile. doc@8 0.788. The fallback when the
+   llama wheel won't build, or when index speed on a huge vault matters more
+   than the last few points.
+3. **Same Harrier via a shared daemon (Ollama):** `provider = ollama` runs the
+   *identical* Harrier GGUF (doc@8 0.853) through an Ollama server instead of
+   in-process. Pick this only if you already run Ollama or want one daemon
+   serving embeddings + reranker + Gemma together.
    `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
-3. **Precision mode (+ dedicated reranker):** `reranker = true` adds the
-   Qwen3-Reranker pass above. Seconds per query, +recall@1.
-4. **Grounded answers (+ Gemma):** `ollama_llm_model` (default `gemma3n:e4b`)
+4. **Precision mode (+ dedicated reranker):** `reranker = true` adds the
+   Qwen3-Reranker pass above (needs Ollama). Seconds per query, +recall@1.
+5. **Grounded answers (+ Gemma):** `ollama_llm_model` (default `gemma3n:e4b`)
    powers `lemory ask` fully offline. Retrieval never needs it; only `ask`
    does.
 

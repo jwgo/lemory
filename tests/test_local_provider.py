@@ -13,10 +13,29 @@ from lemory.providers.local import LOCAL_EMBED_DIM, LocalClient
 
 
 def test_provider_local_explicit(tmp_path):
-    cfg = LemoryConfig(vault=tmp_path, provider="local")
+    cfg = LemoryConfig(vault=tmp_path, provider="local",
+                       local_embed_backend="fastembed")
     assert cfg.resolved_provider() == "local"
     assert cfg.active_embed_dim() == LOCAL_EMBED_DIM
     assert "multilingual" in cfg.active_embed_model()
+
+
+def test_local_backend_llamacpp_resolution_and_dispatch(tmp_path):
+    """The llama.cpp/Harrier local backend: 1024d, a distinct model id, and the
+    factory routes to it without loading the (lazy) GGUF."""
+    cfg = LemoryConfig(vault=tmp_path, provider="local",
+                       local_embed_backend="llamacpp")
+    assert cfg.resolved_local_backend() == "llamacpp"
+    assert cfg.active_embed_dim() == 1024
+    assert cfg.active_embed_model().startswith("llamacpp:")
+    assert "harrier" in cfg.active_embed_model().lower()
+
+    from lemory.providers import create_client
+
+    client = create_client(cfg)
+    assert type(client).__name__ == "LlamaCppLocalClient"
+    assert client.embed_dim == 1024
+    client.close()
 
 
 def test_auto_falls_back_to_local_without_keys(tmp_path, monkeypatch):

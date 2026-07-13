@@ -27,8 +27,6 @@ def create_client(cfg: "LemoryConfig") -> LLMClient:
             max_output_tokens=cfg.llm_max_output_tokens,
         )
     if provider == "local":
-        from .local import LocalClient
-
         generator = None
         if cfg.resolved_gemini_key():
             from .gemini import GeminiClient
@@ -38,6 +36,15 @@ def create_client(cfg: "LemoryConfig") -> LLMClient:
                 llm_fallback_model=cfg.llm_fallback_model, llm_rpm=cfg.llm_rpm,
                 max_output_tokens=cfg.llm_max_output_tokens,
             )
+        if cfg.resolved_local_backend() == "llamacpp":
+            from .llamacpp import LlamaCppLocalClient
+
+            return LlamaCppLocalClient(
+                gguf_repo=cfg.local_embed_gguf_repo,
+                gguf_file=cfg.local_embed_gguf_file,
+                embed_dim=cfg.local_embed_gguf_dim, generator=generator)
+        from .local import LocalClient
+
         return LocalClient(embed_model=cfg.local_embed_model, generator=generator)
     if provider == "openai":
         from .openai import OpenAIClient

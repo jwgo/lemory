@@ -21,6 +21,21 @@ def _isolate_global_env(tmp_path, monkeypatch):
     monkeypatch.setattr(config_mod, "GLOBAL_ENV_FILE", tmp_path / "no-global-env")
 
 
+@pytest.fixture(autouse=True)
+def _default_local_fastembed(monkeypatch):
+    """Keep the 'auto' local embed backend = fastembed in tests even when
+    llama-cpp-python happens to be installed in the dev env. Tests that want
+    the llama.cpp/Harrier path set local_embed_backend='llamacpp' explicitly,
+    which this still honors."""
+    from lemory.config import LemoryConfig
+
+    def resolve(self):
+        return self.local_embed_backend if self.local_embed_backend in (
+            "llamacpp", "fastembed") else "fastembed"
+
+    monkeypatch.setattr(LemoryConfig, "resolved_local_backend", resolve)
+
+
 def _subtokens(text: str) -> list[str]:
     """Words plus Hangul bigrams, so the fake embedder gives Korean text
     meaningful subword similarity (mirrors real multilingual embedders)."""

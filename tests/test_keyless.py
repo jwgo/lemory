@@ -14,6 +14,7 @@ def keyless_engine(vault, tmp_path, monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setitem(sys.modules, "fastembed", None)  # import raises
+    monkeypatch.setitem(sys.modules, "llama_cpp", None)  # no in-process backend either
     cfg = LemoryConfig(vault=vault, data_dir=tmp_path / "data")
     eng = Engine(cfg)
     yield eng
@@ -49,6 +50,7 @@ def test_key_upgrade_embeds_via_documented_incremental_flow(vault, tmp_path, mon
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setitem(sys.modules, "fastembed", None)
+    monkeypatch.setitem(sys.modules, "llama_cpp", None)
     cfg = LemoryConfig(vault=vault, data_dir=tmp_path / "data")
     eng = Engine(cfg)
     eng.index()

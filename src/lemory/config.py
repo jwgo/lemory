@@ -22,6 +22,18 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _has_module(name: str) -> bool:
+    """True if `name` is importable. Safe under the test pattern that sets
+    sys.modules[name] = None to simulate an absent optional dependency
+    (find_spec raises ValueError there rather than returning None)."""
+    from importlib.util import find_spec
+
+    try:
+        return find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
 class LemoryConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="LEMORY_", env_file=".env", env_file_encoding="utf-8", extra="ignore"
@@ -41,6 +53,13 @@ class LemoryConfig(BaseSettings):
     # falling back to fully-local embeddings when no key exists ---
     provider: str = "auto"  # auto | gemini | openai | local | ollama
     local_embed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    # which in-process local embedder: "auto" uses in-process llama.cpp Harrier
+    # (doc@8 0.853) when llama-cpp-python is installed (pip install lemory[llama]),
+    # else falls back to the lighter fastembed MiniLM (0.788, 384d, pure-Python).
+    local_embed_backend: str = "auto"  # auto | llamacpp | fastembed
+    local_embed_gguf_repo: str = "mradermacher/harrier-oss-v1-0.6b-GGUF"
+    local_embed_gguf_file: str = "harrier-oss-v1-0.6b.Q8_0.gguf"
+    local_embed_gguf_dim: int = 1024
 
     # --- ollama (fully-local LLM + embeddings; `lemory setup` configures this) ---
     ollama_host: str = "http://127.0.0.1:11434"
@@ -224,23 +243,29 @@ class LemoryConfig(BaseSettings):
             return "gemini"
         if self.resolved_openai_key():
             return "openai"
-        try:
-            import fastembed  # noqa: F401  — keyless but local extra installed
-
-            return "local"
-        except ImportError:
-            pass
+        if _has_module("llama_cpp") or _has_module("fastembed"):
+            return "local"  # keyless but a local embed backend is installed
         raise RuntimeError(
             "No API key found. Set GEMINI_API_KEY (a free-tier key from "
             "https://aistudio.google.com works), OPENAI_API_KEY, or install "
-            "local embeddings: pip install 'lemory[local]'"
+            "local embeddings: pip install 'lemory[llama]' (Harrier, best) or "
+            "'lemory[local]' (fastembed, lighter)"
         )
+
+    def resolved_local_backend(self) -> str:
+        """Which in-process local embedder to use: 'llamacpp' (Harrier) or
+        'fastembed' (MiniLM). 'auto' prefers llama.cpp when it is installed."""
+        if self.local_embed_backend in ("llamacpp", "fastembed"):
+            return self.local_embed_backend
+        return "llamacpp" if _has_module("llama_cpp") else "fastembed"
 
     def active_embed_model(self) -> str:
         p = self.resolved_provider()
         if p == "openai":
             return self.openai_embed_model
         if p == "local":
+            if self.resolved_local_backend() == "llamacpp":
+                return f"llamacpp:{self.local_embed_gguf_repo}/{self.local_embed_gguf_file}"
             return self.local_embed_model
         if p == "ollama":
             return self.ollama_embed_model
@@ -249,6 +274,8 @@ class LemoryConfig(BaseSettings):
     def active_embed_dim(self) -> int:
         p = self.resolved_provider()
         if p == "local":
+            if self.resolved_local_backend() == "llamacpp":
+                return self.local_embed_gguf_dim
             from .providers.local import LOCAL_EMBED_DIM
 
             return LOCAL_EMBED_DIM
