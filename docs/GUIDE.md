@@ -319,8 +319,10 @@ want in `lemory setup` or `lemory.toml`:
    in-process. Pick this only if you already run Ollama or want one daemon
    serving embeddings + reranker + Gemma together.
    `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
-4. **Precision mode (+ dedicated reranker):** `reranker = true` adds the
-   Qwen3-Reranker pass above (needs Ollama). Seconds per query, +recall@1.
+4. **Precision mode (+ dedicated reranker):** `reranker = true` reorders the
+   top candidates with an in-process ONNX cross-encoder (jina-reranker-v2
+   multilingual, strong Korean, ~ms, no daemon). `reranker_backend="ollama"`
+   uses the Qwen3-Reranker GGUF instead.
 5. **Grounded answers (+ Gemma):** `ollama_llm_model` (default `gemma4:e4b`, or the lighter `gemma4:e2b`)
    powers `lemory ask` fully offline. Retrieval never needs it; only `ask`
    does.

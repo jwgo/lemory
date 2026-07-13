@@ -312,8 +312,9 @@ single/masked 30문항, 로컬 Qwen3-Reranker-0.6B 실측:
    Harrier GGUF(doc@8 0.853)를 인프로세스 대신 Ollama 서버로 돌립니다. 이미
    Ollama를 쓰거나, 임베딩+리랭커+Gemma를 한 데몬으로 묶고 싶을 때만.
    `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
-4. **정밀 모드 (+ 전용 리랭커):** `reranker = true`면 위의 Qwen3-Reranker
-   패스를 추가(Ollama 필요). 질의당 초 단위, recall@1 상승.
+4. **정밀 모드 (+ 전용 리랭커):** `reranker = true`면 상위 후보를 인프로세스
+   ONNX 크로스인코더(jina-reranker-v2 멀티링구얼, 한국어 강함, ~ms, 데몬 없음)로
+   재정렬합니다. `reranker_backend="ollama"`면 Qwen3-Reranker GGUF 사용.
 5. **근거 있는 답변 (+ Gemma):** `ollama_llm_model`(기본 `gemma4:e4b`, 더 가벼운 `gemma4:e2b`도)이
    `lemory ask`를 완전 오프라인으로 굴립니다. 검색엔 전혀 필요 없고 `ask`만 씀.
 
