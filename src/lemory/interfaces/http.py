@@ -290,7 +290,8 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         if voice not in tts.VOICES:
             voice = engine.cfg.assistant_tts_voice
         try:
-            wav = tts.synth_wav(text[:1200], voice=voice)
+            pitch = float(body.get("pitch", engine.cfg.assistant_tts_pitch))
+            wav = tts.synth_wav(text[:1200], voice=voice, pitch=pitch)
         except Exception as e:
             raise HTTPException(500, f"TTS 실패: {str(e)[:160]}")
         return Response(content=wav, media_type="audio/wav")

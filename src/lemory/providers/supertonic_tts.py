@@ -45,8 +45,11 @@ def _has_hangul(text: str) -> bool:
     return any("가" <= c <= "힣" for c in text)
 
 
-def synth_wav(text: str, voice: str = "f1", lang: str | None = None) -> bytes:
-    """Synthesize `text` to a WAV byte string. Auto-picks Korean for Hangul."""
+def synth_wav(text: str, voice: str = "f1", lang: str | None = None,
+              pitch: float = 0.0) -> bytes:
+    """Synthesize `text` to a WAV byte string. Auto-picks Korean for Hangul.
+    `pitch` shifts by that many semitones (tempo preserved) for a cuter/lower
+    tone; +3 ≈ a bright, cute register."""
     import numpy as np
     import soundfile as sf
 
@@ -55,6 +58,12 @@ def synth_wav(text: str, voice: str = "f1", lang: str | None = None) -> bytes:
         tts = _tts()
         audio, _sr = tts.synthesize(text, voice_style=_style(voice), lang=lang)
     wav = np.asarray(audio, dtype=np.float32).flatten()
+    if pitch:
+        try:
+            import librosa
+            wav = librosa.effects.pitch_shift(y=wav, sr=SAMPLE_RATE, n_steps=float(pitch))
+        except Exception:
+            pass  # librosa missing → ship the un-shifted voice rather than fail
     buf = io.BytesIO()
     sf.write(buf, wav, SAMPLE_RATE, format="WAV")
     return buf.getvalue()
