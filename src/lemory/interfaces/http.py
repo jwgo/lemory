@@ -252,14 +252,14 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                 return {"available": True, "model": cfg.assistant_model}
             finally:
                 c.close()
-        from ..providers import litert, supertonic_tts
+        from ..providers import litert, supertonic_tts, whisper_stt
         ok, reason = litert.available()
         size = next((k for k, (r, f) in litert.MODELS.items()
                      if f == cfg.assistant_litert_file), "E2B")
         return {"available": ok, "model": cfg.assistant_litert_file, "reason": reason,
                 "size": size, "sizes": list(litert.MODELS),
                 "voices": list(supertonic_tts.VOICES), "tts_voice": cfg.assistant_tts_voice,
-                "tts": supertonic_tts.available()[0]}
+                "tts": supertonic_tts.available()[0], "stt": whisper_stt.available()[0]}
 
     @app.post("/api/assistant/model")
     def assistant_model(body: dict[str, Any]):
@@ -294,6 +294,23 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         except Exception as e:
             raise HTTPException(500, f"TTS 실패: {str(e)[:160]}")
         return Response(content=wav, media_type="audio/wav")
+
+    @app.post("/api/assistant/stt")
+    async def assistant_stt(request: Request):
+        """On-device speech-to-text (faster-whisper): the mic clip is
+        transcribed locally, never sent to a cloud speech service."""
+        from ..providers import whisper_stt
+        ok, reason = whisper_stt.available()
+        if not ok:
+            raise HTTPException(501, reason)
+        audio = await request.body()
+        if not audio:
+            raise HTTPException(400, "audio가 필요합니다")
+        try:
+            text = whisper_stt.transcribe(audio, lang="ko")
+        except Exception as e:
+            raise HTTPException(500, f"STT 실패: {str(e)[:160]}")
+        return {"text": text}
 
     @app.post("/api/assistant/chat")
     def assistant_chat(request: Request, body: ChatBody):
