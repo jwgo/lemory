@@ -212,15 +212,33 @@ rerank = true            # LLM-score the top candidates after fusion
 
 or per call: `lemory search "..." --expand --rerank`.
 
-**Run these on a local model, not the API.** The slowness you feel from an
-LLM pipeline is almost never the model — it is the free-tier API queue (we
-hit the exact `429 credits depleted` wall while measuring this). Point Lemory
-at Ollama (`lemory setup` → local mode, or `LEMORY_PROVIDER=ollama`) and the
-expansion/rerank calls run on your machine with no per-query bill and no
-queue. Keep them **off** for everyday lookups (they add a model round-trip
-for no gain there) and reach for them when a specific multi-hop question
-comes back empty. Measured, not adopted-by-default: same policy as every
-other opt-in knob in BENCHMARKS 13.
+**Two honest caveats, both measured.**
+
+First, the model matters enormously, and small local models are not enough.
+On a 40-question 2-hop sample over the namuwiki corpus, with a local
+`qwen2.5:3b` through Ollama:
+
+| setting | 2-hop full-support | latency |
+|---|---|---|
+| baseline (0 LLM) | 0.125 | 20 ms |
+| + query_expansion | 0.150 | 1.5 s |
+| + rerank | 0.100 | 6.5 s |
+| + expand + rerank | 0.075 | 7.3 s |
+
+Query expansion gave a small bump; **rerank with a 3B model actively hurt**,
+demoting correct chunks with noisy relevance scores. qmd reaches 2-hop 1.000
+because it ships purpose-built expansion and reranker models, not a generic
+small LLM. So: try `query_expansion` on a *capable* model for a specific
+multi-hop question that comes back empty, leave `rerank` off unless you have
+verified it helps on your own data, and do not expect a small local model to
+crack deep multi-hop by itself.
+
+Second, when you do run an LLM, run it **local, not the free-tier API**. The
+slowness of an LLM pipeline is almost never the model, it is the API queue
+(we hit the exact `429 credits depleted` wall measuring this). Ollama on an
+M-series laptop answers a `generate_json` call in ~1.3 s with no per-query
+bill and no queue. Point Lemory at it with `lemory setup` → local mode or
+`LEMORY_PROVIDER=ollama`.
 
 ## Big vaults
 
