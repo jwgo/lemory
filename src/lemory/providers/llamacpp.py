@@ -86,16 +86,15 @@ class LlamaCppLocalClient:
     def generate(self, prompt: str, system: str | None = None, **kw) -> str:
         if self._generator is not None:
             return self._generator.generate(prompt, system=system, **kw)
-        raise RuntimeError(
-            "local embeddings have no answer generator: search works fully "
-            "offline, but ask() needs an LLM. Set GEMINI_API_KEY (free tier "
-            "works) or use provider='ollama' with a local Gemma."
-        )
+        from .local import _local_generate
+        return _local_generate(prompt, system)
 
     def generate_json(self, prompt: str, system: str | None = None, **kw) -> Any:
         if self._generator is not None:
             return self._generator.generate_json(prompt, system=system, **kw)
-        raise RuntimeError("local embeddings have no LLM; set GEMINI_API_KEY for ask()")
+        from .base import parse_json_loose
+        from .local import _local_generate
+        return parse_json_loose(_local_generate(prompt, system))
 
     def close(self) -> None:
         if self._generator is not None:

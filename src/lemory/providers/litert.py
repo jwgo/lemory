@@ -12,6 +12,12 @@ import threading
 DEFAULT_REPO = "litert-community/gemma-4-E2B-it-litert-lm"
 DEFAULT_FILE = "gemma-4-E2B-it.litertlm"
 
+# selectable sizes: E2B (fast, default) and E4B (Google's recommended, better)
+MODELS = {
+    "E2B": ("litert-community/gemma-4-E2B-it-litert-lm", "gemma-4-E2B-it.litertlm"),
+    "E4B": ("litert-community/gemma-4-E4B-it-litert-lm", "gemma-4-E4B-it.litertlm"),
+}
+
 _ENGINES: dict = {}
 _LOAD_LOCK = threading.Lock()
 _GEN_LOCK = threading.Lock()  # one decode at a time (single local model instance)
@@ -59,3 +65,11 @@ def chat_stream(system: str, history: list[dict], question: str,
                     yield txt
             elif isinstance(content, str) and content:
                 yield content
+
+
+def generate(system: str, question: str, repo: str = DEFAULT_REPO,
+             file: str = DEFAULT_FILE, max_output_tokens: int = 512) -> str:
+    """Non-streaming grounded answer (for engine.ask / the search view), so a
+    keyless local install can answer on-device without any API key or Ollama."""
+    return "".join(chat_stream(system, [], question, repo=repo, file=file,
+                               max_output_tokens=max_output_tokens)).strip()

@@ -254,7 +254,23 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                 c.close()
         from ..providers import litert
         ok, reason = litert.available()
-        return {"available": ok, "model": cfg.assistant_litert_file, "reason": reason}
+        size = next((k for k, (r, f) in litert.MODELS.items()
+                     if f == cfg.assistant_litert_file), "E2B")
+        return {"available": ok, "model": cfg.assistant_litert_file, "reason": reason,
+                "size": size, "sizes": list(litert.MODELS)}
+
+    @app.post("/api/assistant/model")
+    def assistant_model(body: dict[str, Any]):
+        """Switch the on-device brain size (E2B fast / E4B quality); persisted."""
+        from ..providers import litert
+        size = str(body.get("size", "")).upper()
+        if size not in litert.MODELS:
+            raise HTTPException(400, f"size must be one of {list(litert.MODELS)}")
+        repo, file = litert.MODELS[size]
+        engine.cfg.assistant_litert_repo = repo
+        engine.cfg.assistant_litert_file = file
+        _persist_config(engine, {"assistant_litert_repo": repo, "assistant_litert_file": file})
+        return {"size": size, "model": file}
 
     @app.post("/api/assistant/chat")
     def assistant_chat(request: Request, body: ChatBody):
