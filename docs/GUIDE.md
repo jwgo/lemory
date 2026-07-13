@@ -232,6 +232,13 @@ small LLM. So: try `query_expansion` on a *capable* model for a specific
 multi-hop question that comes back empty, leave the generic `rerank` off, and
 do not expect a small local model to crack deep multi-hop by itself.
 
+A *dedicated* query-expansion model (measured: qmd's own
+`qmd-query-expansion-1.7B`, MIT) roughly doubles the generic gain on 2-hop
+(0.125 -> 0.175 vs a generic 3B's 0.150; specialization helps) but it
+was trained on an English/tech query distribution and hallucinates on short
+Korean queries ("스우 테마곡" -> "big data"), so it is a poor default for a
+Korean-first vault. Worth trying, not worth hard-wiring.
+
 **Use a dedicated reranker, not generic LLM scoring.** Lemory ships a proper
 cross-encoder path: set `reranker = true` and it scores candidates with
 Qwen3-Reranker (`ollama_reranker_model`) instead of asking a chat model to
