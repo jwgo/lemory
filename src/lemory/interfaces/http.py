@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from ..engine import Engine
@@ -72,6 +72,10 @@ ACTIVITY_MAX = 60
 class AskBody(BaseModel):
     question: str
     k: int = 8
+
+
+class ChatBody(BaseModel):
+    messages: list[dict]  # [{"role": "user"|"assistant", "content": str}, ...]
 
 
 class IndexBody(BaseModel):
@@ -228,6 +232,68 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             "answer": ans.text,
             "sources": [_hit_json(h, text=True) for h in ans.sources],
         }
+
+    # ------------------------------------------------- assistant (console chat)
+    def _assistant_client():
+        from ..providers.ollama import OllamaClient
+        cfg = engine.cfg
+        return OllamaClient(host=cfg.ollama_host, llm_model=cfg.assistant_model)
+
+    @app.get("/api/assistant/status")
+    def assistant_status():
+        """Is the always-local assistant reachable? (Ollama up + model pulled.)
+        The console gates 'assistant mode' on this — E2B has to be running."""
+        cfg = engine.cfg
+        c = _assistant_client()
+        try:
+            if not c.server_alive():
+                return {"available": False, "model": cfg.assistant_model,
+                        "reason": "Ollama가 실행 중이 아닙니다. 설치: https://ollama.com "
+                                  "· 실행: `ollama serve`"}
+            if not c.has_model(cfg.assistant_model):
+                return {"available": False, "model": cfg.assistant_model,
+                        "reason": f"모델이 없습니다 — `ollama pull {cfg.assistant_model}`"}
+            return {"available": True, "model": cfg.assistant_model}
+        finally:
+            c.close()
+
+    @app.post("/api/assistant/chat")
+    def assistant_chat(request: Request, body: ChatBody):
+        """Grounded, streaming chat over the vault. Retrieves for the latest
+        user turn, streams a cited answer from the local assistant model."""
+        from ..retrieval.answer import SYSTEM, build_context
+        cfg = engine.cfg
+        msgs = [m for m in body.messages
+                if m.get("role") in ("user", "assistant") and str(m.get("content", "")).strip()]
+        if not msgs or msgs[-1]["role"] != "user":
+            raise HTTPException(400, "마지막 메시지는 사용자 메시지여야 합니다")
+        question = str(msgs[-1]["content"])
+        hits = engine.search(question, k=cfg.assistant_k)
+        context = build_context(hits) if hits else "(관련 노트를 찾지 못했습니다.)"
+        system = (SYSTEM + "\n\nNOTES (cite as [n]):\n" + context)
+        chat_messages = [{"role": "system", "content": system}] + [
+            {"role": m["role"], "content": str(m["content"])} for m in msgs[-8:]]
+        sources = [{"n": i + 1, "title": h.title, "path": h.path,
+                    "snippet": h.text[:180]} for i, h in enumerate(hits)]
+        if cfg.event_log:
+            engine.store.log_event("assistant", client=_client(request), query=question,
+                                   detail={"top": [h.path for h in hits[:3]]})
+        if hits:
+            engine.store.record_hits([h.doc_id for h in hits])
+
+        def gen():
+            client = _assistant_client()
+            try:
+                yield "data: " + json.dumps({"sources": sources}, ensure_ascii=False) + "\n\n"
+                for delta in client.chat_stream(chat_messages, model=cfg.assistant_model):
+                    yield "data: " + json.dumps({"delta": delta}, ensure_ascii=False) + "\n\n"
+                yield "data: " + json.dumps({"done": True}) + "\n\n"
+            except Exception as e:  # surface a friendly error into the stream
+                yield "data: " + json.dumps({"error": str(e)[:200]}, ensure_ascii=False) + "\n\n"
+            finally:
+                client.close()
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
 
     @app.get("/context")
     def context(max_chars: int = 2400):
