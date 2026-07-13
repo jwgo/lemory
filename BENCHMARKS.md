@@ -341,10 +341,16 @@ IDF 게이트·앵커 핀·첫음절 오타 교정 이후)**: Lemory-local **doc
 |---|---|---|---|
 | **Lemory (동일조건)** | **0.926** | 임베딩만 (LLM 0회) | **14 ms** |
 | mem0 OSS | 0.619 | **60분** LLM 사실추출 | 0.44 s |
-| LightRAG (mix) | (측정 중) | 노트당 LLM 그래프추출 | — |
+| LightRAG (mix) | 인제스트 362/400에서 중단¹ | 노트당 LLM 그래프추출 | — |
 
 mem0는 전 축 열세(단일사실 0.53/0.95, 2-hop fs 0.05/1.00, 오타 0.52/0.82).
-cognee/supermemory/openwiki/OpenKB는 비용·계정 제약으로 미측정 유지.</sub>
+cognee/supermemory/openwiki/OpenKB는 비용·계정 제약으로 미측정 유지.
+
+<sub>¹ LightRAG는 서브코퍼스 400노트 중 362개까지 LLM 그래프추출을 마친
+시점에 무료 Gemini 크레딧이 소진(429 prepayment depleted)되어 질의 단계에
+도달하지 못했다. 부분 결과로 행을 채우지 않는다 — 유료 키가 생기면 완주
+후 기재한다. 이 자리를 비워두는 것 자체가 "LLM 인제스트 파이프라인은
+API 예산이 곧 병목"이라는 이 표의 논지다.</sub>
 
 **e2e (생성+채점, flash, 175 층화문항 + 무응답 8)**: containment-EM
 0.617 (kw 0.80 · masked 0.76 · casual 0.68 · single 0.64 · typo 0.56 ·
