@@ -106,11 +106,20 @@ Gemini 무료 티어 기준, Lemory의 실제 소비량은 이렇습니다:
   모델이 없으면 마법사가 물어보고 대신 `ollama pull` 해줍니다.
 - 볼트 내용이 컴퓨터 밖으로 **한 바이트도** 나가지 않습니다.
 
-**모드 3 — 경량 로컬 (fastembed): 검색 전용**
+**모드 3 — 인프로세스 로컬 (데몬 없음): 검색 전용**
 
-- 임베딩: MiniLM 다국어 (220MB, 384차원). LLM 없음 — `ask`만 빼고 전부 동작.
-- 설정: `pip install "lemory[local]"` → `lemory setup` → `3` 선택.
-  (키가 하나도 없으면 이 모드로 자동 전환되기도 합니다.)
+임베딩이 프로세스 안에서 돕니다(qmd가 node-llama-cpp 쓰는 방식). 둘 다 키 0:
+
+- **Harrier (추천): `pip install "lemory[llama]"`.** Microsoft Harrier-OSS-0.6B
+  (Qwen3 기반 멀티링구얼, Q8 GGUF ~640MB, 1024차원)를 llama.cpp(Metal/GPU)로
+  인프로세스 실행. KorMapleQA 하이브리드 **doc@8 0.853**(MiniLM 0.788 대비),
+  Ollama 경로와 같은 GGUF라 점수도 동일. GGUF는 첫 색인 시 HF에서 자동 다운로드.
+- **MiniLM (경량): `pip install "lemory[local]"`.** fastembed(순수 파이썬 ONNX,
+  ~220MB, 384차원), doc@8 0.788. 네이티브 컴파일 없음, 최소 풋프린트.
+  `lemory[llama]`가 빌드 안 되는 환경의 폴백.
+
+`auto`는 `lemory[llama]`가 깔려 있으면 Harrier, 없으면 MiniLM. `ask`만 빼고 전부
+동작하고(`ask`는 Gemini 키나 Ollama Gemma 같은 생성기가 필요).
 
 **최소 사양**
 
@@ -264,18 +273,22 @@ single/masked 30문항, 로컬 Qwen3-Reranker-0.6B 실측:
 위의 모든 건 빠르고 무료인 기본값 위에 얹는 선택지입니다. `lemory setup`이나
 `lemory.toml`에서 원하는 티어를 고르세요:
 
-1. **기본 (fastembed MiniLM):** 키 0, ~220MB, 밀리초. 거의 모두에게 정답.
-2. **더 강한 임베딩 (Ollama, Harrier-OSS-0.6B Q8):** `provider = ollama`면
-   벡터 레그를 Microsoft의 Qwen3 기반 멀티링구얼 임베더로 교체합니다.
-   KorMapleQA 실측: 하이브리드 **doc@8 0.788 → 0.853 (+6.5pt)**, 키 없이
-   Gemini 상한(0.906) 격차의 절반 이상을 메움. 이득은 어려운 유형에 몰립니다
-   (masked +11, 2-hop full-support 0.18→0.29, typo +7). 대가는 질의 지연
-   (~100ms vs ~18ms: Ollama 임베딩 왕복)과 아주 큰 볼트의 최초 색인 속도
-   (Ollama가 33k 청크를 M4에서 ~2시간, fastembed는 몇 분. 단 1회성).
+1. **최고 로컬, 데몬 없음 (`lemory[llama]`, Harrier-OSS-0.6B):** 인프로세스
+   llama.cpp(Metal/GPU), qmd와 같은 런타임. 하이브리드 **doc@8 0.853**, 키 없이
+   서버 없이 Gemini 상한(0.906) 격차의 절반 이상을 메움. 이득은 어려운 유형에
+   몰립니다(masked +11, 2-hop full-support 0.18→0.29, typo +7). 대가: 네이티브
+   휠(프리빌드 없으면 컴파일), GGUF ~640MB(1회 자동 다운로드), 질의 지연
+   ~100ms(MiniLM ~18ms). `pip install "lemory[llama]"`.
+2. **최경량 로컬 (`lemory[local]`, fastembed MiniLM):** 순수 파이썬 ONNX,
+   ~220MB, 밀리초, 네이티브 컴파일 없음. doc@8 0.788. llama 휠이 안 빌드되거나
+   거대 볼트 색인 속도가 마지막 몇 점보다 중요할 때의 폴백.
+3. **같은 Harrier를 공유 데몬으로 (Ollama):** `provider = ollama`면 *동일한*
+   Harrier GGUF(doc@8 0.853)를 인프로세스 대신 Ollama 서버로 돌립니다. 이미
+   Ollama를 쓰거나, 임베딩+리랭커+Gemma를 한 데몬으로 묶고 싶을 때만.
    `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
-3. **정밀 모드 (+ 전용 리랭커):** `reranker = true`면 위의 Qwen3-Reranker
-   패스를 추가. 질의당 초 단위, recall@1 상승.
-4. **근거 있는 답변 (+ Gemma):** `ollama_llm_model`(기본 `gemma3n:e4b`)이
+4. **정밀 모드 (+ 전용 리랭커):** `reranker = true`면 위의 Qwen3-Reranker
+   패스를 추가(Ollama 필요). 질의당 초 단위, recall@1 상승.
+5. **근거 있는 답변 (+ Gemma):** `ollama_llm_model`(기본 `gemma3n:e4b`)이
    `lemory ask`를 완전 오프라인으로 굴립니다. 검색엔 전혀 필요 없고 `ask`만 씀.
 
 둘째, LLM을 돌릴 때는 **무료 티어 API가 아니라 로컬로** 돌리세요. LLM
