@@ -76,6 +76,11 @@ class LemoryConfig(BaseSettings):
     # cfg.reranker is on AND the provider is ollama.
     ollama_reranker_model: str = "dengcao/Qwen3-Reranker-0.6B:F16"
     ollama_embed_dim: int = 1024
+    # console "assistant mode": a small, always-warm local chat model that
+    # answers grounded in the vault (RAG) and streams, à la parlor. Requires
+    # Ollama running with this model pulled, regardless of the embed provider.
+    assistant_model: str = "gemma4:e2b"
+    assistant_k: int = 6  # notes retrieved as grounding per turn
 
     # --- Gemini ---
     gemini_api_key: str = ""

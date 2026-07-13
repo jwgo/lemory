@@ -149,6 +149,40 @@ class OllamaClient:
         text = self.generate(prompt, system=system, json_mode=True, **kw)
         return parse_json_loose(text)
 
+    def chat_stream(self, messages: list[dict], model: str | None = None,
+                    temperature: float = 0.3, max_output_tokens: int | None = None):
+        """Yield answer text deltas from a multi-turn chat, streaming (for the
+        console assistant). `model` overrides self.llm_model (the assistant
+        deliberately runs a small, always-warm model like gemma4:e2b)."""
+        body: dict[str, Any] = {
+            "model": model or self.llm_model,
+            "messages": messages,
+            "stream": True,
+            "options": {"temperature": temperature,
+                        "num_predict": max_output_tokens or self.max_output_tokens},
+        }
+        try:
+            with self._http.stream("POST", f"{self.host}/api/chat", json=body,
+                                   timeout=None) as r:
+                r.raise_for_status()
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    chunk = (data.get("message") or {}).get("content", "")
+                    if chunk:
+                        yield chunk
+                    if data.get("done"):
+                        break
+        except httpx.HTTPError as e:
+            raise _friendly(e, self.host) from e
+
+    def has_model(self, name: str) -> bool:
+        try:
+            return any(m.startswith(name) for m in self.installed_models())
+        except Exception:
+            return False
+
     # ------------------------------------------------------------- reranking
     def rerank_scores(self, query: str, docs: list[str]) -> list[float]:
         """Dedicated cross-encoder reranking with a Qwen3-Reranker-style model.

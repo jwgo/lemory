@@ -63,6 +63,7 @@ const routes = {
   overview: renderOverview,
   knowledge: renderKnowledge,
   search: renderSearch,
+  assistant: renderAssistant,
   settings: renderSettings,
 };
 
@@ -574,6 +575,114 @@ async function renderSearch() {
       </div>`).join("");
     $$("#hits .hit").forEach(el => el.onclick = () => go("#/knowledge/" + encodeURIComponent(el.dataset.path)));
   }
+}
+
+/* -------------------------------------------------------------- assistant */
+const ASSIST = { history: [], busy: false };
+
+async function renderAssistant() {
+  const m = $("#main");
+  m.innerHTML = `<div class="view asst">
+    <div class="view-head"><div class="view-title">비서</div>
+      <div class="view-sub">지식베이스 기반 대화 — 로컬 모델로 스트리밍, 출처 인용</div></div>
+    <div id="asstGate"></div>
+    <div id="asstWrap" hidden>
+      <div class="asst-log" id="asstLog"></div>
+      <div class="asst-input">
+        <textarea id="asstIn" rows="1" placeholder="볼트에 대해 물어보세요… (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
+        <button class="btn primary" id="asstSend">전송</button>
+      </div>
+    </div></div>`;
+
+  let st;
+  try { st = await api("/api/assistant/status"); }
+  catch (e) { st = { available: false, reason: e.message }; }
+
+  if (!st.available) {
+    $("#asstGate").innerHTML = `<div class="card asst-gate">
+      <div class="card-head">비서 모드를 켜려면 로컬 모델이 필요합니다</div>
+      <p>${esc(st.reason || "로컬 모델을 사용할 수 없습니다.")}</p>
+      <div class="kv"><div class="kv-row"><span class="kv-k">모델</span>
+        <span class="kv-v mono">${esc(st.model || "gemma4:e2b")}</span></div></div>
+      <p style="color:var(--text-3)">Ollama가 켜져 있고 위 모델이 받아져 있으면 바로 대화할 수 있어요.</p>
+      <button class="btn" id="asstRetry">다시 확인</button></div>`;
+    $("#asstRetry").onclick = renderAssistant;
+    return;
+  }
+
+  $("#asstWrap").hidden = false;
+  const log = $("#asstLog"), input = $("#asstIn"), send = $("#asstSend");
+  ASSIST.history.forEach(msg => appendBubble(log, msg.role, msg.content, msg.sources));
+  if (!ASSIST.history.length)
+    log.innerHTML = `<div class="asst-empty">무엇이든 물어보세요. 답변은 볼트의 노트에 근거하고, 아래에 출처를 답니다.<br><span style="color:var(--text-3)">예: "지난주에 정리한 결제 정책 요약해줘"</span></div>`;
+
+  input.oninput = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; };
+  input.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } };
+  send.onclick = doSend;
+  input.focus();
+
+  async function doSend() {
+    const text = input.value.trim();
+    if (!text || ASSIST.busy) return;
+    input.value = ""; input.style.height = "auto";
+    if (!ASSIST.history.length) log.innerHTML = "";
+    ASSIST.busy = true; send.disabled = true;
+    ASSIST.history.push({ role: "user", content: text });
+    appendBubble(log, "user", text);
+    const bubble = appendBubble(log, "assistant", "");
+    const body = bubble.querySelector(".asst-text");
+    body.innerHTML = `<span class="asst-dots">···</span>`;
+    let answer = "", sources = null;
+    try {
+      const res = await fetch("/api/assistant/chat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: ASSIST.history }),
+      });
+      if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf("\n\n")) >= 0) {
+          const line = buf.slice(0, i); buf = buf.slice(i + 2);
+          if (!line.startsWith("data:")) continue;
+          const d = JSON.parse(line.slice(5).trim());
+          if (d.sources) sources = d.sources;
+          else if (d.delta) { answer += d.delta; body.textContent = answer; log.scrollTop = log.scrollHeight; }
+          else if (d.error) { body.innerHTML = `<span class="asst-err">${esc(d.error)}</span>`; }
+        }
+      }
+      if (sources && sources.length) bubble.appendChild(sourceEl(sources));
+      ASSIST.history.push({ role: "assistant", content: answer, sources });
+    } catch (e) {
+      body.innerHTML = `<span class="asst-err">응답 실패: ${esc(e.message)}</span>`;
+    } finally {
+      ASSIST.busy = false; send.disabled = false; input.focus();
+      log.scrollTop = log.scrollHeight;
+    }
+  }
+}
+
+function appendBubble(log, role, text, sources) {
+  const el = document.createElement("div");
+  el.className = "asst-msg " + role;
+  el.innerHTML = `<div class="asst-role">${role === "user" ? "나" : "비서"}</div><div class="asst-text"></div>`;
+  el.querySelector(".asst-text").textContent = text;
+  if (sources && sources.length) el.appendChild(sourceEl(sources));
+  log.appendChild(el); log.scrollTop = log.scrollHeight;
+  return el;
+}
+
+function sourceEl(sources) {
+  const el = document.createElement("div");
+  el.className = "asst-src";
+  el.innerHTML = "출처 " + sources.map(s =>
+    `<a href="#/knowledge/${encodeURIComponent(s.path)}" title="${esc(s.snippet || "")}">[${s.n}] ${esc(s.title)}</a>`
+  ).join(" ");
+  return el;
 }
 
 /* --------------------------------------------------------------- settings */
