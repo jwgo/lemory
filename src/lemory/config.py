@@ -85,6 +85,7 @@ class LemoryConfig(BaseSettings):
     assistant_model: str = "gemma4:e2b"      # only when assistant_backend="ollama"
     assistant_k: int = 6                      # notes retrieved as grounding per turn
     assistant_tts_voice: str = "f4"          # Supertonic voice (f1-f5, m1-m5) for spoken answers
+    assistant_tts_pitch: float = 3.0         # semitones up: +3 ≈ cute/bright tone (0 = natural)
 
     # --- Gemini ---
     gemini_api_key: str = ""
