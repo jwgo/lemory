@@ -1,20 +1,20 @@
-"""KorMapleQA — 실제 나무위키 메이플스토리 코퍼스(1,469 문서) 위의
+"""KorMapleQA - 실제 나무위키 메이플스토리 코퍼스(1,469 문서) 위의
 결정적·코드검증 한국어 RAG 벤치마크 생성기.
 
 LLM 초안 없이 100% 코드로 생성되므로 (a) API 키 없이 재현 가능하고
 (b) 모든 문항이 기계 검증 가능한 불변식을 갖는다:
 
-  S  단일 사실   인포박스 표/불릿의 (키, 값) — 정답이 골드 문서에 존재
+  S  단일 사실   인포박스 표/불릿의 (키, 값) - 정답이 골드 문서에 존재
   M  마스킹      엔티티를 제목 대신 '코퍼스 전체에서 유일한 속성값'으로
-                 지칭 — 제목 부스트가 아니라 내용 검색을 강제
+                 지칭 - 제목 부스트가 아니라 내용 검색을 강제
   H  2-hop      A 문서 인포박스의 위키링크 값 → B 문서의 사실.
                  정답은 B에만 있고 A에는 없음을 검증 (지름길 차단)
   T  시간       "YYYY년 M월 D일 ... 등장/출시/추가" 서술
-  A  무응답     덤프(2021-03-01) 이후 콘텐츠 — 코퍼스 전체 부재를 검증.
+  A  무응답     덤프(2021-03-01) 이후 콘텐츠 - 코퍼스 전체 부재를 검증.
                  e2e 시스템은 '모른다'가 정답, 검색 시스템은 별도 리포트
 
 변형(robustness) 축: 문어체 원문 → 구어체(반말+동의어), 키워드, 오타
-(자모 시드 고정) — 같은 골드로 재질의.
+(자모 시드 고정) - 같은 골드로 재질의.
 
 사용:
     python benchmarks/gen_kormapleqa.py            # 생성 + 검증 + 통계
@@ -58,7 +58,7 @@ def _last_hangul(word: str) -> str:
     return ""
 
 
-def _topic(word: str) -> str:  # 은/는 — 조사는 마지막 한글 음절 기준
+def _topic(word: str) -> str:  # 은/는 - 조사는 마지막 한글 음절 기준
     ch = _last_hangul(word)
     return "은" if ch and _jong(ch) else "는"
 
@@ -222,8 +222,39 @@ def value_ok(v: str) -> bool:
             and normalize(v) != "")
 
 
-def render_q(entity: str, key_phrase: str) -> str:
-    return f"{entity}의 {key_phrase}{_topic(key_phrase)} 무엇인가?"
+# natural question endings by answer category, so the set doesn't read as
+# 2,000 copies of "~은 무엇인가?". Picked deterministically per question.
+_ENDINGS = {
+    "num": ["몇이야?", "얼마야?", "몇이지?", "얼마인가?", "몇인가?"],
+    "person": ["누구야?", "누구지?", "누구인가?", "누구야?"],
+    "date": ["언제야?", "언제인가?", "언제였지?", "언제지?"],
+    "text": ["뭐야?", "뭐지?", "무엇인가?", "무엇이지?", "뭔가?"],
+}
+# which category an infobox key's ANSWER falls into
+_NUM_KEYS = {"레벨", "HP", "MP", "EXP", "물리 공격", "마법 공격",
+             "적정 레벨", "가격", "제한 시간"}
+_PERSON_KEYS = {"성우"}
+
+
+def _ending_category(key: str) -> str:
+    if key in _NUM_KEYS:
+        return "num"
+    if key in _PERSON_KEYS:
+        return "person"
+    return "text"
+
+
+def _pick_ending(category: str, seed_text: str) -> str:
+    pool = _ENDINGS[category]
+    # deterministic, phrasing-stable index from the question's own content
+    idx = sum(ord(c) for c in seed_text) % len(pool)
+    return pool[idx]
+
+
+def render_q(entity: str, key_phrase: str, key: str = "") -> str:
+    ending = _pick_ending(_ending_category(key or key_phrase),
+                          entity + key_phrase)
+    return f"{entity}의 {key_phrase}{_topic(key_phrase)} {ending}"
 
 
 # --------------------------------------------------------------- generators
@@ -250,14 +281,14 @@ def gen_single(docs: dict) -> list[dict]:
             ans_norm = normalize(f["value"])
             if not ans_norm or ans_norm not in d["norm"]:
                 continue
-            # 문서 안에서 같은 키가 여러 값이면 (페이즈별 표 등) 모호 — 스킵
+            # 문서 안에서 같은 키가 여러 값이면 (페이즈별 표 등) 모호 - 스킵
             vals = {normalize(x["value"]) for x in d["kv"] if x["key"].strip() == key}
             if len(vals) > 1:
                 continue
             seen_keys.add(key)
             picked += 1
             out.append({
-                "type": "single", "q": render_q(ent, kp),
+                "type": "single", "q": render_q(ent, kp, key),
                 "answers": [f["value"]], "gold_notes": [title],
                 "masked": False, "key": key, "section": f["section"],
             })
@@ -290,8 +321,10 @@ def gen_masked(docs: dict, singles: list[dict]) -> list[dict]:
                     continue
                 ikp = KEY_TEMPLATES[ident["key"]]
                 tkp = KEY_TEMPLATES[target["key"]]
+                ending = _pick_ending(_ending_category(target["key"]),
+                                      ident["answers"][0] + tkp)
                 q = (f"{ikp}{_subj(ikp)} '{ident['answers'][0]}'인 {noun}의 "
-                     f"{tkp}{_topic(tkp)} 무엇인가?")
+                     f"{tkp}{_topic(tkp)} {ending}")
                 ent_norm = normalize(display_name(title))
                 if ent_norm and ent_norm in normalize(q):
                     continue  # 제목 누출
@@ -342,7 +375,8 @@ def gen_twohop(docs: dict) -> list[dict]:
                 bn = display_name(b_title)
                 if normalize(bn) and normalize(bn) in normalize(ent):
                     continue
-                q = f"{ent}{rel} {bkp}{_topic(bkp)} 무엇인가?"
+                ending = _pick_ending(_ending_category(bkey), ent + bkp)
+                q = f"{ent}{rel} {bkp}{_topic(bkp)} {ending}"
                 out.append({
                     "type": "twohop", "q": q, "answers": [fb["value"]],
                     "gold_notes": [title, b_title], "masked": True,
@@ -387,7 +421,8 @@ def gen_temporal(docs: dict) -> list[dict]:
         ent = display_name(title)
         if normalize(date) not in d["norm"]:
             continue
-        q = f"{ent}{_subj(ent)} {_EVENT_VERB[verb]} 날짜는 언제인가?"
+        ending = _pick_ending("date", ent + verb)
+        q = f"{ent}{_subj(ent)} {_EVENT_VERB[verb]} 날짜는 {ending}"
         out.append({
             "type": "temporal", "q": q, "answers": [date],
             "gold_notes": [title], "masked": False, "key": "date",
@@ -395,7 +430,7 @@ def gen_temporal(docs: dict) -> list[dict]:
     return out
 
 
-# 덤프(2021-03-01) 이후에 등장한 콘텐츠 — 코퍼스에 답이 없어야 정상
+# 덤프(2021-03-01) 이후에 등장한 콘텐츠 - 코퍼스에 답이 없어야 정상
 _ABSTENTION_ENTITIES = [
     ("데스티니(업데이트)", "데스티니 업데이트에서 리마스터된 직업군은 무엇인가?"),
     ("이그니션(업데이트)", "이그니션 업데이트의 시작일은 언제인가?"),
@@ -422,7 +457,7 @@ def gen_abstention(docs: dict) -> list[dict]:
         key = normalize(ident.split("(")[0])
         holders = [t for t, d in docs.items() if key in d["norm"]]
         if holders:
-            continue  # 코퍼스에 존재 — 무응답 문항으로 부적격
+            continue  # 코퍼스에 존재 - 무응답 문항으로 부적격
         out.append({
             "type": "abstention", "q": q, "answers": [],
             "gold_notes": [], "masked": True, "key": ident,
@@ -436,16 +471,28 @@ def gen_abstention(docs: dict) -> list[dict]:
 _TYPO_RNG = random.Random(SEED)
 
 
-def _typo(word: str) -> str:
+# question-ending words must never receive the typo - a typo belongs on the
+# entity/topic the user is asking about, not on the interrogative
+_ENDING_STEMS = {e.rstrip("?") for pool in _ENDINGS.values() for e in pool} | {
+    "무엇인가", "언제인가", "날짜는", "무엇", "언제", "얼마"}
+
+
+def _typo(text: str) -> str:
     """Deterministic single-syllable typo: swap two adjacent Hangul syllables
-    of the longest word (길이 4+), like a fat-finger transposition."""
-    runs = sorted(re.findall(r"[가-힣]{4,}", word), key=len, reverse=True)
+    of the longest CONTENT run (길이 4+), skipping question-ending words, like
+    a fat-finger transposition on what the user actually typed."""
+    runs = [r for r in re.findall(r"[가-힣]{4,}", text)
+            if r not in _ENDING_STEMS]
     if not runs:
-        return word
-    run = runs[0]
+        return text
+    run = max(runs, key=len)
     i = _TYPO_RNG.randrange(len(run) - 1)
     swapped = run[:i] + run[i + 1] + run[i] + run[i + 2:]
-    return word.replace(run, swapped, 1)
+    return text.replace(run, swapped, 1)
+
+
+# casual endings that stay grammatical after ANY noun (no number-only forms)
+_CASUAL_ENDS = ["뭐야?", "뭐임?", "알려줘", "뭐더라?", "머임?", "뭔데?"]
 
 
 def gen_variants(questions: list[dict], n: int = 220) -> list[dict]:
@@ -462,7 +509,8 @@ def gen_variants(questions: list[dict], n: int = 220) -> list[dict]:
         kp = KEY_TEMPLATES.get(q["key"], q["key"])
         out.append({**q, "type": "kw", "q": f"{ent} {plain_key}"})
         syn = CASUAL_SYNONYM.get(kp, plain_key)
-        out.append({**q, "type": "casual", "q": f"{ent} {syn} 뭐야?"})
+        casual_end = _CASUAL_ENDS[sum(ord(c) for c in ent) % len(_CASUAL_ENDS)]
+        out.append({**q, "type": "casual", "q": f"{ent} {syn} {casual_end}"})
         out.append({**q, "type": "typo", "q": _typo(q["q"])})
     return out
 

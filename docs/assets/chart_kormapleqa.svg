@@ -1,33 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="500" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
-<rect width="880" height="500" rx="12" fill="#0d1117"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="548" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="880" height="548" rx="12" fill="#0d1117"/>
 <text x="28" y="40" fill="#e6edf3" font-size="22" font-weight="700">KorMapleQA: who actually finds Korean notes</text>
 <text x="28" y="64" fill="#8b949e" font-size="13">2,067 real namuwiki questions, gold-doc in top-8. Full corpus: 1,469 documents / 33k chunks.</text>
-<line x1="408" y1="78" x2="408" y2="472" stroke="#21262d"/>
-<line x1="515" y1="78" x2="515" y2="472" stroke="#21262d"/>
-<line x1="622" y1="78" x2="622" y2="472" stroke="#21262d"/>
-<line x1="730" y1="78" x2="730" y2="472" stroke="#21262d"/>
+<line x1="408" y1="78" x2="408" y2="520" stroke="#21262d"/>
+<line x1="515" y1="78" x2="515" y2="520" stroke="#21262d"/>
+<line x1="622" y1="78" x2="622" y2="520" stroke="#21262d"/>
+<line x1="730" y1="78" x2="730" y2="520" stroke="#21262d"/>
 <text x="288" y="108.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (Gemini embeddings)</text>
 <rect x="300" y="86" width="390" height="34" rx="6" fill="#f7d353"/>
 <text x="700" y="108.0" fill="#e6edf3" font-size="14" font-weight="600">0.906<tspan fill="#8b949e" font-weight="400">  12 ms/query</tspan></text>
-<text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local, zero keys)</text>
-<rect x="300" y="134" width="322" height="34" rx="6" fill="#f7d353"/>
-<text x="632" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.748<tspan fill="#8b949e" font-weight="400">  13 ms/query</tspan></text>
-<text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd query (local LLM)</text>
-<rect x="300" y="182" width="331" height="34" rx="6" fill="#58a6ff"/>
-<text x="641" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">0.769<tspan fill="#8b949e" font-weight="400">  59.5 s/query, n=329 sample</tspan></text>
-<text x="288" y="252.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd vsearch</text>
-<rect x="300" y="230" width="283" height="34" rx="6" fill="#58a6ff"/>
-<text x="593" y="252.0" fill="#e6edf3" font-size="14" font-weight="600">0.657<tspan fill="#8b949e" font-weight="400">  4.2 s/query, n=280 sample</tspan></text>
-<text x="288" y="300.0" fill="#e6edf3" font-size="14" text-anchor="end">Smart-Connections-class</text>
-<rect x="300" y="278" width="86" height="34" rx="6" fill="#6e7681"/>
-<text x="396" y="300.0" fill="#e6edf3" font-size="14" font-weight="600">0.200<tspan fill="#8b949e" font-weight="400">  its default local model</tspan></text>
-<text x="288" y="348.0" fill="#e6edf3" font-size="14" text-anchor="end">Omnisearch (real MiniSearch)</text>
-<rect x="300" y="326" width="64" height="34" rx="6" fill="#6e7681"/>
-<text x="374" y="348.0" fill="#e6edf3" font-size="14" font-weight="600">0.149<tspan fill="#8b949e" font-weight="400">  keyword-only engine</tspan></text>
-<text x="288" y="396.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd search (BM25)</text>
-<rect x="300" y="374" width="40" height="34" rx="6" fill="#6e7681"/>
-<text x="350" y="396.0" fill="#e6edf3" font-size="14" font-weight="600">0.092<tspan fill="#8b949e" font-weight="400">  AND semantics</tspan></text>
-<text x="288" y="444.0" fill="#e6edf3" font-size="14" text-anchor="end">MemPalace 3.5 (57k stars)</text>
-<rect x="300" y="422" width="14" height="34" rx="6" fill="#f85149"/>
-<text x="324" y="444.0" fill="#e6edf3" font-size="14" font-weight="600">0.033<tspan fill="#8b949e" font-weight="400">  collapses on Korean</tspan></text>
+<text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local Harrier-0.6B Q8, Ollama)</text>
+<rect x="300" y="134" width="367" height="34" rx="6" fill="#f7d353"/>
+<text x="677" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.853<tspan fill="#8b949e" font-weight="400">  ~100 ms/query, zero keys</tspan></text>
+<text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local MiniLM, zero keys)</text>
+<rect x="300" y="182" width="339" height="34" rx="6" fill="#f7d353"/>
+<text x="649" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">0.788<tspan fill="#8b949e" font-weight="400">  18 ms/query</tspan></text>
+<text x="288" y="252.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd query (local LLM)</text>
+<rect x="300" y="230" width="331" height="34" rx="6" fill="#58a6ff"/>
+<text x="641" y="252.0" fill="#e6edf3" font-size="14" font-weight="600">0.769<tspan fill="#8b949e" font-weight="400">  59.5 s/query, n=329 sample</tspan></text>
+<text x="288" y="300.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd vsearch</text>
+<rect x="300" y="278" width="283" height="34" rx="6" fill="#58a6ff"/>
+<text x="593" y="300.0" fill="#e6edf3" font-size="14" font-weight="600">0.657<tspan fill="#8b949e" font-weight="400">  4.2 s/query, n=280 sample</tspan></text>
+<text x="288" y="348.0" fill="#e6edf3" font-size="14" text-anchor="end">Smart-Connections-class</text>
+<rect x="300" y="326" width="88" height="34" rx="6" fill="#6e7681"/>
+<text x="398" y="348.0" fill="#e6edf3" font-size="14" font-weight="600">0.204<tspan fill="#8b949e" font-weight="400">  its default local model</tspan></text>
+<text x="288" y="396.0" fill="#e6edf3" font-size="14" text-anchor="end">Omnisearch (real MiniSearch)</text>
+<rect x="300" y="374" width="64" height="34" rx="6" fill="#6e7681"/>
+<text x="374" y="396.0" fill="#e6edf3" font-size="14" font-weight="600">0.148<tspan fill="#8b949e" font-weight="400">  keyword-only engine</tspan></text>
+<text x="288" y="444.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd search (BM25)</text>
+<rect x="300" y="422" width="39" height="34" rx="6" fill="#6e7681"/>
+<text x="349" y="444.0" fill="#e6edf3" font-size="14" font-weight="600">0.091<tspan fill="#8b949e" font-weight="400">  AND semantics</tspan></text>
+<text x="288" y="492.0" fill="#e6edf3" font-size="14" text-anchor="end">MemPalace 3.5 (57k stars)</text>
+<rect x="300" y="470" width="13" height="34" rx="6" fill="#f85149"/>
+<text x="323" y="492.0" fill="#e6edf3" font-size="14" font-weight="600">0.031<tspan fill="#8b949e" font-weight="400">  collapses on Korean</tspan></text>
 </svg>

@@ -45,7 +45,10 @@ class LemoryConfig(BaseSettings):
     # --- ollama (fully-local LLM + embeddings; `lemory setup` configures this) ---
     ollama_host: str = "http://127.0.0.1:11434"
     ollama_llm_model: str = "gemma3n:e4b"             # Gemma 3n E4B, 4-bit quant
-    ollama_embed_model: str = "qwen3-embedding:0.6b"  # Qwen3-Embedding-0.6B
+    # Harrier-OSS-0.6B (Q8, Qwen3-based multilingual): KorMapleQA hybrid doc@8
+    # 0.853 vs MiniLM's 0.788 (+6.5pt), closing over half the gap to Gemini's
+    # 0.906 with zero keys. `ollama pull` resolves it straight from HuggingFace.
+    ollama_embed_model: str = "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"
     # dedicated cross-encoder reranker (opt-in "quality mode": one model call
     # per candidate, so seconds/query — reach for it when a hard multi-hop
     # question comes back wrong, not for everyday lookups). Only used when

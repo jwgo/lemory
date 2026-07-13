@@ -4,7 +4,7 @@
     provider = "ollama"
     # defaults, override if you like:
     # ollama_llm_model = "gemma3n:e4b"            # Gemma 3n E4B, 4-bit quant (~5.6GB)
-    # ollama_embed_model = "qwen3-embedding:0.6b" # Qwen3-Embedding-0.6B (~640MB, 1024d)
+    # ollama_embed_model = "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"  # (~640MB, 1024d)
     # ollama_host = "http://127.0.0.1:11434"
 
 Everything — indexing, search, AND ask() answer generation — runs offline.
@@ -27,7 +27,7 @@ from .base import normalize_embeddings, parse_json_loose
 
 DEFAULT_HOST = "http://127.0.0.1:11434"
 DEFAULT_LLM = "gemma3n:e4b"
-DEFAULT_EMBED = "qwen3-embedding:0.6b"
+DEFAULT_EMBED = "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"
 DEFAULT_EMBED_DIM = 1024
 
 

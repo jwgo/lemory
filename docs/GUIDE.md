@@ -96,7 +96,7 @@ Pick a number in `lemory setup`:
 **Mode 2 — fully local (Ollama): even answers run offline**
 
 - LLM: **Gemma 3n E4B** (4-bit quant, ~5.6 GB) — `ask()` answers locally
-- Embeddings: **Qwen3-Embedding-0.6B** (~640 MB, 1024d, strong KR/EN)
+- Embeddings: **Harrier-OSS-0.6B** (Q8, ~640 MB, 1024d, Qwen3-based multilingual)
 - Setup: install [ollama.com](https://ollama.com/download) → `lemory setup` → `2`.
   The wizard offers to run the `ollama pull`s for you.
 - Not a byte of your vault ever leaves the machine.
@@ -265,10 +265,15 @@ want in `lemory setup` or `lemory.toml`:
 
 1. **Default (fastembed MiniLM):** zero keys, ~220 MB, milliseconds. The
    right choice for almost everyone.
-2. **Stronger embeddings (Ollama, Qwen3-Embedding-0.6B):** `provider = ollama`
-   uses Qwen3-Embedding for retrieval. Higher quality on hard Korean, but
-   local indexing of a very large vault is slow (Ollama embeds in small
-   batches; a 33k-chunk corpus takes far longer than fastembed's minutes).
+2. **Stronger embeddings (Ollama, Harrier-OSS-0.6B Q8):** `provider = ollama`
+   swaps the vector leg to Microsoft's Qwen3-based multilingual embedder.
+   Measured on KorMapleQA: hybrid **doc@8 0.788 → 0.853 (+6.5pt)**, closing
+   over half the gap to the Gemini ceiling (0.906) with zero keys. The gains
+   land on the hard types (masked +11, 2-hop full-support 0.18 to 0.29, typo
+   +7). The trade is query latency (~100 ms vs ~18 ms: an Ollama embed
+   round-trip) and slow first-index of a very large vault (Ollama embeds a
+   33k-chunk corpus in ~2 h on an M4 vs fastembed's minutes; it is one-time).
+   `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
 3. **Precision mode (+ dedicated reranker):** `reranker = true` adds the
    Qwen3-Reranker pass above. Seconds per query, +recall@1.
 4. **Grounded answers (+ Gemma):** `ollama_llm_model` (default `gemma3n:e4b`)

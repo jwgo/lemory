@@ -69,7 +69,7 @@ def test_server_down_gives_install_guidance():
 def test_config_wires_ollama_provider():
     cfg = LemoryConfig(provider="ollama", gemini_api_key="", vault=None)
     assert cfg.resolved_provider() == "ollama"
-    assert cfg.active_embed_model() == "qwen3-embedding:0.6b"
+    assert cfg.active_embed_model() == "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"
     assert cfg.active_embed_dim() == 1024
     assert cfg.active_llm_model() == "gemma3n:e4b"
     assert cfg.resolved_api_key() == ""  # keyless
@@ -77,7 +77,7 @@ def test_config_wires_ollama_provider():
     from lemory.providers import create_client
 
     client = create_client(cfg)
-    assert client.embed_model == "qwen3-embedding:0.6b"
+    assert client.embed_model == "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"
     client.close()
 
 

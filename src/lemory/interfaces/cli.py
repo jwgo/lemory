@@ -133,7 +133,7 @@ def setup(
         console.print(
             "\n2) 실행 모드를 고르세요:\n"
             "   [bold]1[/bold]  Gemini 무료 API — 답변 생성 포함, 카드 등록 불필요 [dim](추천)[/dim]\n"
-            "   [bold]2[/bold]  완전 로컬 (Ollama) — Gemma 3n E4B 4bit + Qwen3-Embedding-0.6B,\n"
+            "   [bold]2[/bold]  완전 로컬 (Ollama) — Gemma 3n E4B 4bit + Harrier-0.6B(Q8),\n"
             "      인터넷·키 없이 질문까지 전부 [dim](RAM 8GB+, 다운로드 ~6GB)[/dim]\n"
             "   [bold]3[/bold]  경량 로컬 검색 전용 — MiniLM 220MB, ask 제외 [dim](RAM 4GB면 충분)[/dim]"
         )

@@ -99,7 +99,9 @@ Gemini 무료 티어 기준, Lemory의 실제 소비량은 이렇습니다:
 **모드 2 — 완전 로컬 (Ollama): 질문·답변까지 전부 오프라인**
 
 - LLM: **Gemma 3n E4B** (4bit 양자화, ~5.6GB) — `ask` 답변 생성까지 로컬에서
-- 임베딩: **Qwen3-Embedding-0.6B** (~640MB, 1024차원, 한/영 강함)
+- 임베딩: **Harrier-OSS-0.6B** (Q8, ~640MB, 1024차원, Qwen3 기반 멀티링구얼).
+  KorMapleQA 하이브리드 doc@8 0.788→0.853(+6.5pt), 키 없이 Gemini(0.906) 격차의
+  절반 이상을 메움. `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`
 - 설정: [ollama.com](https://ollama.com/download) 설치 → `lemory setup` → `2` 선택.
   모델이 없으면 마법사가 물어보고 대신 `ollama pull` 해줍니다.
 - 볼트 내용이 컴퓨터 밖으로 **한 바이트도** 나가지 않습니다.
