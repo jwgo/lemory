@@ -185,6 +185,43 @@ lemory skill install claude-code   # teach the assistant to search-first and cit
 A suggested weekly/monthly routine for using this as a second brain is in
 [docs/ROUTINE.ko.md](ROUTINE.ko.md).
 
+## When to turn on the LLM (hard multi-hop questions)
+
+The defaults are LLM-free on purpose: search is milliseconds and costs
+nothing. That is the right trade for the overwhelming majority of questions,
+and the benchmarks show it wins on paraphrase, Korean, keyword, and typo
+robustness without any model in the loop.
+
+The one place a language model genuinely helps is **deep multi-hop on a huge
+vault** — "A가 위치한 지역의 X" where the answer note is only reachable through
+a link and never mentions the query's words. On the 33k-chunk namuwiki corpus
+this is hard for every system: Lemory's zero-LLM 2-hop full-support is ~0.14,
+and the honest reason is that the answer note carries almost no lexical or
+semantic signal of its own (BENCHMARKS 5e keeps this as a standing open
+problem). The systems that crack it do so with an LLM: qmd's full local-LLM
+pipeline reaches 2-hop doc-coverage 1.000 on the same corpus — at ~60 seconds
+per query.
+
+Lemory exposes the same two knobs, off by default:
+
+```toml
+# lemory.toml
+query_expansion = true   # rewrite the query into variants before searching
+rerank = true            # LLM-score the top candidates after fusion
+```
+
+or per call: `lemory search "..." --expand --rerank`.
+
+**Run these on a local model, not the API.** The slowness you feel from an
+LLM pipeline is almost never the model — it is the free-tier API queue (we
+hit the exact `429 credits depleted` wall while measuring this). Point Lemory
+at Ollama (`lemory setup` → local mode, or `LEMORY_PROVIDER=ollama`) and the
+expansion/rerank calls run on your machine with no per-query bill and no
+queue. Keep them **off** for everyday lookups (they add a model round-trip
+for no gain there) and reach for them when a specific multi-hop question
+comes back empty. Measured, not adopted-by-default: same policy as every
+other opt-in knob in BENCHMARKS 13.
+
 ## Big vaults
 
 - Benchmarked on **1,469 real namuwiki documents (33,375 chunks, 24,850 real
