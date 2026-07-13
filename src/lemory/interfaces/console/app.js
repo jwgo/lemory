@@ -606,8 +606,8 @@ async function renderAssistant() {
       <div class="card-head">비서 모드를 켜려면 온디바이스 모델이 필요합니다</div>
       <p>${esc(st.reason || "로컬 모델을 사용할 수 없습니다.")}</p>
       <div class="kv"><div class="kv-row"><span class="kv-k">브레인</span>
-        <span class="kv-v mono">${esc(st.model || "gemma-4-E2B-it.litertlm")} (LiteRT-LM)</span></div></div>
-      <p style="color:var(--text-3)"><code>pip install "lemory[assistant]"</code> 하면 데몬 없이 프로세스 안에서 바로 돕니다 (Ollama 불필요). 설치 후 <b>다시 확인</b>.</p>
+        <span class="kv-v mono">${esc(st.model || "gemma-4-E4B-it-Q4_K_M.gguf")} (llama.cpp)</span></div></div>
+      <p style="color:var(--text-3)"><code>pip install "lemory[llama]"</code> 하면 같은 llama.cpp 엔진(GPU)으로 바로 답합니다. 음성까지 쓰려면 <code>lemory[assistant]</code>. 설치 후 <b>다시 확인</b>.</p>
       <button class="btn" id="asstRetry">다시 확인</button></div>`;
     $("#asstRetry").onclick = renderAssistant;
     return;
@@ -845,7 +845,7 @@ function sourceEl(sources) {
 /* --------------------------------------------------------------- settings */
 const SETTINGS_META = [
   ["임베딩 · 모델  ⟳ 저장 후 재시작 + 재색인 필요 (벡터 공간이 바뀝니다)", [
-    ["provider", "프로바이더", "auto: 키 있으면 클라우드·없으면 로컬 / local: 로컬 임베딩(키 불필요) / gemini·openai: API 키 필요(.env) / ollama: 로컬 데몬", "select", ["auto", "local", "gemini", "openai", "ollama"]],
+    ["provider", "프로바이더", "auto: 키 있으면 클라우드·없으면 로컬 / local: 로컬 임베딩(키 불필요) / gemini·openai: API 키 필요(.env)", "select", ["auto", "local", "gemini", "openai"]],
     ["local_embed_backend", "로컬 임베더", "auto: llama 설치 시 Harrier(1024d)·아니면 MiniLM(384d) / llamacpp: Harrier 고품질 (lemory[llama]) / fastembed: MiniLM 경량·전 OS", "select", ["auto", "llamacpp", "fastembed"]],
   ]],
   ["검색 품질", [

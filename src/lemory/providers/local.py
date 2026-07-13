@@ -27,17 +27,17 @@ _TASK_PREFIX = {"RETRIEVAL_DOCUMENT": "passage: ", "RETRIEVAL_QUERY": "query: "}
 
 
 def _local_generate(prompt: str, system: str | None) -> str:
-    """On-device answer for a keyless local install: LiteRT-LM (Gemma 4 E2B)
-    when `lemory[assistant]` is installed, else a helpful error. Lets ask()
-    and the console search view answer with no API key and no Ollama."""
-    from . import litert
+    """On-device answer for a keyless local install: Gemma 4 on llama.cpp (the
+    same engine as the embedder) when `lemory[llama]` is installed, else a
+    helpful error. Lets ask() and the console search view answer with no key."""
+    from . import gemma
 
-    ok, _ = litert.available()
+    ok, _ = gemma.available()
     if ok:
-        return litert.generate(system or "", prompt)
+        return gemma.generate(system or "", prompt)
     raise RuntimeError(
         "로컬 답변 생성기가 없습니다: 검색은 오프라인으로 되지만 ask(답변)는 LLM이 "
-        ' 필요합니다. 온디바이스 답변은 pip install "lemory[assistant]" (Gemma 4 E2B), '
+        ' 필요합니다. 온디바이스 답변은 pip install "lemory[llama]" (Gemma 4), '
         "또는 GEMINI_API_KEY(무료)로 켜집니다."
     )
 

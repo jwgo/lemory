@@ -2,7 +2,13 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
-## 0.3.0 · Stronger local embeddings (Harrier), dedicated reranker, KorMapleQA v2
+## 0.3.0 · One llama.cpp engine (Harrier + Qwen3-Reranker + Gemma 4), KorMapleQA v2
+
+**One local engine.** Embeddings, reranker, and answers now all run on a single
+llama.cpp runtime — GPU everywhere it exists (Metal on Mac, CUDA/Vulkan on
+Linux/Windows, CPU offload otherwise), one dependency (`lemory[llama]`), no
+daemon and no second runtime. Harrier embeds, Qwen3-Reranker reranks, Gemma 4
+answers; all three GGUFs auto-download once.
 
 ### Local embeddings
 
@@ -14,17 +20,39 @@ All notable changes to Lemory. Dates are the merge date of the release.
   to the Gemini ceiling (0.906) with zero keys. The GGUF auto-downloads from
   HuggingFace once. `local_embed_backend = "auto"` falls back to fastembed
   MiniLM (0.788, pure-Python, no native compile) when llama-cpp-python is not
-  installed; `provider = "ollama"` runs the identical GGUF via a shared daemon.
-- The same Harrier GGUF is the Ollama embed default too
-  (`hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`), resolvable by a plain
-  `ollama pull`.
+  installed.
 
 ### Retrieval quality
 
-- **Dedicated cross-encoder reranker** (`reranker = true`): Qwen3-Reranker
-  scores fused candidates instead of a chat model grading itself. +6.7pt
-  recall@1 on hard single/masked questions (it reorders, so it cannot fix a
-  deep-multi-hop recall miss). Off by default; seconds per query.
+- **Dedicated cross-encoder reranker** (`reranker = true`): **Qwen3-Reranker-0.6B**
+  (2025 SOTA small reranker) on the same llama.cpp engine, scored by its official
+  `P("yes")` method on GPU, instead of a chat model grading itself. It reorders,
+  so it lifts doc@1 but cannot fix a deep-multi-hop recall miss. On by default in
+  best-local setup.
+
+### On-device answers & assistant
+
+- **Local answers with no key, no daemon.** `lemory ask` and the web console's
+  search view answer fully on-device via **Gemma 4** on llama.cpp (Q4_K_M GGUF —
+  E4B default, switch to the lighter E2B in the console; `pip install
+  "lemory[llama]"`). The answer model shares the engine with the embedder and
+  reranker; it runs with an 8192-token context and the RAG prompt is fit to it.
+- **Voice assistant mode** in the web console: grounded chat over the vault with
+  local STT (faster-whisper) and on-device neural TTS (Supertonic), streamed
+  sentence-by-sentence — no cloud round-trip. `pip install "lemory[assistant]"`.
+- **First-run setup builds the whole best-local stack.** `lemory setup` → `1`
+  offers to `pip install "lemory[llama]"`, turns the reranker on, and points the
+  vault at Harrier + Qwen3-Reranker + Gemma 4 — keyless and daemonless.
+
+### Removed
+
+- **Ollama is gone entirely.** No server to install, run, or `pull` from — the
+  `ollama` provider, the `ollama_*` config keys, and the Ollama setup mode were
+  removed.
+- **LiteRT-LM dropped for a single llama.cpp engine.** An earlier build ran
+  answers on Google's LiteRT-LM; consolidating on llama.cpp gives one GPU
+  runtime for embeddings + reranker + answers across Mac/Linux/Windows, and
+  retired the fastembed ONNX reranker path too.
 
 ### Benchmark
 

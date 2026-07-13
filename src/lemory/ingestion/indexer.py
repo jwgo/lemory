@@ -131,7 +131,7 @@ class Indexer:
 
     # ------------------------------------------------------------------ plan
     # provider defaults (chunks/s) used until a real rate has been observed
-    _DEFAULT_RATES = {"gemini": 40.0, "openai": 40.0, "local": 20.0, "ollama": 6.0}
+    _DEFAULT_RATES = {"gemini": 40.0, "openai": 40.0, "local": 20.0}
 
     def plan(self, full: bool = False) -> IndexPlan:
         """Estimate what sync() would do — no writes, no API calls.

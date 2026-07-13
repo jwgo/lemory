@@ -68,7 +68,7 @@ lemory ask "지난주 회의에서 뭐 결정했지?"
 lemory up ~/Obsidian/MyVault      # 설정 + 첫 색인 + 서버까지 한 번에
 ```
 키가 없어도 로컬 임베딩으로 바로 검색됩니다. 답변(ask)까지 원하면 `lemory setup`에서
-Gemini 키나 Ollama를 고르세요.
+**최고 로컬**(온디바이스 Gemma 4, 키 불필요)이나 Gemini 키를 고르세요.
 
 **② 계속 켜두기 (권장 — 상시 백엔드)**
 ```bash
@@ -118,45 +118,46 @@ Gemini 무료 티어 기준, Lemory의 실제 소비량은 이렇습니다:
 핵심은 **콘텐츠 해시 임베딩 캐시**입니다: 한 번 임베딩한 문단은 다시는 비용을
 내지 않습니다. 노트를 고쳤다가 되돌려도, 전체 재색인을 눌러도 0원입니다.
 
-### 키 없이 100% 오프라인로 쓰기 — 두 가지 로컬 모드
+### 키 없이 100% 오프라인 — 전부 온디바이스, 데몬 없음
 
-`lemory setup`에서 번호 하나만 고르면 됩니다:
+모든 로컬 경로가 **하나의 llama.cpp 엔진에서** 돕니다 — Ollama도, 관리할 서버도
+없고, GPU가 있으면 어디서든(Mac Metal, Linux/Windows CUDA/Vulkan, 없으면 CPU
+오프로드) 씁니다. `lemory setup`에서 번호 하나만 고르세요:
 
-**모드 2 — 완전 로컬 (Ollama): 질문·답변까지 전부 오프라인**
+**모드 1 — ⭐ 최고 로컬 (추천): 질문·답변까지 전부 오프라인**
 
-- LLM: **Gemma 4 E4B** (~4.5B) — `ask` 답변 생성까지 로컬에서 (`lemory setup`이 더 가벼운 E2B도 제안)
-- 임베딩: **Harrier-OSS-0.6B** (Q8, ~640MB, 1024차원, Qwen3 기반 멀티링구얼).
-  KorMapleQA 하이브리드 doc@8 0.788→0.853(+6.5pt), 키 없이 Gemini(0.906) 격차의
-  절반 이상을 메움. `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`
-- 설정: [ollama.com](https://ollama.com/download) 설치 → `lemory setup` → `2` 선택.
-  모델이 없으면 마법사가 물어보고 대신 `ollama pull` 해줍니다.
-- 볼트 내용이 컴퓨터 밖으로 **한 바이트도** 나가지 않습니다.
+전 스택 온디바이스, 키 0. `lemory setup` → `1`이 대신
+`pip install "lemory[llama]"`를 제안하고, GGUF 3개는 첫 사용 때 자동 다운로드됩니다.
 
-**모드 3 — 인프로세스 로컬 (데몬 없음): 검색 전용**
+- 임베딩: **Harrier-OSS-0.6B** (Q8 GGUF, ~640MB, 1024차원, Qwen3 기반 멀티링구얼).
+  KorMapleQA 하이브리드 **doc@8 0.853**(MiniLM 0.788 대비).
+- 리랭커: **Qwen3-Reranker-0.6B** (2025 SOTA 소형 리랭커, GGUF)를 공식 `P("yes")`
+  방식으로 GPU 채점 — 이 모드에서 기본 ON.
+- 답변: **Gemma 4 E4B** (Q4_K_M GGUF, Google 권장 크기)를 스트리밍. 웹 콘솔에서
+  더 가벼운 **E2B**로 전환 가능.
+- 셋 다 같은 llama.cpp GPU 엔진. 볼트 내용이 컴퓨터 밖으로 **한 바이트도** 안 나갑니다.
 
-임베딩이 프로세스 안에서 돕니다(qmd가 node-llama-cpp 쓰는 방식). 둘 다 키 0:
+**모드 2 — 경량 로컬 (검색 전용): 최소 풋프린트**
 
-- **Harrier (추천): `pip install "lemory[llama]"`.** Microsoft Harrier-OSS-0.6B
-  (Qwen3 기반 멀티링구얼, Q8 GGUF ~640MB, 1024차원)를 llama.cpp(Metal/GPU)로
-  인프로세스 실행. KorMapleQA 하이브리드 **doc@8 0.853**(MiniLM 0.788 대비),
-  Ollama 경로와 같은 GGUF라 점수도 동일. GGUF는 첫 색인 시 HF에서 자동 다운로드.
-- **MiniLM (경량): `pip install "lemory[local]"`.** fastembed(순수 파이썬 ONNX,
+- **MiniLM: `pip install "lemory[local]"`** — fastembed(순수 파이썬 ONNX,
   ~220MB, 384차원), doc@8 0.788. 네이티브 컴파일 없음, 최소 풋프린트.
-  `lemory[llama]`가 빌드 안 되는 환경의 폴백.
+  `lemory[llama]`가 빌드 안 되는 환경이나 라즈베리파이급에 알맞음. 검색+시맨틱
+  임베딩까지, `ask`는 제외.
 
-`auto`는 `lemory[llama]`가 깔려 있으면 Harrier, 없으면 MiniLM. `ask`만 빼고 전부
-동작하고(`ask`는 Gemini 키나 Ollama Gemma 같은 생성기가 필요).
+`local_embed_backend = auto`는 `lemory[llama]`가 깔려 있으면 Harrier, 없으면 MiniLM.
+임베딩만으로 `ask`를 빼고 전부 동작하며, `ask`는 생성기(최고 로컬의 온디바이스
+Gemma 4, 또는 Gemini 키)가 필요합니다.
 
 **최소 사양**
 
 | 모드 | RAM | 디스크 | 비고 |
 |---|---|---|---|
-| 1 Gemini API | 아무거나 | ~0 | 컴퓨터 사양 무관, 인터넷 필요 |
-| 2 완전 로컬 (Ollama) | **8GB+ (권장 16GB)** | ~6.5GB | CPU만으로 동작, GPU 있으면 답변이 시원해짐 |
-| 3 경량 로컬 | 4GB | ~250MB | 라즈베리파이급도 가능 |
+| 1 최고 로컬 (Harrier + Gemma 4 E4B) | **8GB+ (권장 16GB)** | ~4.5GB | CPU만으로 동작, Metal/GPU면 답변이 시원. 8GB면 E2B로 |
+| 2 경량 로컬 (검색 전용) | 4GB | ~250MB | 라즈베리파이급도 가능 |
+| 3 Gemini API | 아무거나 | ~0 | 컴퓨터 사양 무관, 인터넷 필요 |
 
-혼합도 됩니다: 모드 3 상태에서 Gemini 키를 넣으면 **임베딩은 로컬 유지, 답변
-생성만 API** — 볼트 전체가 아니라 검색된 청크 몇 개만 밖으로 나갑니다.
+혼합도 됩니다: **임베딩은 로컬 유지, 답변 생성만 API** — 볼트 전체가 아니라
+검색된 청크 몇 개만 밖으로 나갑니다.
 
 > **재색인이 얼마나 걸릴지는 미리 알려줍니다.** `lemory index`는 실행 전에
 > "노트 N개 · 임베딩 필요 청크 M개 · 예상 시간 X"를 출력하고, 콘솔의 전체
@@ -256,7 +257,7 @@ rerank = true            # 융합 후 상위 후보를 LLM으로 재채점
 **정직한 주의 두 가지, 둘 다 실측.**
 
 첫째, 모델이 엄청나게 중요하고 작은 로컬 모델로는 부족합니다. 나무위키
-코퍼스의 2-hop 40문항 샘플, 로컬 `qwen2.5:3b`(Ollama) 기준:
+코퍼스의 2-hop 40문항 샘플, 범용 소형 로컬 모델(`qwen2.5:3b`) 기준:
 
 | 설정 | 2-hop full-support | 지연 |
 |---|---|---|
@@ -279,20 +280,14 @@ rerank = true            # 융합 후 상위 후보를 LLM으로 재채점
 
 **범용 LLM 채점 말고 전용 리랭커를 쓰세요.** Lemory는 제대로 된 크로스인코더
 경로를 싣습니다: `reranker = true`면 채팅 모델에게 자가 채점을 시키는 대신
-Qwen3-Reranker(`ollama_reranker_model`)로 후보를 점수화합니다. 나무위키 코퍼스,
-single/masked 30문항, 로컬 Qwen3-Reranker-0.6B 실측:
+**Qwen3-Reranker-0.6B**(2025 SOTA 소형 리랭커)를 같은 llama.cpp 엔진에서 공식
+`P("yes")` 방식으로 GPU 채점합니다.
 
-| | recall@1 | recall@8 | 지연 |
-|---|---|---|---|
-| 베이스라인 | 0.633 | 0.767 | 36 ms |
-| + 전용 리랭커 | **0.700** | 0.767 | 4.1 s |
-
-리랭커가 제 일을 정확히 하는 모습입니다: recall@8은 그대로(이미 검색된 것만
-재정렬 가능), recall@1은 6.7pt 상승(맞는 노트를 맨 위로 올림). 깊은 멀티홉엔
-도움이 **안 됩니다**. 그 실패는 랭킹이 아니라 리콜(정답 노트가 애초에 후보에
-못 들어옴)이라, 리랭커는 검색이 놓친 걸 끄집어낼 수 없습니다. 그러니 맞는
-노트가 결과 안엔 있는데 1위가 아닐 때 `reranker`를 꺼내 쓰고, 질의당 초 단위
-비용을 감수하고, 일상 조회엔 꺼 두세요.
+크로스인코더는 이미 검색된 것만 재정렬합니다: 맞는 노트를 위로 올려 doc@1을
+높이지만 doc@8은 그대로이고, 깊은 멀티홉엔 도움이 **안 됩니다**. 그 실패는
+랭킹이 아니라 리콜(정답 노트가 애초에 후보에 못 들어옴)이라, 리랭커는 검색이
+놓친 걸 끄집어낼 수 없습니다. 그래서 최고 로컬 셋업에서 기본 ON이고, 맞는
+노트가 결과 안엔 있는데 1위가 아닐 때 가장 값어치를 합니다.
 
 ### 로컬 스택, 티어별
 
@@ -308,21 +303,18 @@ single/masked 30문항, 로컬 Qwen3-Reranker-0.6B 실측:
 2. **최경량 로컬 (`lemory[local]`, fastembed MiniLM):** 순수 파이썬 ONNX,
    ~220MB, 밀리초, 네이티브 컴파일 없음. doc@8 0.788. llama 휠이 안 빌드되거나
    거대 볼트 색인 속도가 마지막 몇 점보다 중요할 때의 폴백.
-3. **같은 Harrier를 공유 데몬으로 (Ollama):** `provider = ollama`면 *동일한*
-   Harrier GGUF(doc@8 0.853)를 인프로세스 대신 Ollama 서버로 돌립니다. 이미
-   Ollama를 쓰거나, 임베딩+리랭커+Gemma를 한 데몬으로 묶고 싶을 때만.
-   `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
-4. **정밀 모드 (+ 전용 리랭커):** `reranker = true`면 상위 후보를 인프로세스
-   ONNX 크로스인코더(jina-reranker-v2 멀티링구얼, 한국어 강함, ~ms, 데몬 없음)로
-   재정렬합니다. `reranker_backend="ollama"`면 Qwen3-Reranker GGUF 사용.
-5. **근거 있는 답변 (+ Gemma):** `ollama_llm_model`(기본 `gemma4:e4b`, 더 가벼운 `gemma4:e2b`도)이
-   `lemory ask`를 완전 오프라인으로 굴립니다. 검색엔 전혀 필요 없고 `ask`만 씀.
+3. **정밀 모드 (+ 전용 리랭커):** `reranker = true`면 상위 후보를 같은 llama.cpp
+   엔진의 **Qwen3-Reranker-0.6B**(GPU, 데몬 없음)로 재정렬합니다. Metal에서
+   후보당 ~57ms(기본 top-12면 ≈0.7s) — 최고 로컬 셋업에서 기본 ON, 맞는 노트가
+   결과 안엔 있는데 1위가 아닐 때 값어치.
+4. **근거 있는 답변 (+ Gemma 4, 온디바이스):** 같은 `lemory[llama]` 엔진이
+   **Gemma 4 E4B**(Q4_K_M GGUF)를 굴려 `lemory ask`와 웹 콘솔이 완전 오프라인으로
+   답합니다. 콘솔에서 더 가벼운 **E2B**로 전환 가능. 검색엔 전혀 필요 없고 `ask`만 씀.
 
-둘째, LLM을 돌릴 때는 **무료 티어 API가 아니라 로컬로** 돌리세요. LLM
+둘째, LLM을 돌릴 때는 **무료 티어 API가 아니라 온디바이스로** 돌리세요. LLM
 파이프라인의 느림은 거의 항상 모델이 아니라 API 큐입니다(측정 중 바로 그
-`429 credits depleted` 벽에 부딪혔습니다). M 시리즈 노트북의 Ollama는
-`generate_json` 호출을 질의당 과금·큐 없이 ~1.3초에 답합니다. `lemory setup`
-→ 로컬 모드 또는 `LEMORY_PROVIDER=ollama`로 가리키면 됩니다.
+`429 credits depleted` 벽에 부딪혔습니다). M 시리즈 노트북의 llama.cpp Gemma 4는
+질의당 과금·큐 없이 답합니다. `lemory setup` → 최고 로컬로 가리키면 됩니다.
 
 ## 큰 볼트도 됩니다 — 어디까지?
 

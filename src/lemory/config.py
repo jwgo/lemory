@@ -51,38 +51,24 @@ class LemoryConfig(BaseSettings):
 
     # --- provider: "auto" picks gemini/openai from whichever key is set,
     # falling back to fully-local embeddings when no key exists ---
-    provider: str = "auto"  # auto | gemini | openai | local | ollama
+    provider: str = "auto"  # auto | gemini | openai | local
     local_embed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     # which in-process local embedder: "auto" uses in-process llama.cpp Harrier
     # (doc@8 0.853) when llama-cpp-python is installed (pip install lemory[llama]),
     # else falls back to the lighter fastembed MiniLM (0.788, 384d, pure-Python).
+    # Harrier-OSS-0.6B (Q8, Qwen3-based multilingual) closes over half the gap to
+    # Gemini's 0.906 with zero keys, fully on-device via llama.cpp Metal/CPU.
     local_embed_backend: str = "auto"  # auto | llamacpp | fastembed
     local_embed_gguf_repo: str = "mradermacher/harrier-oss-v1-0.6b-GGUF"
     local_embed_gguf_file: str = "harrier-oss-v1-0.6b.Q8_0.gguf"
     local_embed_gguf_dim: int = 1024
 
-    # --- ollama (fully-local LLM + embeddings; `lemory setup` configures this) ---
-    ollama_host: str = "http://127.0.0.1:11434"
-    # Gemma 4 E4B (2026-04, ~4.5B effective, 128K ctx) — Google's recommended
-    # general-purpose local model. `lemory setup` also offers the lighter E2B.
-    ollama_llm_model: str = "gemma4:e4b"
-    # Harrier-OSS-0.6B (Q8, Qwen3-based multilingual): KorMapleQA hybrid doc@8
-    # 0.853 vs MiniLM's 0.788 (+6.5pt), closing over half the gap to Gemini's
-    # 0.906 with zero keys. `ollama pull` resolves it straight from HuggingFace.
-    ollama_embed_model: str = "hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0"
-    # dedicated cross-encoder reranker (opt-in "quality mode": one model call
-    # per candidate, so seconds/query — reach for it when a hard multi-hop
-    # question comes back wrong, not for everyday lookups). Only used when
-    # cfg.reranker is on AND the provider is ollama.
-    ollama_reranker_model: str = "dengcao/Qwen3-Reranker-0.6B:F16"
-    ollama_embed_dim: int = 1024
     # console "assistant mode": a grounded, streaming chat over the vault, à la
-    # parlor. Default brain is on-device LiteRT-LM (Gemma 4 E2B, .litertlm) with
-    # no daemon; set assistant_backend="ollama" to use assistant_model instead.
-    assistant_backend: str = "litert"        # litert | ollama
-    assistant_litert_repo: str = "litert-community/gemma-4-E2B-it-litert-lm"
-    assistant_litert_file: str = "gemma-4-E2B-it.litertlm"
-    assistant_model: str = "gemma4:e2b"      # only when assistant_backend="ollama"
+    # parlor. The brain is on-device Gemma 4 on llama.cpp (Q4_K_M GGUF) — the
+    # same engine as the embedder and reranker, no daemon. E4B is Google's
+    # recommended size (default); switch to the lighter E2B in the console.
+    assistant_gguf_repo: str = "ggml-org/gemma-4-E4B-it-GGUF"
+    assistant_gguf_file: str = "gemma-4-E4B-it-Q4_K_M.gguf"
     assistant_k: int = 6                      # notes retrieved as grounding per turn
     assistant_tts_voice: str = "f4"          # Supertonic voice (f1-f5, m1-m5) for spoken answers
     assistant_tts_pitch: float = 3.0         # semitones up: +3 ≈ cute/bright tone (0 = natural)
@@ -208,14 +194,13 @@ class LemoryConfig(BaseSettings):
     rerank: bool = False            # LLM-score the top candidates post-fusion
     rerank_top: int = 12
     rerank_blend: float = 0.5       # 0=fusion score only, 1=LLM score only
-    # dedicated cross-encoder reranker. Default backend is fastembed (in-process
-    # ONNX jina-reranker-v2-multilingual, strong Korean, no daemon, ~ms/query),
-    # so this needs no Ollama; set reranker_backend="ollama" for the Qwen3-
-    # Reranker GGUF instead. A purpose-built reranker judges relevance directly
-    # (unlike generic-LLM self-scoring); when on it supersedes `rerank`.
+    # dedicated cross-encoder reranker on the same llama.cpp engine as the
+    # embedder: Qwen3-Reranker-0.6B (2025 SOTA small reranker), scored by its
+    # official P("yes") method on GPU. A purpose-built reranker judges relevance
+    # directly (unlike generic-LLM self-scoring); when on it supersedes `rerank`.
     reranker: bool = False
-    reranker_backend: str = "fastembed"  # fastembed | ollama
-    reranker_model: str = "jinaai/jina-reranker-v2-base-multilingual"
+    reranker_gguf_repo: str = "dengcao/Qwen3-Reranker-0.6B-GGUF"
+    reranker_gguf_file: str = "Qwen3-Reranker-0.6B-q8_0.gguf"
 
     # --- optional LLM graph enrichment (cognify-style) ---
     enrich_entities: bool = False
@@ -252,7 +237,7 @@ class LemoryConfig(BaseSettings):
         )
 
     def resolved_provider(self) -> str:
-        if self.provider in ("gemini", "openai", "local", "ollama"):
+        if self.provider in ("gemini", "openai", "local"):
             return self.provider
         if self.resolved_gemini_key():
             return "gemini"
@@ -282,8 +267,6 @@ class LemoryConfig(BaseSettings):
             if self.resolved_local_backend() == "llamacpp":
                 return f"llamacpp:{self.local_embed_gguf_repo}/{self.local_embed_gguf_file}"
             return self.local_embed_model
-        if p == "ollama":
-            return self.ollama_embed_model
         return self.embed_model
 
     def active_embed_dim(self) -> int:
@@ -294,16 +277,12 @@ class LemoryConfig(BaseSettings):
             from .providers.local import LOCAL_EMBED_DIM
 
             return LOCAL_EMBED_DIM
-        if p == "ollama":
-            return self.ollama_embed_dim
         return self.embed_dim
 
     def active_llm_model(self) -> str:
         p = self.resolved_provider()
         if p == "openai":
             return self.openai_llm_model
-        if p == "ollama":
-            return self.ollama_llm_model
         if p == "local":
             return (f"{self.llm_model} (answers)" if self.resolved_gemini_key()
                     else "none — local search-only")
@@ -311,7 +290,7 @@ class LemoryConfig(BaseSettings):
 
     def resolved_api_key(self) -> str:
         provider = self.resolved_provider()
-        if provider in ("local", "ollama"):
+        if provider == "local":
             return ""  # fully-local providers need no key
         key = self.resolved_gemini_key() if provider == "gemini" else self.resolved_openai_key()
         if not key:

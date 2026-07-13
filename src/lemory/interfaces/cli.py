@@ -38,7 +38,7 @@ def _welcome(ctx: typer.Context):
             "처음이세요? [bold]이 한 줄이면 설정·색인·서버까지 전부[/bold] 됩니다:\n\n"
             "  [bold cyan]lemory up ~/내볼트경로[/bold cyan]\n\n"
             "  [dim]키 없이 로컬 임베딩으로 바로 검색돼요. 답변(ask)까지 원하면"
-            " 대화형 [bold]lemory setup[/bold]에서 Gemini 키나 Ollama를 고르세요.[/dim]\n")
+            " 대화형 [bold]lemory setup[/bold]에서 최고 로컬(온디바이스 Gemma 4)이나 Gemini 키를 고르세요.[/dim]\n")
     console.print("[dim]전체 명령: [bold]lemory --help[/bold][/dim]")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -164,19 +164,15 @@ def setup(
     else:
         console.print(
             "\n2) 어떻게 쓸까요?  [dim](검색·시맨틱 임베딩은 이미 로컬에서 기본 동작합니다)[/dim]\n"
-            "   [bold]1[/bold]  이대로 로컬 — 키 없이 바로. 임베딩 MiniLM(384d),\n"
-            "      답변(ask)은 나중에 키를 넣으면 켜집니다 [dim](추천·제로설정)[/dim]\n"
-            "   [bold]2[/bold]  로컬 고품질 임베딩 — Harrier-0.6B(1024d, 한국어 검색 +6.5pt)\n"
-            "      [dim]pip install \"lemory[llama]\" 필요, 데몬 없음[/dim]\n"
-            "   [bold]3[/bold]  Gemini 무료 API — 임베딩+답변까지 클라우드 [dim](카드 불필요)[/dim]\n"
-            "   [bold]4[/bold]  완전 로컬 답변 (Ollama) — Gemma로 ask까지 오프라인 [dim](RAM 8GB+)[/dim]"
+            "   [bold]1[/bold]  ⭐ 최고 로컬 (완전 온디바이스, 추천) — Harrier 임베딩 + Qwen3 리랭커\n"
+            "      + Gemma 4 로컬 답변, 전부 llama.cpp GPU 한 엔진. 키·데몬 0 [dim](lemory[llama])[/dim]\n"
+            "   [bold]2[/bold]  가벼운 로컬 — MiniLM(384d)만, 검색 전용 [dim](설치 최소·제로설정)[/dim]\n"
+            "   [bold]3[/bold]  Gemini 무료 API — 임베딩+답변까지 클라우드 [dim](카드 불필요)[/dim]"
         )
         mode = typer.prompt("   선택", default="1").strip()
 
     if mode == "2":
-        extra_toml = _setup_local("llamacpp")
-    elif mode == "4":
-        extra_toml = _setup_ollama()
+        extra_toml = _setup_local("auto")
     elif mode == "3":
         existing = load_config().resolved_gemini_key()
         if key is None and existing:
@@ -186,7 +182,7 @@ def setup(
             env_file = save_global_env({"GEMINI_API_KEY": k.strip()})
             console.print(f"   [green]✔[/green] 키 저장: {env_file} (권한 600)")
     else:
-        extra_toml = _setup_local("auto")
+        extra_toml = _setup_best_local()
 
     # 3. config file
     cfg_file = Path.cwd() / "lemory.toml"
@@ -221,49 +217,38 @@ def _machine_ram_gb() -> float:
         return 0.0  # unknown (e.g. Windows) — skip the warning
 
 
-def _setup_ollama() -> str:
-    """Interactive Ollama mode setup. Returns extra lemory.toml lines."""
-    from ..providers.ollama import DEFAULT_EMBED, DEFAULT_HOST, DEFAULT_LLM, OllamaClient
+def _setup_best_local() -> str:
+    """The recommended fully-on-device stack, no key and no daemon: Harrier
+    all on one llama.cpp engine (Metal / CUDA / CPU offload): Harrier embeddings +
+    Qwen3-Reranker + Gemma 4 local answers. Offers to pip-install `lemory[llama]`
+    and turns the reranker on. Returns extra lemory.toml lines."""
+    import subprocess
+    import sys
+
+    from ..config import _has_module
 
     ram = _machine_ram_gb()
-    client = OllamaClient(host=DEFAULT_HOST)
-    if not client.server_alive():
+    if not _has_module("llama_cpp"):
         console.print(
-            "   [red]✘ Ollama가 실행 중이 아닙니다.[/red]\n"
-            "     설치: [bold]https://ollama.com/download[/bold] (macOS/Windows 앱 또는\n"
-            "           `curl -fsSL https://ollama.com/install.sh | sh`)\n"
-            "     실행 후 다시 `lemory setup`을 돌려주세요."
-        )
-        raise typer.Exit(1)
-    console.print("   [green]✔[/green] Ollama 서버 연결됨")
-
-    # answer LLM: Gemma 4, two sizes
-    console.print(
-        "   답변(ask) 모델을 고르세요:\n"
-        "     [bold]1[/bold]  Gemma 4 E4B — 품질 우선, ~4.5B [dim](Google 권장·기본)[/dim]\n"
-        "     [bold]2[/bold]  Gemma 4 E2B — 가벼움, ~2.3B [dim](RAM 적을 때)[/dim]")
-    llm = "gemma4:e2b" if typer.prompt("     선택", default="1").strip() == "2" else "gemma4:e4b"
-    if 0 < ram < 8 and llm == "gemma4:e4b":
-        console.print(f"   [yellow]⚠ RAM {ram:.0f}GB — E4B는 8GB+ 권장. E2B(2) 또는 모드 1 로컬이 가벼운 대안.[/yellow]")
-    llm_extra = "" if llm == DEFAULT_LLM else f'ollama_llm_model = "{llm}"\n'
-
-    installed = client.installed_models()
-    for model, size in ((llm, "답변 모델"), (DEFAULT_EMBED, "임베딩 ~640MB")):
-        if any(m.startswith(model) for m in installed):
-            console.print(f"   [green]✔[/green] {model} 설치됨")
-            continue
-        if typer.confirm(f"   {model} 모델이 없습니다. 지금 받을까요? ({size})", default=True):
-            import subprocess
-
-            r = subprocess.run(["ollama", "pull", model])
+            "   최고 로컬 스택엔 [bold]lemory[llama][/bold] 가 필요합니다 "
+            "[dim](Harrier ~640MB · Qwen3-Reranker ~600MB · Gemma 4 답변 모델은 첫 사용 때 자동 다운로드)[/dim]")
+        if typer.confirm("   지금 설치할까요?", default=True):
+            with console.status("설치 중... (llama-cpp-python 빌드에 몇 분 걸릴 수 있어요)"):
+                r = subprocess.run([sys.executable, "-m", "pip", "install", "lemory[llama]"])
             if r.returncode != 0:
-                console.print(f"   [red]✘ pull 실패[/red] — 수동으로: ollama pull {model}")
-                raise typer.Exit(1)
+                console.print('   [yellow]![/yellow] 설치 실패 — 수동으로: pip install "lemory[llama]"')
         else:
-            console.print(f"   나중에 직접 받아주세요: [bold]ollama pull {model}[/bold]")
-    client.close()
-    console.print("   [green]✔[/green] 완전 로컬 모드 — 볼트 내용이 컴퓨터 밖으로 나가지 않습니다")
-    return 'provider = "ollama"\n' + llm_extra
+            console.print('   나중에: [bold]pip install "lemory[llama]"[/bold]')
+
+    backend = "llamacpp" if _has_module("llama_cpp") else "auto"
+    if backend == "llamacpp":
+        console.print("   [green]✔[/green] Harrier-0.6B (1024d) 임베딩 — 데몬 없이 프로세스 안 Metal/GPU (doc@8 0.853)")
+    else:
+        console.print("   [green]✔[/green] MiniLM (384d) 임베딩 [dim](llama-cpp-python 설치되면 Harrier로 자동 전환)[/dim]")
+    console.print("   [green]✔[/green] Qwen3-Reranker-0.6B + Gemma 4 E4B 로컬 답변 — 전부 같은 llama.cpp 엔진(GPU), 키·데몬 0")
+    if 0 < ram < 8:
+        console.print(f"   [yellow]⚠ RAM {ram:.0f}GB — Gemma 4 E4B 답변은 8GB+ 권장. 웹 콘솔에서 E2B로 낮출 수 있어요.[/yellow]")
+    return f'provider = "local"\nlocal_embed_backend = "{backend}"\nreranker = true\n'
 
 
 def _setup_local(backend: str) -> str:
@@ -291,7 +276,7 @@ def _setup_local(backend: str) -> str:
     elif _has_module("fastembed"):
         console.print("   [green]✔[/green] MiniLM (384d) — 첫 색인 때 모델 ~220MB 자동 다운로드")
         console.print("   [dim]한국어 검색을 더 올리려면: pip install \"lemory[llama]\" (Harrier, +6.5pt)[/dim]")
-    console.print("   [dim]검색·색인·콘솔은 전부 로컬로 되고, ask(답변)만 키/Ollama가 필요합니다.[/dim]")
+    console.print("   [dim]검색·색인·콘솔은 전부 로컬로 됩니다. ask(답변)은 최고 로컬(모드 1·온디바이스 Gemma 4)이나 Gemini 키로.[/dim]")
     return 'provider = "local"\n'
 
 
@@ -326,7 +311,6 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
         tier = ("Harrier 1024d · 로컬 고품질" if "harrier" in model.lower()
                 else "MiniLM 384d · 로컬 경량" if "minilm" in model.lower() or "multilingual" in model.lower()
                 else f"{model} · 클라우드" if provider in ("gemini", "openai")
-                else f"{model} · Ollama" if provider == "ollama"
                 else model)
         check("provider", True, f"{provider}  ({tier})")
         try:
@@ -336,14 +320,19 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
                         f"@{vec.shape[-1]}d 동작 확인")
         except Exception as e:
             ok = check("시맨틱 임베딩", False, str(e)[:120])
-        # answers (ask) need a generator LLM; embeddings alone do not
-        ask_ok = provider in ("gemini", "openai", "ollama") or bool(
+        # answers (ask) need a generator: a cloud key, or on-device Gemma 4
+        # (llama.cpp) in the local tier — embeddings alone do not answer
+        from ..providers import gemma
+        local_brain = provider == "local" and gemma.available()[0]
+        ask_ok = provider in ("gemini", "openai") or local_brain or bool(
             cfg.resolved_gemini_key() or cfg.resolved_openai_key())
         if ask_ok:
-            check("답변 생성 (ask)", True, "사용 가능")
+            detail = "Gemma 4 온디바이스" if local_brain and not (
+                cfg.resolved_gemini_key() or cfg.resolved_openai_key()) else "사용 가능"
+            check("답변 생성 (ask)", True, detail)
         else:
-            console.print(" [yellow]⚠[/yellow] 답변 생성 (ask) — 검색은 되지만 ask는 LLM이 필요합니다: "
-                          "GEMINI_API_KEY(무료) 또는 provider=ollama")
+            console.print(' [yellow]⚠[/yellow] 답변 생성 (ask) — 검색은 되지만 ask는 답변 모델이 필요합니다: '
+                          '온디바이스 Gemma 4(pip install "lemory[llama]") 또는 GEMINI_API_KEY(무료)')
         # upgrade hint: on the light local tier, Harrier is a keyless win
         if "minilm" in model.lower() or "multilingual" in model.lower():
             console.print(" [dim]↑ 한국어 검색 품질 +6.5pt: pip install \"lemory[llama]\" "

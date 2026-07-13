@@ -394,9 +394,9 @@ deletes, aliases, Korean filenames: the watcher keeps up live.
   SQLite (DuckDB, LanceDB) and published why we didn't
   ([report](docs/STORAGE.md)).
 - **Cost that rounds to zero**: content-addressed embedding cache; the free
-  Gemini tier runs ~250 questions/day; two fully-offline modes (Ollama
-  full-local, fastembed search-only) for airgapped/망분리 environments where
-  zero bytes may leave the machine.
+  Gemini tier runs ~250 questions/day; a fully on-device mode (Harrier
+  embeddings + Qwen3-Reranker + Gemma 4 answers on one llama.cpp GPU engine, no
+  daemon) for airgapped/망분리 environments where zero bytes may leave the machine.
 
 ## For developers
 
@@ -483,7 +483,7 @@ Search is local and LLM-free (~3-13 ms). One embedding call per query
 
 ## Contributing
 
-`uv venv && uv pip install -e ".[dev,mcp,local,pdf]" && pytest`: 338 tests, fully offline.
+`uv venv && uv pip install -e ".[dev,mcp,local,pdf]" && pytest`: 332 tests, fully offline.
 [CONTRIBUTING.md](CONTRIBUTING.md) · 한국어 이슈/PR 환영합니다.
 
 Local-first by design. The trust model, the localhost server's guards
