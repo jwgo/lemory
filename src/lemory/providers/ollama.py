@@ -49,6 +49,7 @@ class OllamaClient:
         llm_model: str = DEFAULT_LLM,
         embed_model: str = DEFAULT_EMBED,
         embed_dim: int = DEFAULT_EMBED_DIM,
+        reranker_model: str = "",
         max_output_tokens: int = 2048,
         timeout: float = 300.0,  # local CPU generation can be slow; don't give up
     ):
@@ -56,6 +57,7 @@ class OllamaClient:
         self.llm_model = llm_model
         self.embed_model = embed_model
         self.embed_dim = embed_dim
+        self.reranker_model = reranker_model
         self.max_output_tokens = max_output_tokens
         self._http = httpx.Client(timeout=timeout)
 
@@ -146,6 +148,38 @@ class OllamaClient:
     def generate_json(self, prompt: str, system: str | None = None, **kw) -> Any:
         text = self.generate(prompt, system=system, json_mode=True, **kw)
         return parse_json_loose(text)
+
+    # ------------------------------------------------------------- reranking
+    def rerank_scores(self, query: str, docs: list[str]) -> list[float]:
+        """Dedicated cross-encoder reranking with a Qwen3-Reranker-style model.
+
+        Unlike generic LLM 0-10 self-scoring (noisy on small models), a
+        purpose-built reranker judges query-document relevance directly. We
+        read its yes/no verdict per document (1.0 relevant, 0.0 not); the
+        caller keeps fusion order as the within-group tiebreaker. One model
+        call per document, so this is a slow, opt-in quality mode."""
+        model = self.reranker_model or self.llm_model
+        scores: list[float] = []
+        for doc in docs:
+            prompt = (
+                "Judge whether the Document is relevant to the Query. "
+                "Answer only 'yes' or 'no'.\n"
+                f"<Query>: {query}\n<Document>: {doc[:1200]}"
+            )
+            try:
+                r = self._http.post(f"{self.host}/api/generate", json={
+                    "model": model, "prompt": prompt, "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 4},
+                })
+                r.raise_for_status()
+                text = r.json().get("response", "").lower()
+            except httpx.HTTPError:
+                text = ""
+            # thinking models emit '<think>\nYes' etc; a bare 'no' must not be
+            # matched by the 'no' inside a longer token, so check word-ish
+            scores.append(1.0 if ("yes" in text and "no" not in text.split()) else
+                          (1.0 if text.strip().endswith("yes") else 0.0))
+        return scores
 
     def close(self) -> None:
         self._http.close()

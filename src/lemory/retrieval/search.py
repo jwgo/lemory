@@ -394,9 +394,14 @@ def hybrid_search(
         if new_ids:  # only fetch what expansion added, not everything again
             chunk_meta.update(store.get_chunks(new_ids))
 
-    # qmd-style LLM rerank: score the top candidates for relevance and blend
-    # with the fusion score (costs one LLM call per search)
-    if use_rerank and fused:
+    # reranking: a dedicated cross-encoder reranker (Qwen3-Reranker) when
+    # configured — purpose-built relevance judgment, unlike generic-LLM
+    # self-scoring which a small model does badly. Falls back to the
+    # generic LLM rerank when only `rerank` is set.
+    use_reranker = cfg.reranker and mode == "hybrid"
+    if use_reranker and fused and hasattr(engine.llm, "rerank_scores"):
+        _dedicated_rerank(engine, query, fused, chunk_meta)
+    elif use_rerank and fused:
         _llm_rerank(engine, query, fused, chunk_meta)
 
     if allowed_docs is not None:
@@ -701,6 +706,41 @@ def _llm_rerank(
                 )
     except Exception:
         pass  # keep fusion ranking
+
+
+def _dedicated_rerank(
+    engine: "Engine", query: str, fused: dict[int, float],
+    chunk_meta: dict[int, ChunkHit]
+) -> None:
+    """Reorder the top candidates with a dedicated cross-encoder reranker.
+
+    The reranker returns a per-document relevance verdict (1.0/0.0). We lift
+    every relevant chunk above every non-relevant one while preserving the
+    fusion order WITHIN each group, so the reranker only promotes/demotes,
+    never invents a ranking. One model call per candidate — slow, opt-in."""
+    cfg = engine.cfg
+    top = sorted(fused.items(), key=lambda x: -x[1])[: cfg.rerank_top]
+    docs, cids = [], []
+    for cid, _ in top:
+        m = chunk_meta.get(cid)
+        if m is None:
+            continue
+        cids.append(cid)
+        docs.append((m.title + ". " + m.text)[:1200])
+    if not cids:
+        return
+    try:
+        scores = engine.llm.rerank_scores(query, docs)
+    except Exception:
+        return  # keep fusion ranking on any reranker failure
+    if len(scores) != len(cids):
+        return
+    # additive lift above the whole fused range for relevant chunks; the
+    # existing fused score stays as the intra-group tiebreaker
+    top_fused = max(fused.values(), default=1.0) or 1.0
+    for cid, s in zip(cids, scores):
+        if s > 0:
+            fused[cid] += top_fused
 
 
 def _graph_expand(

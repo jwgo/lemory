@@ -212,15 +212,68 @@ rerank = true            # LLM-score the top candidates after fusion
 
 or per call: `lemory search "..." --expand --rerank`.
 
-**Run these on a local model, not the API.** The slowness you feel from an
-LLM pipeline is almost never the model — it is the free-tier API queue (we
-hit the exact `429 credits depleted` wall while measuring this). Point Lemory
-at Ollama (`lemory setup` → local mode, or `LEMORY_PROVIDER=ollama`) and the
-expansion/rerank calls run on your machine with no per-query bill and no
-queue. Keep them **off** for everyday lookups (they add a model round-trip
-for no gain there) and reach for them when a specific multi-hop question
-comes back empty. Measured, not adopted-by-default: same policy as every
-other opt-in knob in BENCHMARKS 13.
+**Two honest caveats, both measured.**
+
+First, the model matters enormously, and small local models are not enough.
+On a 40-question 2-hop sample over the namuwiki corpus, with a local
+`qwen2.5:3b` through Ollama:
+
+| setting | 2-hop full-support | latency |
+|---|---|---|
+| baseline (0 LLM) | 0.125 | 20 ms |
+| + query_expansion | 0.150 | 1.5 s |
+| + rerank | 0.100 | 6.5 s |
+| + expand + rerank | 0.075 | 7.3 s |
+
+Query expansion gave a small bump; **rerank with a 3B model actively hurt**,
+demoting correct chunks with noisy relevance scores. qmd reaches 2-hop 1.000
+because it ships purpose-built expansion and reranker models, not a generic
+small LLM. So: try `query_expansion` on a *capable* model for a specific
+multi-hop question that comes back empty, leave the generic `rerank` off, and
+do not expect a small local model to crack deep multi-hop by itself.
+
+**Use a dedicated reranker, not generic LLM scoring.** Lemory ships a proper
+cross-encoder path: set `reranker = true` and it scores candidates with
+Qwen3-Reranker (`ollama_reranker_model`) instead of asking a chat model to
+grade itself. Measured on the namuwiki corpus, 30 single/masked questions,
+local Qwen3-Reranker-0.6B:
+
+| | recall@1 | recall@8 | latency |
+|---|---|---|---|
+| baseline | 0.633 | 0.767 | 36 ms |
+| + dedicated reranker | **0.700** | 0.767 | 4.1 s |
+
+That is the reranker doing exactly its job: recall@8 unchanged (it can only
+reorder what was already retrieved), recall@1 up 6.7 pt (it promotes the
+right retrieved note to the top). It does **not** help deep multi-hop, whose
+failure is recall (the answer note never entered the candidate set), not
+ranking — a reranker cannot surface what retrieval missed. So reach for
+`reranker` when the right note is *in* the results but not at #1, accept the
+seconds-per-query cost, and keep it off for everyday lookups.
+
+### The local stack, in tiers
+
+Everything above is opt-in on top of a fast, free default. Pick the tier you
+want in `lemory setup` or `lemory.toml`:
+
+1. **Default (fastembed MiniLM):** zero keys, ~220 MB, milliseconds. The
+   right choice for almost everyone.
+2. **Stronger embeddings (Ollama, Qwen3-Embedding-0.6B):** `provider = ollama`
+   uses Qwen3-Embedding for retrieval. Higher quality on hard Korean, but
+   local indexing of a very large vault is slow (Ollama embeds in small
+   batches; a 33k-chunk corpus takes far longer than fastembed's minutes).
+3. **Precision mode (+ dedicated reranker):** `reranker = true` adds the
+   Qwen3-Reranker pass above. Seconds per query, +recall@1.
+4. **Grounded answers (+ Gemma):** `ollama_llm_model` (default `gemma3n:e4b`)
+   powers `lemory ask` fully offline. Retrieval never needs it; only `ask`
+   does.
+
+Second, when you do run an LLM, run it **local, not the free-tier API**. The
+slowness of an LLM pipeline is almost never the model, it is the API queue
+(we hit the exact `429 credits depleted` wall measuring this). Ollama on an
+M-series laptop answers a `generate_json` call in ~1.3 s with no per-query
+bill and no queue. Point Lemory at it with `lemory setup` → local mode or
+`LEMORY_PROVIDER=ollama`.
 
 ## Big vaults
 
