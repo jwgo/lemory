@@ -602,11 +602,11 @@ async function renderAssistant() {
 
   if (!st.available) {
     $("#asstGate").innerHTML = `<div class="card asst-gate">
-      <div class="card-head">비서 모드를 켜려면 로컬 모델이 필요합니다</div>
+      <div class="card-head">비서 모드를 켜려면 온디바이스 모델이 필요합니다</div>
       <p>${esc(st.reason || "로컬 모델을 사용할 수 없습니다.")}</p>
-      <div class="kv"><div class="kv-row"><span class="kv-k">모델</span>
-        <span class="kv-v mono">${esc(st.model || "gemma4:e2b")}</span></div></div>
-      <p style="color:var(--text-3)">Ollama가 켜져 있고 위 모델이 받아져 있으면 바로 대화할 수 있어요.</p>
+      <div class="kv"><div class="kv-row"><span class="kv-k">브레인</span>
+        <span class="kv-v mono">${esc(st.model || "gemma-4-E2B-it.litertlm")} (LiteRT-LM)</span></div></div>
+      <p style="color:var(--text-3)"><code>pip install "lemory[assistant]"</code> 하면 데몬 없이 프로세스 안에서 바로 돕니다 (Ollama 불필요). 설치 후 <b>다시 확인</b>.</p>
       <button class="btn" id="asstRetry">다시 확인</button></div>`;
     $("#asstRetry").onclick = renderAssistant;
     return;
