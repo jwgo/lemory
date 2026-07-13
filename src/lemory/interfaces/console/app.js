@@ -591,7 +591,7 @@ async function renderAssistant() {
       <div class="asst-log" id="asstLog"></div>
       <div id="asstStatus" class="asst-status"></div>
       <div class="asst-input">
-        <button class="btn asst-mic" id="asstMic" title='음성 모드 — "레모리야" 하고 물어보세요' hidden>🎙</button>
+        <button class="btn asst-mic" id="asstMic" title="대화 모드 — 그냥 말하면 됩니다 (로컬 음성인식)" hidden>🎙</button>
         <textarea id="asstIn" rows="1" placeholder="볼트에 대해 물어보세요… (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
         <button class="btn primary" id="asstSend">전송</button>
       </div>
@@ -635,11 +635,10 @@ async function renderAssistant() {
   send.onclick = () => doSend();
   input.focus();
 
-  /* ---- voice: wake word "레모리야" → ask → sentence-streamed Supertonic TTS ---- */
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  /* ---- voice: natural conversation — local Whisper STT + streamed Supertonic TTS ---- */
   const mic = $("#asstMic"), statusEl = $("#asstStatus");
-  const WAKE = "레모리야";
-  let rec = null, voiceOn = false, speaking = false, awaiting = false;
+  const canVoice = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  let convo = false, speaking = false, recorder = null, micStream = null, audioCtx = null, vadRAF = 0;
   let ttsVoice = st.tts_voice || "f4";
   const setStatus = s => { if (statusEl) statusEl.textContent = s || ""; };
 
@@ -656,23 +655,25 @@ async function renderAssistant() {
   // pipelined, so speech starts after the first sentence (not the whole answer) ---
   const ttsQ = []; let ttsBusy = false, ttsBuf = "";
   function feedTTS(delta) {
-    if (!voiceOn) return;
+    if (!convo) return;
     ttsBuf += delta;
     let m;
-    while ((m = ttsBuf.match(/^([\s\S]*?[.!?。…\n])/))) {
+    // speak on a sentence end, or on a clause break (comma etc.) once the chunk
+    // is long enough — starts sound sooner without being choppy/char-by-char
+    while ((m = ttsBuf.match(/^([\s\S]*?[.!?。…\n])/)) ||
+           (ttsBuf.length > 24 && (m = ttsBuf.match(/^([\s\S]*?[,、·:;])\s/)))) {
       enqueueSpeech(m[1]); ttsBuf = ttsBuf.slice(m[1].length);
     }
   }
-  function flushTTS() { if (voiceOn && ttsBuf.trim()) enqueueSpeech(ttsBuf); ttsBuf = ""; }
+  function flushTTS() { if (convo && ttsBuf.trim()) enqueueSpeech(ttsBuf); ttsBuf = ""; }
   function enqueueSpeech(text) {
     const t = text.replace(/\[\d+\]/g, "").trim();
     if (t) { ttsQ.push(t); pumpTTS(); }
   }
   async function pumpTTS() {
-    if (ttsBusy || !voiceOn) return;
+    if (ttsBusy || !convo) return;
     const t = ttsQ.shift(); if (t === undefined) return;
     ttsBusy = true; speaking = true; setStatus("🔊 말하는 중…");
-    if (rec) try { rec.stop(); } catch (_) {}          // never transcribe our own voice
     try {
       const res = await fetch("/api/assistant/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -687,43 +688,66 @@ async function renderAssistant() {
     }
     ttsBusy = false;
     if (ttsQ.length) pumpTTS();
-    else { speaking = false; if (voiceOn) { setStatus('🎙 듣는 중 — "레모리야"'); startRec(); } else setStatus(""); }
+    else { speaking = false; if (convo && !ASSIST.busy) listen(); }   // your turn again
   }
 
-  // --- STT: continuous ko-KR, react only to the wake word ---
-  function onTranscript(t) {
-    t = (t || "").trim(); if (!t) return;
-    if (awaiting) { awaiting = false; doSend(t); return; }
-    const wi = t.indexOf(WAKE);
-    if (wi < 0) return;
-    const q = t.slice(wi + WAKE.length).replace(/^[\s,.!?~]+/, "").trim();
-    if (q) doSend(q); else { awaiting = true; setStatus("네, 말씀하세요…"); }
-  }
-  function startRec() {
-    if (!SR || !voiceOn || speaking) return;
-    rec = new SR(); rec.lang = "ko-KR"; rec.continuous = true; rec.interimResults = true;
-    rec.onresult = e => {
-      let fin = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) fin += e.results[i][0].transcript;
-        else if (!awaiting) setStatus("🎙 " + e.results[i][0].transcript.slice(-40));
-      }
-      if (fin) onTranscript(fin);
+  // --- STT: record a turn, auto-stop on silence (energy VAD), transcribe locally ---
+  function stopVAD() { if (vadRAF) cancelAnimationFrame(vadRAF); vadRAF = 0; }
+  function startVAD(stream, onEnd) {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const an = audioCtx.createAnalyser(); an.fftSize = 512;
+    audioCtx.createMediaStreamSource(stream).connect(an);
+    const buf = new Uint8Array(an.fftSize);
+    let spoke = false, lastLoud = performance.now(), t0 = performance.now();
+    const tick = () => {
+      if (!convo) return;
+      an.getByteTimeDomainData(buf);
+      let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+      const rms = Math.sqrt(sum / buf.length), now = performance.now();
+      if (rms > 0.045) { spoke = true; lastLoud = now; }
+      if ((spoke && now - lastLoud > 900) || now - t0 > 9000) { onEnd(); return; }  // silence or hard cap
+      vadRAF = requestAnimationFrame(tick);
     };
-    rec.onend = () => { if (voiceOn && !speaking) { try { rec.start(); } catch (_) {} } };
-    rec.onerror = ev => {
-      if (ev.error === "not-allowed") { voiceOn = false; mic.classList.remove("on"); setStatus(""); toast("마이크 권한이 필요합니다", "err"); }
-    };
-    try { rec.start(); } catch (_) {}
+    vadRAF = requestAnimationFrame(tick);
   }
 
-  if (SR) {
+  async function listen() {
+    if (!convo || speaking || ASSIST.busy) return;
+    try { micStream = micStream || await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (_) { convo = false; mic.classList.remove("on"); setStatus(""); toast("마이크 권한이 필요합니다", "err"); return; }
+    setStatus("🎙 말씀하세요…");
+    const chunks = [];
+    const rec = new MediaRecorder(micStream);
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    rec.onstop = async () => {
+      stopVAD();
+      if (!convo) return;
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      if (blob.size < 1600) { listen(); return; }               // too short → keep listening
+      setStatus("받아쓰는 중…");
+      try {
+        const r = await fetch("/api/assistant/stt", { method: "POST", headers: { "Content-Type": blob.type }, body: blob });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const { text } = await r.json();
+        if (text && text.trim()) doSend(text.trim()); else listen();
+      } catch (e) { toast("음성 인식 실패: " + e.message, "err"); listen(); }
+    };
+    recorder = rec; rec.start();
+    startVAD(micStream, () => { try { rec.stop(); } catch (_) {} });
+  }
+
+  if (canVoice) {
     mic.hidden = false;
-    if (!st.tts) mic.title = '음성 출력엔 pip install "lemory[assistant]" 필요';
+    if (!st.stt || !st.tts) mic.title = '음성엔 pip install "lemory[assistant]" 필요 (로컬 STT+TTS)';
     mic.onclick = () => {
-      voiceOn = !voiceOn; mic.classList.toggle("on", voiceOn);
-      if (voiceOn) { setStatus('🎙 듣는 중 — "레모리야" 하고 물어보세요'); startRec(); }
-      else { if (rec) try { rec.stop(); } catch (_) {} rec = null; ttsQ.length = 0; ttsBuf = ""; setStatus(""); }
+      convo = !convo; mic.classList.toggle("on", convo);
+      if (convo) { toast("대화 모드 — 그냥 말하면 돼요, 멈추면 자동 인식", "ok"); listen(); }
+      else {
+        if (recorder) try { recorder.stop(); } catch (_) {}
+        stopVAD(); ttsQ.length = 0; ttsBuf = ""; speaking = false;
+        if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+        setStatus("");
+      }
     };
   }
 
@@ -733,7 +757,7 @@ async function renderAssistant() {
     input.value = ""; input.style.height = "auto";
     if (!ASSIST.history.length) log.innerHTML = "";
     ASSIST.busy = true; send.disabled = true; ttsBuf = ""; ttsQ.length = 0;
-    if (voiceOn) setStatus("생각 중…");
+    if (convo) setStatus("생각 중…");
     ASSIST.history.push({ role: "user", content: text });
     appendBubble(log, "user", text);
     const bubble = appendBubble(log, "assistant", "");
@@ -769,7 +793,9 @@ async function renderAssistant() {
       body.innerHTML = `<span class="asst-err">응답 실패: ${esc(e.message)}</span>`;
     } finally {
       ASSIST.busy = false; send.disabled = false;
-      log.scrollTop = log.scrollHeight; if (!voiceOn) input.focus();
+      log.scrollTop = log.scrollHeight;
+      if (convo) { if (!ttsQ.length && !ttsBusy && !speaking) listen(); }  // resume the turn
+      else input.focus();
     }
   }
 }
