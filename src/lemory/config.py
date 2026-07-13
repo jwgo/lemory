@@ -76,11 +76,14 @@ class LemoryConfig(BaseSettings):
     # cfg.reranker is on AND the provider is ollama.
     ollama_reranker_model: str = "dengcao/Qwen3-Reranker-0.6B:F16"
     ollama_embed_dim: int = 1024
-    # console "assistant mode": a small, always-warm local chat model that
-    # answers grounded in the vault (RAG) and streams, à la parlor. Requires
-    # Ollama running with this model pulled, regardless of the embed provider.
-    assistant_model: str = "gemma4:e2b"
-    assistant_k: int = 6  # notes retrieved as grounding per turn
+    # console "assistant mode": a grounded, streaming chat over the vault, à la
+    # parlor. Default brain is on-device LiteRT-LM (Gemma 4 E2B, .litertlm) with
+    # no daemon; set assistant_backend="ollama" to use assistant_model instead.
+    assistant_backend: str = "litert"        # litert | ollama
+    assistant_litert_repo: str = "litert-community/gemma-4-E2B-it-litert-lm"
+    assistant_litert_file: str = "gemma-4-E2B-it.litertlm"
+    assistant_model: str = "gemma4:e2b"      # only when assistant_backend="ollama"
+    assistant_k: int = 6                      # notes retrieved as grounding per turn
 
     # --- Gemini ---
     gemini_api_key: str = ""
