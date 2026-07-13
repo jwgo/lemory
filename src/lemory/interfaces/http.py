@@ -272,6 +272,24 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         _persist_config(engine, {"assistant_litert_repo": repo, "assistant_litert_file": file})
         return {"size": size, "model": file}
 
+    @app.post("/api/assistant/tts")
+    def assistant_tts(body: dict[str, Any]):
+        """On-device neural TTS (Supertonic): text -> WAV. The assistant's
+        spoken answers come from here (Korean and 30 other languages, local)."""
+        from ..providers import supertonic_tts as tts
+        from fastapi import Response
+        ok, reason = tts.available()
+        if not ok:
+            raise HTTPException(501, reason)
+        text = str(body.get("text", "")).strip()
+        if not text:
+            raise HTTPException(400, "text가 필요합니다")
+        try:
+            wav = tts.synth_wav(text[:1200], voice=engine.cfg.assistant_tts_voice)
+        except Exception as e:
+            raise HTTPException(500, f"TTS 실패: {str(e)[:160]}")
+        return Response(content=wav, media_type="audio/wav")
+
     @app.post("/api/assistant/chat")
     def assistant_chat(request: Request, body: ChatBody):
         """Grounded, streaming chat over the vault. Retrieves for the latest

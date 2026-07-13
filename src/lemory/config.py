@@ -84,6 +84,7 @@ class LemoryConfig(BaseSettings):
     assistant_litert_file: str = "gemma-4-E2B-it.litertlm"
     assistant_model: str = "gemma4:e2b"      # only when assistant_backend="ollama"
     assistant_k: int = 6                      # notes retrieved as grounding per turn
+    assistant_tts_voice: str = "f1"          # Supertonic voice (f1-f3, m1-m3) for spoken answers
 
     # --- Gemini ---
     gemini_api_key: str = ""

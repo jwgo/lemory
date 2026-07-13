@@ -640,17 +640,35 @@ async function renderAssistant() {
   const WAKE = "레모리야";
   let rec = null, voiceOn = false, speaking = false, awaiting = false;
 
-  function speak(text) {
-    if (!voiceOn || !text || !window.speechSynthesis) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/\[\d+\]/g, "").trim());
-    u.lang = "ko-KR"; u.rate = 1.05;
-    const kv = speechSynthesis.getVoices().find(v => (v.lang || "").toLowerCase().startsWith("ko"));
-    if (kv) u.voice = kv;
+  let curAudio = null;
+  function afterSpeak() { speaking = false; if (voiceOn) startRec(); }
+
+  async function speak(text) {
+    if (!voiceOn || !text) return;
+    const clean = text.replace(/\[\d+\]/g, "").trim();
+    if (!clean) return;
     speaking = true;
     if (rec) try { rec.stop(); } catch (_) {}          // don't transcribe our own voice
-    u.onend = u.onerror = () => { speaking = false; if (voiceOn) startRec(); };
-    speechSynthesis.speak(u);
+    try {
+      // on-device neural TTS (Supertonic): Korean + 30 langs, no cloud
+      const res = await fetch("/api/assistant/tts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: clean }),
+      });
+      if (!res.ok) throw new Error("tts " + res.status);
+      const url = URL.createObjectURL(await res.blob());
+      curAudio = new Audio(url);
+      curAudio.onended = curAudio.onerror = () => { URL.revokeObjectURL(url); afterSpeak(); };
+      await curAudio.play();
+    } catch (_) {
+      // fallback: browser voice (works even without the [assistant] extra)
+      if (window.speechSynthesis) {
+        const u = new SpeechSynthesisUtterance(clean); u.lang = "ko-KR"; u.rate = 1.05;
+        const kv = speechSynthesis.getVoices().find(v => (v.lang || "").toLowerCase().startsWith("ko"));
+        if (kv) u.voice = kv;
+        u.onend = u.onerror = afterSpeak; speechSynthesis.speak(u);
+      } else afterSpeak();
+    }
   }
 
   function onTranscript(t) {

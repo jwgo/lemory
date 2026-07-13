@@ -1,0 +1,60 @@
+"""On-device neural TTS via Supertonic (ONNX, ~99M, 31 languages incl. Korean),
+so the console assistant speaks its answers locally — no cloud, no torch. The
+model auto-downloads on first use; the Engine + voice styles are cached.
+
+    pip install "lemory[assistant]"
+"""
+from __future__ import annotations
+
+import io
+import threading
+
+VOICES = ("f1", "f2", "f3", "m1", "m2", "m3")
+SAMPLE_RATE = 44100
+
+_TTS = None
+_STYLES: dict = {}
+_LOCK = threading.Lock()
+
+
+def available() -> tuple[bool, str]:
+    try:
+        import supertonic  # noqa: F401
+        return True, ""
+    except ImportError:
+        return False, '음성 TTS(Supertonic)가 없습니다: pip install "lemory[assistant]"'
+
+
+def _tts():
+    global _TTS
+    if _TTS is None:
+        import supertonic
+        _TTS = supertonic.TTS()
+    return _TTS
+
+
+def _style(voice: str):
+    s = _STYLES.get(voice)
+    if s is None:
+        s = _tts().get_voice_style(voice if voice in VOICES else "f1")
+        _STYLES[voice] = s
+    return s
+
+
+def _has_hangul(text: str) -> bool:
+    return any("가" <= c <= "힣" for c in text)
+
+
+def synth_wav(text: str, voice: str = "f1", lang: str | None = None) -> bytes:
+    """Synthesize `text` to a WAV byte string. Auto-picks Korean for Hangul."""
+    import numpy as np
+    import soundfile as sf
+
+    lang = lang or ("ko" if _has_hangul(text) else None)
+    with _LOCK:  # one ONNX session; serialize synthesis for a local single user
+        tts = _tts()
+        audio, _sr = tts.synthesize(text, voice_style=_style(voice), lang=lang)
+    wav = np.asarray(audio, dtype=np.float32).flatten()
+    buf = io.BytesIO()
+    sf.write(buf, wav, SAMPLE_RATE, format="WAV")
+    return buf.getvalue()
