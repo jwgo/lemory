@@ -9,7 +9,7 @@ from __future__ import annotations
 import io
 import threading
 
-VOICES = ("f1", "f2", "f3", "m1", "m2", "m3")
+VOICES = ("f1", "f2", "f3", "f4", "f5", "m1", "m2", "m3", "m4", "m5")
 SAMPLE_RATE = 44100
 
 _TTS = None

@@ -421,3 +421,6 @@ input::placeholder { color: var(--text-3); }
 .asst-mic.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand);
   animation: micPulse 1.4s infinite; }
 @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 var(--brand-soft); } 50% { box-shadow: 0 0 0 6px var(--brand-soft); } }
+.asst-status { min-height: 18px; font-size: 12px; color: var(--brand); padding: 4px 2px; }
+.asst-voice { margin-left: 6px; background: var(--surface); color: var(--text-2);
+  border: 1px solid var(--border-2); border-radius: var(--r-sm); padding: 2px 6px; font-size: 12px; }
