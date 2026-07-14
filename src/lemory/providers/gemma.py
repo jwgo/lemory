@@ -64,7 +64,9 @@ def _fit_system(llm, system: str, history: list[dict], question: str,
         if len(ids) > keep:
             return llm.detokenize(ids[:keep]).decode("utf-8", "ignore")
     except Exception:
-        return system[:9000]
+        # tokenizer unavailable → conservative char cap (Korean ~1 token/char,
+        # so stay well under N_CTX - output budget rather than risk an overflow)
+        return system[:6000]
     return system
 
 
@@ -78,8 +80,11 @@ def chat_stream(system: str, history: list[dict], question: str,
             for m in history if m.get("role") in ("user", "assistant") and m.get("content")]
     with _GEN_LOCK:
         system = _fit_system(llm, system, hist, question, max_output_tokens)
-        messages = ([{"role": "system", "content": system}] if system else []) + \
-            hist + [{"role": "user", "content": question}]
+        # Gemma's chat template has NO system role — llama.cpp's `format_gemma`
+        # drops a {"role":"system"} message entirely. Fold the grounding NOTES
+        # into the current user turn so retrieval actually reaches the model.
+        user = f"{system}\n\n{question}" if system else question
+        messages = hist + [{"role": "user", "content": user}]
         for chunk in llm.create_chat_completion(
                 messages, max_tokens=max_output_tokens, stream=True):
             delta = chunk["choices"][0]["delta"].get("content")
