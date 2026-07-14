@@ -238,7 +238,7 @@ robustness without any model in the loop.
 
 The one place a language model genuinely helps is **deep multi-hop on a huge
 vault** — "A가 위치한 지역의 X" where the answer note is only reachable through
-a link and never mentions the query's words. On the 33k-chunk namuwiki corpus
+a link and never mentions the query's words. On the ~42k-chunk namuwiki corpus
 this is hard for every system: Lemory's zero-LLM 2-hop full-support is ~0.14,
 and the honest reason is that the answer note carries almost no lexical or
 semantic signal of its own (BENCHMARKS 5e keeps this as a standing open
