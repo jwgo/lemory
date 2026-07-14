@@ -9,12 +9,12 @@
 <text x="288" y="108.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (Gemini embeddings)</text>
 <rect x="300" y="86" width="390" height="34" rx="6" fill="#f7d353"/>
 <text x="700" y="108.0" fill="#e6edf3" font-size="14" font-weight="600">0.906<tspan fill="#8b949e" font-weight="400">  12 ms/query</tspan></text>
-<text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local Harrier-0.6B Q8, Ollama)</text>
-<rect x="300" y="134" width="367" height="34" rx="6" fill="#f7d353"/>
-<text x="677" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.853<tspan fill="#8b949e" font-weight="400">  ~100 ms/query, zero keys</tspan></text>
-<text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local MiniLM, zero keys)</text>
-<rect x="300" y="182" width="339" height="34" rx="6" fill="#f7d353"/>
-<text x="649" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">0.788<tspan fill="#8b949e" font-weight="400">  18 ms/query</tspan></text>
+<text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local e5-small-ko-v2, zero keys)</text>
+<rect x="300" y="134" width="378" height="34" rx="6" fill="#f7d353"/>
+<text x="688" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.879<tspan fill="#8b949e" font-weight="400">  ~31 ms/query, no compile</tspan></text>
+<text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local Harrier-0.6B, llama.cpp GPU)</text>
+<rect x="300" y="182" width="367" height="34" rx="6" fill="#f7d353"/>
+<text x="677" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">0.853<tspan fill="#8b949e" font-weight="400">  ~100 ms/query, zero keys</tspan></text>
 <text x="288" y="252.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd query (local LLM)</text>
 <rect x="300" y="230" width="331" height="34" rx="6" fill="#58a6ff"/>
 <text x="641" y="252.0" fill="#e6edf3" font-size="14" font-weight="600">0.769<tspan fill="#8b949e" font-weight="400">  59.5 s/query, n=329 sample</tspan></text>

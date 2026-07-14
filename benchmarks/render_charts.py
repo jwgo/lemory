@@ -153,8 +153,8 @@ def main() -> None:
         "2,067 real namuwiki questions, gold-doc in top-8. Full corpus: 1,469 documents / 33k chunks.",
         [
             ("Lemory (Gemini embeddings)", 0.906, LEMON, "12 ms/query"),
-            ("Lemory (local Harrier-0.6B Q8, Ollama)", 0.853, LEMON, "~100 ms/query, zero keys"),
-            ("Lemory (local MiniLM, zero keys)", 0.788, LEMON, "18 ms/query"),
+            ("Lemory (local e5-small-ko-v2, zero keys)", 0.879, LEMON, "~31 ms/query, no compile"),
+            ("Lemory (local Harrier-0.6B, llama.cpp GPU)", 0.853, LEMON, "~100 ms/query, zero keys"),
             ("qmd query (local LLM)", 0.769, BLUE, "59.5 s/query, n=329 sample"),
             ("qmd vsearch", 0.657, BLUE, "4.2 s/query, n=280 sample"),
             ("Smart-Connections-class", 0.204, GRAY, "its default local model"),

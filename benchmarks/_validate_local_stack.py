@@ -64,12 +64,12 @@ def run(tag, data_dir, backend, reranker, qs):
 print(f"FULL={len(qs_all)}  SAMPLE={len(qs_sample)} (KorMapleQA v2 answerable, local only)\n", flush=True)
 # Reranker gain first (MiniLM index is already embedded — no wait): the jina
 # cross-encoder is embedder-agnostic, so MiniLM ± jina validates the mechanism.
-run("MiniLM full", "benchmarks/work/index-maple_real-local", "fastembed", False, qs_all)
-run("MiniLM sample", "benchmarks/work/index-maple_real-local", "fastembed", False, qs_sample)
-run("MiniLM+jina sample", "benchmarks/work/index-maple_real-local", "fastembed", True, qs_sample)
+run("e5-ko full", "benchmarks/work/index-maple_real-local", "fastembed", False, qs_all)
+run("e5-ko sample", "benchmarks/work/index-maple_real-local", "fastembed", False, qs_sample)
+run("e5-ko+qwen3 sample", "benchmarks/work/index-maple_real-local", "fastembed", True, qs_sample)
 # Harrier last — the provider change re-stamps the index signature, forcing a
 # one-time re-embed of ~33k chunks via llama.cpp (slow, but migrates the index).
 run("Harrier full", "benchmarks/work/index-maple_real-harrier-q8", "llamacpp", False, qs_all)
 run("Harrier sample", "benchmarks/work/index-maple_real-harrier-q8", "llamacpp", False, qs_sample)
-run("Harrier+jina sample", "benchmarks/work/index-maple_real-harrier-q8", "llamacpp", True, qs_sample)
+run("Harrier+qwen3 sample", "benchmarks/work/index-maple_real-harrier-q8", "llamacpp", True, qs_sample)
 print("\nsaved -> " + str(OUT))
