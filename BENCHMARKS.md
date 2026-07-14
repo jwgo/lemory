@@ -561,11 +561,15 @@ The field's headline currency is "R@5 on LongMemEval" measured with a local
 embedder and no API (MemPalace markets "96.6% R@5, zero API calls"). This is
 the identical protocol on the **entire cleaned S set** — no stratified
 sampling, no LLM generator/judge, so the number is directly comparable and
-reproducible on a laptop (`benchmarks/run_longmemeval_full.py`). Embedder:
-fastembed multilingual MiniLM (Lemory's `local` provider, CPU, fully offline).
-Metric is **session-level recall** over the 470 questions that have evidence
-sessions (the 30 abstention questions have none by construction and are
-excluded, per the LongMemEval retrieval protocol):
+reproducible on a laptop (`benchmarks/run_longmemeval_full.py`). Embedder for the
+table below: **fastembed multilingual MiniLM** — the *former* local default.
+This English benchmark was the one place MiniLM held up (it is an English model),
+so the numbers are reported as-measured; re-measurement on the new e5-small-ko-v2
+default is in progress and the early partial shows no regression (e5-small ranks
+at or above all-MiniLM-L6 on English MTEB). Metric is **session-level recall**
+over the 470 questions that have evidence sessions (the 30 abstention questions
+have none by construction and are excluded, per the LongMemEval retrieval
+protocol):
 
 | | Recall@5 (all evidence sessions) | Recall@5 (any) | Recall@10 (all) | Recall@10 (any) |
 |---|---|---|---|---|
