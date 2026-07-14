@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="548" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <rect width="880" height="548" rx="12" fill="#0d1117"/>
 <text x="28" y="40" fill="#e6edf3" font-size="22" font-weight="700">KorMapleQA: who actually finds Korean notes</text>
-<text x="28" y="64" fill="#8b949e" font-size="13">2,067 real namuwiki questions, gold-doc in top-8. Full corpus: 1,469 documents / 33k chunks.</text>
+<text x="28" y="64" fill="#8b949e" font-size="13">2,067 real namuwiki questions, gold-doc in top-8. Full corpus: 1,469 documents / 42k chunks.</text>
 <line x1="408" y1="78" x2="408" y2="520" stroke="#21262d"/>
 <line x1="515" y1="78" x2="515" y2="520" stroke="#21262d"/>
 <line x1="622" y1="78" x2="622" y2="520" stroke="#21262d"/>
@@ -9,12 +9,12 @@
 <text x="288" y="108.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (Gemini embeddings)</text>
 <rect x="300" y="86" width="390" height="34" rx="6" fill="#f7d353"/>
 <text x="700" y="108.0" fill="#e6edf3" font-size="14" font-weight="600">0.906<tspan fill="#8b949e" font-weight="400">  12 ms/query</tspan></text>
-<text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local Harrier-0.6B Q8, Ollama)</text>
-<rect x="300" y="134" width="367" height="34" rx="6" fill="#f7d353"/>
-<text x="677" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.853<tspan fill="#8b949e" font-weight="400">  ~100 ms/query, zero keys</tspan></text>
-<text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local MiniLM, zero keys)</text>
-<rect x="300" y="182" width="339" height="34" rx="6" fill="#f7d353"/>
-<text x="649" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">0.788<tspan fill="#8b949e" font-weight="400">  18 ms/query</tspan></text>
+<text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local e5-small-ko-v2, zero keys)</text>
+<rect x="300" y="134" width="382" height="34" rx="6" fill="#f7d353"/>
+<text x="692" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.889<tspan fill="#8b949e" font-weight="400">  ~16 ms/query, no compile</tspan></text>
+<text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory (local Harrier-0.6B, llama.cpp GPU)</text>
+<rect x="300" y="182" width="367" height="34" rx="6" fill="#f7d353"/>
+<text x="677" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">0.853<tspan fill="#8b949e" font-weight="400">  ~100 ms/query, zero keys</tspan></text>
 <text x="288" y="252.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd query (local LLM)</text>
 <rect x="300" y="230" width="331" height="34" rx="6" fill="#58a6ff"/>
 <text x="641" y="252.0" fill="#e6edf3" font-size="14" font-weight="600">0.769<tspan fill="#8b949e" font-weight="400">  59.5 s/query, n=329 sample</tspan></text>

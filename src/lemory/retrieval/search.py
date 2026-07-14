@@ -714,10 +714,11 @@ def _dedicated_rerank(
 ) -> None:
     """Reorder the top candidates with a dedicated cross-encoder reranker.
 
-    The reranker returns a per-document relevance verdict (1.0/0.0). We lift
-    every relevant chunk above every non-relevant one while preserving the
-    fusion order WITHIN each group, so the reranker only promotes/demotes,
-    never invents a ranking. One model call per candidate — slow, opt-in."""
+    The in-process Qwen3-Reranker-0.6B (llama.cpp) returns a continuous
+    relevance score P("yes") per candidate. We reorder the top `rerank_top`
+    fused candidates by that score, all lifted above the fused range (best
+    first), so the reranker only reorders what retrieval already surfaced —
+    it never invents a ranking for chunks retrieval missed."""
     cfg = engine.cfg
     top = sorted(fused.items(), key=lambda x: -x[1])[: cfg.rerank_top]
     docs, cids = [], []
@@ -726,41 +727,31 @@ def _dedicated_rerank(
         if m is None:
             continue
         cids.append(cid)
-        docs.append((m.title + ". " + m.text)[:1200])
+        # a cross-encoder's relevance signal lives in the title + lead; capping
+        # the passage keeps that signal while bounding the reranker's prefill
+        # cost (each candidate is a separate llama.cpp forward pass).
+        docs.append((m.title + ". " + m.text)[:512])
     if not cids:
         return
     scores = _reranker_scores(engine, query, docs)
     if scores is None or len(scores) != len(cids):
         return  # keep fusion ranking on any reranker failure
     top_fused = max(fused.values(), default=1.0) or 1.0
-    if cfg.reranker_backend == "ollama":
-        # Ollama Qwen3-Reranker returns a 1.0/0.0 relevance verdict: lift every
-        # relevant chunk above the fused range, fused score as intra-group tiebreak
-        for cid, s in zip(cids, scores):
-            if s > 0:
-                fused[cid] += top_fused
-    else:
-        # cross-encoder continuous scores: reorder the candidates by relevance,
-        # all lifted above the fused range (best first), so the reranker only
-        # reorders what retrieval already surfaced
-        order = sorted(range(len(cids)), key=lambda i: -scores[i])
-        n = len(order)
-        for rank, i in enumerate(order):
-            fused[cids[i]] = top_fused + (n - rank)
+    # cross-encoder continuous scores: reorder the candidates by relevance, all
+    # lifted above the fused range (best first), so the reranker only reorders
+    # what retrieval already surfaced
+    order = sorted(range(len(cids)), key=lambda i: -scores[i])
+    n = len(order)
+    for rank, i in enumerate(order):
+        fused[cids[i]] = top_fused + (n - rank)
 
 
 def _reranker_scores(engine: "Engine", query: str, docs: list[str]) -> "list[float] | None":
     cfg = engine.cfg
-    if cfg.reranker_backend == "ollama":
-        if not hasattr(engine.llm, "rerank_scores"):
-            return None
-        try:
-            return list(engine.llm.rerank_scores(query, docs))
-        except Exception:
-            return None
     from ..providers import reranker
     try:
-        return reranker.rerank_scores(query, docs, model=cfg.reranker_model)
+        return reranker.rerank_scores(query, docs, repo=cfg.reranker_gguf_repo,
+                                      file=cfg.reranker_gguf_file)
     except Exception:
         return None
 

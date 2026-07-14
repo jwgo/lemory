@@ -42,7 +42,7 @@ TUNABLE_FIELDS: dict[str, type] = {
     # embedding backend selection. Unlike the live knobs below, changing these
     # only takes effect on the next start and needs a full re-index (the vector
     # space changes); the UI labels them accordingly and persists to lemory.toml.
-    "provider": str,             # auto | gemini | openai | local | ollama
+    "provider": str,             # auto | gemini | openai | local
     "local_embed_backend": str,  # auto | llamacpp | fastembed
     "event_log": bool,
     "graph_expansion": bool,
@@ -236,42 +236,29 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     # ------------------------------------------------- assistant (console chat)
     @app.get("/api/assistant/status")
     def assistant_status():
-        """Is the on-device assistant brain ready? Default is LiteRT-LM (Gemma
-        4 E2B, .litertlm); the console gates 'assistant mode' on this."""
+        """Is the on-device assistant brain ready? Default is Gemma 4 E4B on
+        llama.cpp (Q4_K_M GGUF); the console gates 'assistant mode' on this."""
         cfg = engine.cfg
-        if cfg.assistant_backend == "ollama":
-            from ..providers.ollama import OllamaClient
-            c = OllamaClient(host=cfg.ollama_host, llm_model=cfg.assistant_model)
-            try:
-                if not c.server_alive():
-                    return {"available": False, "model": cfg.assistant_model,
-                            "reason": "Ollama가 실행 중이 아닙니다. 실행: `ollama serve`"}
-                if not c.has_model(cfg.assistant_model):
-                    return {"available": False, "model": cfg.assistant_model,
-                            "reason": f"모델이 없습니다 — `ollama pull {cfg.assistant_model}`"}
-                return {"available": True, "model": cfg.assistant_model}
-            finally:
-                c.close()
-        from ..providers import litert, supertonic_tts, whisper_stt
-        ok, reason = litert.available()
-        size = next((k for k, (r, f) in litert.MODELS.items()
-                     if f == cfg.assistant_litert_file), "E2B")
-        return {"available": ok, "model": cfg.assistant_litert_file, "reason": reason,
-                "size": size, "sizes": list(litert.MODELS),
+        from ..providers import gemma, supertonic_tts, whisper_stt
+        ok, reason = gemma.available()
+        size = next((k for k, (r, f) in gemma.MODELS.items()
+                     if f == cfg.assistant_gguf_file), "E4B")
+        return {"available": ok, "model": cfg.assistant_gguf_file, "reason": reason,
+                "size": size, "sizes": list(gemma.MODELS),
                 "voices": list(supertonic_tts.VOICES), "tts_voice": cfg.assistant_tts_voice,
                 "tts": supertonic_tts.available()[0], "stt": whisper_stt.available()[0]}
 
     @app.post("/api/assistant/model")
     def assistant_model(body: dict[str, Any]):
         """Switch the on-device brain size (E2B fast / E4B quality); persisted."""
-        from ..providers import litert
+        from ..providers import gemma
         size = str(body.get("size", "")).upper()
-        if size not in litert.MODELS:
-            raise HTTPException(400, f"size must be one of {list(litert.MODELS)}")
-        repo, file = litert.MODELS[size]
-        engine.cfg.assistant_litert_repo = repo
-        engine.cfg.assistant_litert_file = file
-        _persist_config(engine, {"assistant_litert_repo": repo, "assistant_litert_file": file})
+        if size not in gemma.MODELS:
+            raise HTTPException(400, f"size must be one of {list(gemma.MODELS)}")
+        repo, file = gemma.MODELS[size]
+        engine.cfg.assistant_gguf_repo = repo
+        engine.cfg.assistant_gguf_file = file
+        _persist_config(engine, {"assistant_gguf_repo": repo, "assistant_gguf_file": file})
         return {"size": size, "model": file}
 
     @app.post("/api/assistant/tts")
@@ -302,9 +289,9 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         is not a silent multi-second (first-run: multi-GB download) hang."""
         cfg = engine.cfg
         stages = [
-            ("brain", f"답변 모델 준비 중… ({cfg.assistant_litert_file})", lambda: __import__(
-                "lemory.providers.litert", fromlist=["_engine"])._engine(
-                cfg.assistant_litert_repo, cfg.assistant_litert_file)),
+            ("brain", f"답변 모델 준비 중… ({cfg.assistant_gguf_file})", lambda: __import__(
+                "lemory.providers.gemma", fromlist=["_model"])._model(
+                cfg.assistant_gguf_repo, cfg.assistant_gguf_file)),
             ("stt", "음성 인식(Whisper) 준비 중…", lambda: __import__(
                 "lemory.providers.whisper_stt", fromlist=["_model"])._model(
                 __import__("lemory.providers.whisper_stt", fromlist=["DEFAULT_SIZE"]).DEFAULT_SIZE)),
@@ -365,20 +352,10 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             engine.store.record_hits([h.doc_id for h in hits])
 
         def deltas():
-            if cfg.assistant_backend == "ollama":
-                from ..providers.ollama import OllamaClient
-                c = OllamaClient(host=cfg.ollama_host, llm_model=cfg.assistant_model)
-                try:
-                    chat = [{"role": "system", "content": system}] + history + \
-                           [{"role": "user", "content": question}]
-                    yield from c.chat_stream(chat, model=cfg.assistant_model)
-                finally:
-                    c.close()
-            else:
-                from ..providers import litert
-                yield from litert.chat_stream(
-                    system, history, question,
-                    repo=cfg.assistant_litert_repo, file=cfg.assistant_litert_file)
+            from ..providers import gemma
+            yield from gemma.chat_stream(
+                system, history, question,
+                repo=cfg.assistant_gguf_repo, file=cfg.assistant_gguf_file)
 
         def gen():
             try:
@@ -512,6 +489,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             "llm_model": _safe(cfg.active_llm_model) if hasattr(cfg, "active_llm_model") else cfg.llm_model,
             "embed_model": _safe(cfg.active_embed_model) if hasattr(cfg, "active_embed_model") else cfg.embed_model,
             "embed_dim": _safe(cfg.active_embed_dim) if hasattr(cfg, "active_embed_dim") else cfg.embed_dim,
+            "reranker": bool(getattr(cfg, "reranker", False)),
         }
         return {"tunable": values, "readonly": readonly}
 
@@ -529,8 +507,8 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                     coerced = typ(value)
             except (TypeError, ValueError):
                 raise HTTPException(400, f"bad value for {key}: {value!r}")
-            if key == "provider" and coerced not in ("auto", "gemini", "openai", "local", "ollama"):
-                raise HTTPException(400, "provider must be auto|gemini|openai|local|ollama")
+            if key == "provider" and coerced not in ("auto", "gemini", "openai", "local"):
+                raise HTTPException(400, "provider must be auto|gemini|openai|local")
             if key == "local_embed_backend" and coerced not in ("auto", "llamacpp", "fastembed"):
                 raise HTTPException(400, "local_embed_backend must be auto|llamacpp|fastembed")
             if key == "context_style" and coerced not in ("full", "compact"):

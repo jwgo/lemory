@@ -6,11 +6,10 @@ qmd uses (node-llama-cpp) ported to Python (llama-cpp-python).
     local_embed_backend = "llamacpp"   # or "auto": used when llama-cpp-python
                                         # is installed (pip install lemory[llama])
 
-Runs Microsoft's **Harrier-OSS-0.6B** (Qwen3-based multilingual, Q8 GGUF) fully
-in this process on Apple/GPU Metal or CPU, no Ollama server. Measured on
-KorMapleQA: hybrid doc@8 0.853 vs fastembed MiniLM's 0.788 (+6.5pt), the same
-score as the Ollama path since it is the same GGUF and llama.cpp backend. The
-GGUF (~640MB) is auto-downloaded from HuggingFace once and cached, like qmd.
+Runs **Harrier-OSS-0.6B** (Qwen3-based multilingual, Q8 GGUF) fully in this
+process on Apple GPU Metal or CPU — no daemon, no server. Measured on
+KorMapleQA: hybrid doc@8 0.853, the top local tier above the lighter fastembed
+e5-small-ko-v2 default. The GGUF (~640MB) auto-downloads from HuggingFace once.
 
 ask() still needs a generator LLM: pass one, or set a Gemini/OpenAI key for a
 mixed mode where embeddings stay local and only answer generation uses the API.

@@ -150,11 +150,11 @@ def main() -> None:
     hbar_chart(
         ASSETS / "chart_kormapleqa.svg",
         "KorMapleQA: who actually finds Korean notes",
-        "2,067 real namuwiki questions, gold-doc in top-8. Full corpus: 1,469 documents / 33k chunks.",
+        "2,067 real namuwiki questions, gold-doc in top-8. Full corpus: 1,469 documents / 42k chunks.",
         [
             ("Lemory (Gemini embeddings)", 0.906, LEMON, "12 ms/query"),
-            ("Lemory (local Harrier-0.6B Q8, Ollama)", 0.853, LEMON, "~100 ms/query, zero keys"),
-            ("Lemory (local MiniLM, zero keys)", 0.788, LEMON, "18 ms/query"),
+            ("Lemory (local e5-small-ko-v2, zero keys)", 0.889, LEMON, "~16 ms/query, no compile"),
+            ("Lemory (local Harrier-0.6B, llama.cpp GPU)", 0.853, LEMON, "~100 ms/query, zero keys"),
             ("qmd query (local LLM)", 0.769, BLUE, "59.5 s/query, n=329 sample"),
             ("qmd vsearch", 0.657, BLUE, "4.2 s/query, n=280 sample"),
             ("Smart-Connections-class", 0.204, GRAY, "its default local model"),
@@ -179,10 +179,10 @@ def main() -> None:
     # 3. The qmd rematch (identical 329 questions)
     hbar_chart(
         ASSETS / "chart_qmd_rematch.svg",
-        "Identical 329 questions: quality tie, 2,930x the speed",
+        "Identical 329 questions: Lemory leads quality, ~3,700x the speed",
         "qmd's full local-LLM pipeline (expansion + rerank) vs Lemory's LLM-free hybrid, same questions.",
         [
-            ("Lemory local, 20.3 ms/query", 0.775, LEMON, "doc@8"),
+            ("Lemory local, ~16 ms/query", 0.875, LEMON, "doc@8"),
             ("qmd query, 59.5 s/query", 0.769, BLUE, "doc@8"),
         ],
     )
@@ -233,12 +233,12 @@ def main() -> None:
     hbar_chart(
         ASSETS / "chart_longmemeval.svg",
         "LongMemEval S, all 500 questions, zero API calls",
-        "Session-level Recall@5, local embedder. 'any' = protocol most headline numbers use; 'strict' = every evidence session.",
+        "Session-level Recall@5, local e5-small-ko-v2. 'any' = protocol most headline numbers use; 'strict' = every evidence session.",
         [
-            ("Lemory, any@5", 0.972, LEMON, ""),
-            ("Lemory, strict all@5", 0.857, LEMON, ""),
-            ("Vector-only, any@5", 0.964, GRAY, ""),
-            ("Vector-only, strict all@5", 0.809, GRAY, ""),
+            ("Lemory, any@5", 0.983, LEMON, ""),
+            ("Lemory, strict all@5", 0.903, LEMON, ""),
+            ("Vector-only, any@5", 0.978, GRAY, ""),
+            ("Vector-only, strict all@5", 0.853, GRAY, ""),
         ],
     )
 

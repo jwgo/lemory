@@ -4,11 +4,11 @@
     provider = "local"          # or just have no API key set with
                                 # fastembed installed (pip install lemory[local])
 
-Search/index run entirely on this machine (paraphrase-multilingual-MiniLM-L12-v2,
-384d, KR/EN capable; ~220MB downloaded once from HuggingFace). ask() needs a
-generator LLM, so it raises with guidance unless a Gemini/OpenAI key is also
-configured — in that mixed mode, embeddings stay local and only answer
-generation uses the API.
+Search/index run entirely on this machine (dragonkue's Korean-tuned
+multilingual-e5-small-ko-v2, 384d, via a community ONNX export downloaded once
+from HuggingFace). ask() needs a generator LLM, so it raises with guidance
+unless a Gemini/OpenAI key is also configured — in that mixed mode, embeddings
+stay local and only answer generation uses the API.
 """
 
 from __future__ import annotations
@@ -22,22 +22,49 @@ from .base import normalize_embeddings
 
 LOCAL_EMBED_DIM = 384
 
+# Default local embedder: dragonkue's Korean-tuned multilingual-e5-small
+# (384d, ~9ms/embed). fastembed has no built-in entry for it, so we register a
+# community ONNX export below. Measured dense doc@8 0.86 vs the old MiniLM's
+# 0.14 on KorMapleQA Korean semantic retrieval — the reason it is the default.
+DEFAULT_EMBED_MODEL = "dragonkue/multilingual-e5-small-ko-v2"
+_ONNX_SOURCE = "pos090011/multilingual-e5-small-ko-v2-onnx"
+
 # e5-family models are trained with task prefixes; other models take raw text
 _TASK_PREFIX = {"RETRIEVAL_DOCUMENT": "passage: ", "RETRIEVAL_QUERY": "query: "}
 
+_REGISTERED: set = set()
+
+
+def _register_custom(model: str) -> None:
+    """Register models fastembed doesn't ship in its built-in registry (our
+    Korean e5) so `TextEmbedding(model_name=...)` can load them. Idempotent."""
+    if model != DEFAULT_EMBED_MODEL or model in _REGISTERED:
+        return
+    _REGISTERED.add(model)
+    try:
+        from fastembed import TextEmbedding
+        from fastembed.common.model_description import ModelSource, PoolingType
+
+        TextEmbedding.add_custom_model(
+            model=model, pooling=PoolingType.MEAN, normalization=True,
+            sources=ModelSource(hf=_ONNX_SOURCE), dim=LOCAL_EMBED_DIM,
+            model_file="onnx/model.onnx")
+    except Exception:
+        pass  # already registered in this process, or fastembed too old
+
 
 def _local_generate(prompt: str, system: str | None) -> str:
-    """On-device answer for a keyless local install: LiteRT-LM (Gemma 4 E2B)
-    when `lemory[assistant]` is installed, else a helpful error. Lets ask()
-    and the console search view answer with no API key and no Ollama."""
-    from . import litert
+    """On-device answer for a keyless local install: Gemma 4 on llama.cpp (the
+    same engine as the embedder) when `lemory[llama]` is installed, else a
+    helpful error. Lets ask() and the console search view answer with no key."""
+    from . import gemma
 
-    ok, _ = litert.available()
+    ok, _ = gemma.available()
     if ok:
-        return litert.generate(system or "", prompt)
+        return gemma.generate(system or "", prompt)
     raise RuntimeError(
         "로컬 답변 생성기가 없습니다: 검색은 오프라인으로 되지만 ask(답변)는 LLM이 "
-        ' 필요합니다. 온디바이스 답변은 pip install "lemory[assistant]" (Gemma 4 E2B), '
+        ' 필요합니다. 온디바이스 답변은 pip install "lemory[llama]" (Gemma 4), '
         "또는 GEMINI_API_KEY(무료)로 켜집니다."
     )
 
@@ -45,8 +72,7 @@ def _local_generate(prompt: str, system: str | None) -> str:
 class LocalClient:
     """LLMClient implementation with local embeddings and no generator."""
 
-    def __init__(self, embed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-                 generator=None):
+    def __init__(self, embed_model: str = DEFAULT_EMBED_MODEL, generator=None):
         self.llm_model = generator.llm_model if generator else "none (local search-only)"
         self.embed_model = embed_model
         self.embed_dim = LOCAL_EMBED_DIM
@@ -59,6 +85,7 @@ class LocalClient:
             if self._model is None:
                 import warnings
 
+                _register_custom(self.embed_model)
                 from fastembed import TextEmbedding
 
                 with warnings.catch_warnings():

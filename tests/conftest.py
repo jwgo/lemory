@@ -22,12 +22,12 @@ def _isolate_global_env(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _no_litert(monkeypatch):
-    """Tests never load the 2.6GB LiteRT-LM model. Stub the on-device brain as
+def _no_local_brain(monkeypatch):
+    """Tests never load the multi-GB Gemma GGUF. Stub the on-device brain as
     unavailable so the keyless local generate() takes its documented raise
-    path; a test that wants LiteRT overrides this explicitly."""
-    import lemory.providers.litert as lt
-    monkeypatch.setattr(lt, "available", lambda: (False, "litert stubbed in tests"))
+    path; a test that wants it overrides this explicitly."""
+    import lemory.providers.gemma as gm
+    monkeypatch.setattr(gm, "available", lambda: (False, "brain stubbed in tests"))
 
 
 @pytest.fixture(autouse=True)

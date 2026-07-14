@@ -606,8 +606,8 @@ async function renderAssistant() {
       <div class="card-head">비서 모드를 켜려면 온디바이스 모델이 필요합니다</div>
       <p>${esc(st.reason || "로컬 모델을 사용할 수 없습니다.")}</p>
       <div class="kv"><div class="kv-row"><span class="kv-k">브레인</span>
-        <span class="kv-v mono">${esc(st.model || "gemma-4-E2B-it.litertlm")} (LiteRT-LM)</span></div></div>
-      <p style="color:var(--text-3)"><code>pip install "lemory[assistant]"</code> 하면 데몬 없이 프로세스 안에서 바로 돕니다 (Ollama 불필요). 설치 후 <b>다시 확인</b>.</p>
+        <span class="kv-v mono">${esc(st.model || "gemma-4-E4B-it-Q4_K_M.gguf")} (llama.cpp)</span></div></div>
+      <p style="color:var(--text-3)"><code>pip install "lemory[llama]"</code> 하면 같은 llama.cpp 엔진(GPU)으로 바로 답합니다. 음성까지 쓰려면 <code>lemory[assistant]</code>. 설치 후 <b>다시 확인</b>.</p>
       <button class="btn" id="asstRetry">다시 확인</button></div>`;
     $("#asstRetry").onclick = renderAssistant;
     return;
@@ -620,7 +620,7 @@ async function renderAssistant() {
       `<button class="asst-size ${s === st.size ? "on" : ""}" data-size="${s}">${s}</button>`).join("");
     $$(".asst-size", mb).forEach(b => b.onclick = async () => {
       if (b.classList.contains("on")) return;
-      try { await api("/api/assistant/model", { method: "POST", body: JSON.stringify({ size: b.dataset.size }) });
+      try { await jpost("/api/assistant/model", { size: b.dataset.size });
         toast(`비서 모델 → ${b.dataset.size}`, "ok"); renderAssistant(); }
       catch (e) { toast(e.message, "err"); }
     });
@@ -843,10 +843,77 @@ function sourceEl(sources) {
 }
 
 /* --------------------------------------------------------------- settings */
+// Frontend metadata for the on-device answer models (matches gemma.MODELS in
+// providers/gemma.py). Kept here so the Models card can show specs without a
+// backend round-trip; sizes/current come live from /api/assistant/status.
+const ANSWER_MODELS = {
+  E4B: { name: "Gemma 4 · E4B", tag: "기본 · 품질 우선", specs: "~4B(효율) · Q4_K_M ≈ 4.2 GB · 8K 컨텍스트" },
+  E2B: { name: "Gemma 4 · E2B", tag: "가벼움 · 저사양/8GB↓", specs: "~2B(효율) · Q4 ≈ 1.7 GB · 8K 컨텍스트" },
+};
+
+// The Models card — the one place to see & pick every model in the stack:
+// the on-device answer LLM (Gemma E4B/E2B, switched live via a dedicated
+// endpoint), plus the resolved embedding and reranker identities. Answer-model
+// selection was previously buried as a tiny toggle in the assistant view.
+async function renderModelsCard(tunable, readonly) {
+  let st;
+  try { st = await api("/api/assistant/status"); }
+  catch (e) { st = { available: false, reason: e.message, size: "E4B", sizes: ["E4B", "E2B"] }; }
+
+  const sizes = st.sizes && st.sizes.length ? st.sizes : ["E4B", "E2B"];
+  const picks = sizes.map(sz => {
+    const spec = ANSWER_MODELS[sz] || { name: sz, tag: "", specs: "" };
+    const on = sz === st.size;
+    return `<button class="model-pick ${on ? "on" : ""}" data-size="${sz}" ${st.available ? "" : "disabled"}>
+        <div class="mp-top"><span class="mp-name">${esc(spec.name)}</span>${
+          on ? '<span class="mp-badge">사용 중</span>' : ""}</div>
+        <div class="mp-tag">${esc(spec.tag)}</div>
+        <div class="mp-specs">${esc(spec.specs)}</div></button>`;
+  }).join("");
+
+  const provider = String(readonly.provider ?? tunable.provider ?? "");
+  const cloud = provider === "gemini" || provider === "openai";
+  const availLine = st.available
+    ? `<span class="mp-ok">● llama.cpp GPU 준비됨</span>`
+    : `<span class="mp-off">● 미설치</span> <code>pip install "lemory[llama]"</code> — 검색·임베딩은 이것 없이도 동작`;
+
+  // embedding identity
+  const embName = esc(readonly.embed_model || "e5-small-ko-v2");
+  const backend = String(tunable.local_embed_backend ?? "auto");
+  const dim = readonly.embed_dim || (backend === "llamacpp" ? 1024 : 384);
+  const embDetail = cloud
+    ? `${dim}d · ${esc(provider)} 클라우드`
+    : backend === "llamacpp" ? `${dim}d · llama.cpp GPU` : `${dim}d · fastembed · 무컴파일`;
+  // reranker identity — the dedicated Qwen3 cross-encoder is the `reranker`
+  // config flag (not the generic LLM `rerank` self-scoring pass)
+  const rerankOn = !!readonly.reranker;
+
+  return `<div class="card models-card">
+    <div class="card-head">모델 <span class="spacer"></span>
+      <span class="mp-hint">답변은 온디바이스, 임베딩·리랭커는 아래 항목에서 조정</span></div>
+
+    <div class="model-group">
+      <div class="mg-label">답변 LLM <span class="mg-sub">지식베이스 위에서 답을 생성 · 로컬 스트리밍</span></div>
+      <div class="model-picks">${picks}</div>
+      <div class="mp-avail">${availLine}</div>
+      ${cloud ? `<div class="mp-note">클라우드 키(<b>${esc(provider)}</b>)가 설정돼 있어 <code>ask</code>는
+        <b>${esc(readonly.llm_model || provider)}</b>로도 답할 수 있어요. 위 선택은 온디바이스(오프라인) 답변 모델입니다.</div>` : ""}
+    </div>
+
+    <div class="model-info">
+      <div class="mi-row"><span class="mi-k">임베딩</span>
+        <span class="mi-v">${embName} <span class="mi-d">${esc(embDetail)}</span></span></div>
+      <div class="mi-row"><span class="mi-k">리랭커</span>
+        <span class="mi-v">Qwen3-Reranker-0.6B
+          <span class="mi-d ${rerankOn ? "mi-on" : ""}">${rerankOn ? "켜짐" : "꺼짐(기본) · 강한 임베더엔 측정상 도움 없음"}</span></span></div>
+    </div>
+  </div>`;
+}
+
 const SETTINGS_META = [
   ["임베딩 · 모델  ⟳ 저장 후 재시작 + 재색인 필요 (벡터 공간이 바뀝니다)", [
-    ["provider", "프로바이더", "auto: 키 있으면 클라우드·없으면 로컬 / local: 로컬 임베딩(키 불필요) / gemini·openai: API 키 필요(.env) / ollama: 로컬 데몬", "select", ["auto", "local", "gemini", "openai", "ollama"]],
-    ["local_embed_backend", "로컬 임베더", "auto: llama 설치 시 Harrier(1024d)·아니면 MiniLM(384d) / llamacpp: Harrier 고품질 (lemory[llama]) / fastembed: MiniLM 경량·전 OS", "select", ["auto", "llamacpp", "fastembed"]],
+    ["provider", "프로바이더", "auto: 키 있으면 클라우드·없으면 로컬 / local: 로컬 임베딩(키 불필요) / gemini·openai: API 키 필요(.env)", "select", ["auto", "local", "gemini", "openai"]],
+    ["local_embed_backend", "로컬 임베더", "auto: e5-small-ko-v2(384d, 측정상 최강·기본) / fastembed: 동일 e5-small-ko-v2 / llamacpp: 1024d Harrier 옵션 (lemory[llama])", "select", ["auto", "fastembed", "llamacpp"]],
   ]],
   ["검색 품질", [
     ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
@@ -898,7 +965,7 @@ async function renderSettings() {
   const cur = { ...cfg.tunable };
 
   const grid = $("#setGrid");
-  let html = "";
+  let html = await renderModelsCard(cur, cfg.readonly);
   for (const [section, rows] of SETTINGS_META) {
     html += `<div class="card"><div class="card-head">${section}</div>`;
     for (const [key, name, desc, type, options] of rows) {
@@ -919,6 +986,24 @@ async function renderSettings() {
       `<div class="kv-row"><span class="kv-k">${esc(k)}</span><span class="kv-v mono">${esc(v ?? "—")}</span></div>`).join("")
   }</div></div>`;
   grid.innerHTML = html;
+
+  // answer-model (Gemma E4B/E2B) live switch — dedicated endpoint, persists to lemory.toml.
+  // Update the picks in place rather than re-rendering the whole view, so any
+  // unsaved edits in the other settings cards survive the switch.
+  $$(".model-pick", grid).forEach(b => b.onclick = async () => {
+    if (b.disabled || b.classList.contains("on")) return;
+    try {
+      await jpost("/api/assistant/model", { size: b.dataset.size });
+      toast(`답변 모델 → ${b.dataset.size}`, "ok");
+      $$(".model-pick", grid).forEach(x => {
+        const on = x === b;
+        x.classList.toggle("on", on);
+        const badge = x.querySelector(".mp-badge");
+        if (on && !badge) x.querySelector(".mp-top").insertAdjacentHTML("beforeend", '<span class="mp-badge">사용 중</span>');
+        if (!on && badge) badge.remove();
+      });
+    } catch (e) { toast(e.message, "err"); }
+  });
 
   const dirty = () => Object.keys(cur).filter(k => String(cur[k]) !== String(orig[k]));
   const syncBar = () => {

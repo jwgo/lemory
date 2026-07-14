@@ -211,7 +211,12 @@ isolates model + architecture, which favors it if anything).
 | full-support@8 | multihop | 2-hop | paraphrase | korean | typo | maple | law | kepano |
 |---|---|---|---|---|---|---|---|---|
 | SC-class (bge-micro-v2, cosine) | 0.456 | 0.262 | 0.446 | 0.475 | 0.404 | 0.727 | 0.842 | **1.000** |
-| **Lemory** (local MiniLM) | **0.860** | **0.810** | **0.821** | **0.850** | **0.772** | **1.000** | **1.000** | 0.955 |
+| **Lemory** (local, MiniLM-era) | **0.860** | **0.810** | **0.821** | **0.850** | **0.772** | **1.000** | **1.000** | 0.955 |
+
+<sub>The two "Lemory (local)" rows in §4g were measured on the retired MiniLM
+default; the current e5-small-ko-v2 default measures higher on the same axes
+(headline in §5e). The comparison against SC-class / Omnisearch — architecture,
+not embedder — is unchanged.</sub>
 
 Honest read: on the small English personal vault (kepano) dense-only
 saturates and edges Lemory by one question — consistent with §5d. Everywhere
@@ -289,24 +294,27 @@ KorQuAD(문어 단일홉)와 LongMemEval(영어 대화)이 안 재는 축들을 
 상세: `benchmarks/data/kormapleqa/README.md`.
 
 **gold-doc@1 / gold-doc@8** (문서 수준 — 문서 단위 시스템과 공정 비교;
-로컬 임베더, 2026-07-11):
+로컬 임베더 e5-small-ko-v2 @ chunk 882, 재측정):
 
 | 시스템 | 전체 @1 | 전체 @8 | 질문형 @8 | 마스킹 @8 | 2-hop(fs) | 시간 @8 | 키워드 @8 | 구어체 @8 | 오타 @8 |
 |---|---|---|---|---|---|---|---|---|---|
 | **Lemory (Gemini 임베딩)** | **0.664** | **0.906** | **0.915** | **0.856** | **0.977 (0.344)** | **0.928** | **0.982** | **0.900** | **0.796** |
-| **Lemory** (로컬, 키 제로) | 0.526 | 0.738 | 0.747 | 0.461 | 0.797 (0.141) | 0.807 | 0.964 | 0.827 | 0.591 |
-| BM25 (Lemory의 CJK-bigram 인덱스¹) | 0.401 | **0.741** | 0.722 | **0.735** | 0.758 (0.125) | 0.795 | 0.955 | **0.855** | 0.473 |
-| Vector-only (MiniLM) | 0.050 | 0.149 | 0.167 | 0.088 | 0.172 (0.008) | 0.265 | 0.123 | 0.159 | 0.086 |
+| **Lemory** (로컬 e5-small-ko-v2, 키 제로) | **0.628** | **0.889** | **0.907** | **0.777** | **0.969 (0.477)** | 0.904 | **0.982** | **0.927** | 0.736 |
+| BM25 (Lemory의 CJK-bigram 인덱스¹) | 0.412 | 0.756 | 0.746 | 0.730 | 0.781 (0.133) | 0.783 | 0.964 | 0.900 | 0.445 |
+| Vector-only (e5-small-ko-v2) | 0.528 | 0.863 | 0.891 | 0.586 | 0.953 (0.211) | **0.976** | 0.959 | 0.927 | **0.755** |
 | Smart-Connections-class | 0.075 | 0.200 | 0.220 | 0.047 | 0.117 (0.000) | 0.434 | 0.209 | 0.214 | 0.200 |
 | Omnisearch (실제 MiniSearch) | 0.112 | 0.149 | 0.062 | 0.014 | — (0.000) | 0.133 | 0.945² | 0.077 | 0.041 |
 
 <sub>¹ BM25 행도 Lemory의 색인 발명품(한글/CJK 바이그램 FTS) 위에서 돈다 —
 순정 FTS라면 Omnisearch처럼 무너진다. 같은 색인 위에서 하이브리드는 @1
-+12.5pt, 오타 +11.8pt, 2-hop fs +1.6pt를 더 얹는다.
++21.6pt, 오타 +29.1pt, 2-hop fs +34.4pt를 더 얹는다 (한국어 특화 e5 밀집
+레그가 BM25 위에 크게 보탠다).
 ² Omnisearch의 키워드 1-hop 0.945는 진짜 실력(홈그라운드) — 같은 시스템이
 질문형·구어체·오타에서 0.0x인 것이 이 벤치마크의 요점.</sub>
 
-이 벤치마크가 직접 견인한 개선 3건 (각각 가드 배터리 검증 후 채택):
+이 벤치마크가 직접 견인한 개선 3건 (각각 가드 배터리 검증 후 채택 — 아래
+델타는 당시 로컬 MiniLM 임베더 기준 개발 기록이며, 절대 수치는 위 e5 표가
+대체한다):
 한국어 음절 Damerau-Levenshtein 오타 교정(오타 축 0.341→0.591), 가나·한자
 CJK 바이그램(마스킹·표기 질문의 원인이 혼합 스크립트 토큰 접착이었다 —
 BM25 마스킹이 0.39→0.74로 뛴 것도 이 색인 변경), **어휘 증거 그래프
@@ -321,18 +329,16 @@ BM25 마스킹이 0.39→0.74로 뛴 것도 이 색인 변경), **어휘 증거 
 
 | | 전체 doc8 | n | p50/query | 비고 |
 |---|---|---|---|---|
-| **Lemory** | **0.738** | 2,067 | **13 ms** | 하이브리드+그래프 |
+| **Lemory** | **0.889** | 2,067 | **~16 ms** | 하이브리드+그래프 (e5-small-ko-v2) |
 | MemPalace 3.5 (57k★) | 0.033 | 2,067 | 0.76 s | sqlite_exact+번들 embeddinggemma — 한국어 대규모에서 붕괴 (자체 §4f korean 0.350과 정합) |
 | qmd `search` (BM25) | 0.092 | 2,067 | 0.09 s | AND 시맨틱스 — 키워드 축만 0.846 |
 | qmd `vsearch` | 0.657 | 280† | 4.2 s | embeddinggemma 벡터 |
 | qmd `query` (로컬 LLM 풀파이프라인) | **0.774** | 84† | **59.5 s** (CPU) | 인제스트 임베딩 33분 56초 |
 
-<sub>† 층화 시드 샘플(지연 제약). **동일 문항 재대결(n=329, 2026-07-12,
-IDF 게이트·앵커 핀·첫음절 오타 교정 이후)**: Lemory-local **doc8 0.775 @
-20.3ms** vs qmd query **0.769 @ 59.5s** — 동률권 품질(차이는 CI 내)을
-**~2,930× 빠르게**. 축별로 Lemory가 키워드(0.98/0.84)·단일사실·시간·마스킹
-우위, qmd가 2-hop doc8(1.00/0.81)·오타(0.53/0.49) 우위 — 전부 기재. 벡터
-모드(vsearch)는 품질·속도 모두 밀린다(0.657@4.2s).</sub>
+<sub>† 층화 시드 샘플(지연 제약). **동일 문항 재대결(n=329)**: 한국어 특화 e5
+기본으로 Lemory-local **doc8 0.875 @ ~16ms** vs qmd query **0.769 @ 59.5s** —
+품질 우위(+10.6pt)를 **~3,700× 빠르게**. (구 MiniLM 기본에선 0.775로 동률권
+이었다.) 벡터 모드(vsearch)는 품질·속도 모두 밀린다(0.657@4.2s).</sub>
 
 **LLM 인제스트 경쟁자 (400노트 서브코퍼스 프로토콜, flash-lite 추출,
 동일 질문 310개·같은 Gemini 임베딩 — `run_kormapleqa_llm_rivals.py`)**:
@@ -441,14 +447,22 @@ BM25 (3.6→1.5 pt)** — while the multi-hop (1.000) and robustness
 further (3.0) starts costing paraphrase robustness, so this is the knee of
 the curve, not the end of it.
 
-## 6b. Keyless laptop regime (local MiniLM embedder): Korean morphology + the verbatim pin
+## 6b. Keyless laptop regime: Korean morphology + the verbatim pin (dev history)
 
-Everything above runs on Gemini embeddings. In **keyless local mode**
-(fastembed multilingual MiniLM, CPU, zero API calls) the dense leg is far
+> This section documents the keyless-local hardening as it was measured on the
+> **then-default MiniLM embedder**. The default is now the Korean-tuned
+> e5-small-ko-v2, whose dense leg is far stronger on Korean (keyless-local
+> KorQuAD hybrid recall@1 **0.935**, KorMapleQA doc@8 **0.889** — see §5e). The
+> RRF-margin gate and verbatim pin below still ship and still help; the absolute
+> "weak dense leg" numbers here are the historical record of why they were added.
+
+Everything above runs on Gemini embeddings. In the older **keyless local mode**
+(fastembed multilingual MiniLM, CPU, zero API calls) the dense leg was far
 weaker on Korean — and rank-only RRF let that weak leg corrupt decisive
 lexical wins: a chunk mediocre in *both* legs outranks a decisive BM25 top-1,
 because RRF sees ranks, not margins. On KorQuAD/local, hybrid recall@1 was
-0.525 vs BM25's 0.923 — a 40 pt hole (Gemini regime: 1.5 pt).
+0.525 vs BM25's 0.923 — a 40 pt hole (Gemini regime: 1.5 pt). With the e5
+default this hole is gone (0.935 vs 0.900), but the margin gate stays.
 
 Two fixes, both LLM-free (`retrieval/search.py`):
 
@@ -547,29 +561,31 @@ The field's headline currency is "R@5 on LongMemEval" measured with a local
 embedder and no API (MemPalace markets "96.6% R@5, zero API calls"). This is
 the identical protocol on the **entire cleaned S set** — no stratified
 sampling, no LLM generator/judge, so the number is directly comparable and
-reproducible on a laptop (`benchmarks/run_longmemeval_full.py`). Embedder:
-fastembed multilingual MiniLM (Lemory's `local` provider, CPU, fully offline).
-Metric is **session-level recall** over the 470 questions that have evidence
-sessions (the 30 abstention questions have none by construction and are
-excluded, per the LongMemEval retrieval protocol):
+reproducible on a laptop (`benchmarks/run_longmemeval_full.py`). Embedder: the
+**e5-small-ko-v2** default. Re-measured on the new default, the Korean-tuned e5
+model actually *improves* this English benchmark over the old MiniLM — all@5
+0.857→**0.903**, any@5 0.972→**0.983** — consistent with e5-small ranking at or
+above all-MiniLM-L6 on English MTEB. Metric is **session-level recall** over the
+462 evidence-bearing questions measured (of 470; the 30 abstention questions have
+none by construction and are excluded, per the LongMemEval retrieval protocol):
 
 | | Recall@5 (all evidence sessions) | Recall@5 (any) | Recall@10 (all) | Recall@10 (any) |
 |---|---|---|---|---|
-| **Lemory** (hybrid + graph) | **0.857** | **0.972** | **0.879** | **0.987** |
-| Vector-only (naive RAG) | 0.809 | 0.964 | 0.819 | 0.966 |
+| **Lemory** (hybrid + graph) | **0.903** | **0.983** | **0.922** | **0.987** |
+| Vector-only (naive RAG) | 0.853 | 0.978 | 0.855 | 0.981 |
 
 Two definitions are reported because they answer different questions.
 **"any"** — at least one evidence session in the top-k — is what most "R@5"
-claims in this space measure; Lemory is **0.972** on the full set, in the
+claims in this space measure; Lemory is **0.983** on the full set, in the
 neighborhood of the marketed headlines, with a local embedder and no API.
 **"all"** — *every* evidence session retrieved, the precondition for actually
 answering a multi-session question — is the stricter number we lead with:
-0.857. We publish both rather than quoting only the flattering one.
+0.903. We publish both rather than quoting only the flattering one.
 
-By question type (strict all@5 / any@5, n): knowledge-update 0.972/1.000 (72),
-single-session-user 0.969/0.969 (64), single-session-assistant 0.964/0.964
-(56), single-session-preference 0.933/0.933 (30), multi-session 0.785/0.992
-(121), temporal-reasoning 0.740/0.953 (127). The gap between strict and any on
+By question type (strict all@5 / any@5, n): knowledge-update 0.986/1.000 (72),
+single-session-user 1.000/1.000 (64), single-session-assistant 0.979/0.979
+(48), single-session-preference 0.867/0.867 (30), multi-session 0.851/1.000
+(121), temporal-reasoning 0.835/0.976 (127). The gap between strict and any on
 multi-session / temporal is expected: those questions cite several sessions,
 so retrieving *all* of them in 5 is genuinely hard — and exactly why the two
 metrics are worth separating.

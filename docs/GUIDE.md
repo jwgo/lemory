@@ -34,26 +34,25 @@ Without a billing account attached there is **no way to be charged** — hitting
 the free limit means waiting, not paying. Lemory rate-limits itself to stay
 inside it.
 
-## 3. Setup — one click is enough
+## 3. Setup — one command is enough
 
 ```bash
-lemory up ~/Obsidian/MyVault   # zero questions: detect key → pick mode → index → dashboard
+lemory up                        # interactive: asks for your vault, then indexes
+lemory up ~/Obsidian/MyVault     # zero questions: detect mode → index → dashboard
+lemory up ~/Vault --key <KEY>    # Gemini cloud mode
 ```
 
-Key in the environment → full mode; no key → local/keyless mode, upgraded in
-place when a key appears. Prefer choosing step by step? The wizard:
-
-```bash
-lemory setup
-```
-
-It asks for your vault path, lets you pick an execution mode
-(**1** Gemini free API · **2** fully local via Ollama · **3** search-only
-local), health-checks the connection, and runs the first index. Then:
+`up` auto-detects the best mode: a Gemini key → cloud; llama.cpp installed →
+e5-small-ko-v2 embeddings + Gemma 4 answers on-device; otherwise search-only
+local. Run it interactively and it offers to `pip install "lemory[llama]"` for
+on-device Gemma answers. No number menu, no wizard. Then:
 
 ```bash
 lemory ask "what did we decide in last week's meeting?"
 ```
+
+Want a different answer model or embedder (Gemma E4B/E2B, embedder backend,
+reranker)? Change it later in the dashboard's **Settings › Models** card.
 
 ## 4. How to use it — set up once, then keep using it
 
@@ -66,7 +65,8 @@ talks to it.
 lemory up ~/Obsidian/MyVault      # config + first index + serve, in one go
 ```
 Search works with no key at all (local embeddings). Want AI answers (`ask`)?
-run `lemory setup` and pick a Gemini key or Ollama.
+`lemory up` sets up on-device Gemma 4 by default (no key) when llama.cpp is
+installed; pass `--key <KEY>` for Gemini instead.
 
 **2. Keep it running (recommended — the always-on backend)**
 ```bash
@@ -117,42 +117,46 @@ On the Gemini free tier, what Lemory actually consumes:
 The content-addressed embedding cache means a paragraph is never embedded
 twice — editing back and forth, or a full rebuild, costs nothing.
 
-### Zero keys, 100% offline — two local modes
+### Zero keys, 100% offline — everything on-device, no daemon
 
-Pick a number in `lemory setup`:
+Every local path runs **in-process on one llama.cpp engine** — no Ollama, no
+server to babysit, GPU everywhere it exists (Metal on Mac, CUDA/Vulkan on
+Linux/Windows, CPU offload otherwise), the way qmd uses node-llama-cpp. `lemory
+up` picks the right one for your machine:
 
-**Mode 2 — fully local (Ollama): even answers run offline**
+**Mode 1 — ⭐ best local (recommended): even answers run offline**
 
-- LLM: **Gemma 4 E4B** (~4.5B, `ask()` answers locally; `lemory setup` also offers the lighter E2B)
-- Embeddings: **Harrier-OSS-0.6B** (Q8, ~640 MB, 1024d, Qwen3-based multilingual)
-- Setup: install [ollama.com](https://ollama.com/download) → `lemory setup` → `2`.
-  The wizard offers to run the `ollama pull`s for you.
-- Not a byte of your vault ever leaves the machine.
+The whole stack on-device, keyless — this is what `lemory up` sets up by default
+when llama.cpp is present. It offers to `pip install "lemory[llama]"` (for the
+answer model); the GGUFs auto-download once.
 
-**Mode 3 — light local (in-process, no daemon): search-only**
+- Embeddings: **e5-small-ko-v2** (dragonkue's Korean-tuned multilingual-e5-small,
+  fastembed, 384d, no compile). Measured hybrid **doc@8 0.889** on KorMapleQA —
+  the strongest local embedder we measured, above the 1024-d Harrier (0.853).
+- Answers: **Gemma 4 E4B** (Q4_K_M GGUF) on llama.cpp GPU, streamed. Switch to
+  the lighter **E2B** in the web console. This is what `lemory[llama]` is for.
+- A dedicated reranker is available (`reranker = true`) but ships **off** — a
+  small reranker measured *worse* on the strong embedder (see below). Not a byte
+  of your vault ever leaves the machine.
 
-Two backends, both keyless and daemon-free (embeddings run inside the process,
-the way qmd uses node-llama-cpp):
+**Mode 2 — light local (search-only): no answer model**
 
-- **Harrier (recommended): `pip install "lemory[llama]"`.** Microsoft's
-  Harrier-OSS-0.6B (Qwen3-based multilingual, Q8 GGUF, ~640 MB, 1024d) runs
-  in-process via llama.cpp with Metal/GPU. Measured hybrid **doc@8 0.853** on
-  KorMapleQA (vs MiniLM's 0.788), the same score as the Ollama path since it is
-  the same GGUF. The GGUF auto-downloads from HuggingFace on first index.
-- **MiniLM (lighter): `pip install "lemory[local]"`.** Multilingual MiniLM via
-  fastembed (pure-Python ONNX, ~220 MB, 384d), doc@8 0.788. No native compile,
-  smallest footprint. The right pick if `lemory[llama]` won't build on your box.
+- Same **e5-small-ko-v2** embedder, without the Gemma answer model — `pip
+  install "lemory[local]"`, pure-Python ONNX, no native compile, tiny footprint.
+  Search + semantic embeddings on Raspberry-Pi-class hardware, no `ask()`.
 
-`auto` uses Harrier when `lemory[llama]` is installed, else MiniLM. Everything
-except `ask()` works; `ask()` needs a generator (Gemini key or Ollama Gemma).
+`local_embed_backend = auto` uses e5-small-ko-v2 (it measured strongest); set
+`llamacpp` for the 1024-d Harrier if you prefer it. Everything except `ask()`
+works with embeddings alone; `ask()` needs a generator — on-device Gemma 4 (add
+`lemory[llama]`) or a Gemini key.
 
 **Minimum specs**
 
 | Mode | RAM | Disk | Notes |
 |---|---|---|---|
-| 1 Gemini API | anything | ~0 | needs internet, any machine |
-| 2 fully local (Ollama) | **8 GB+ (16 GB nice)** | ~6.5 GB | CPU works; GPU makes answers snappy |
-| 3 light local | 4 GB | ~250 MB | Raspberry-Pi-class hardware is fine |
+| 1 best local (e5 + Gemma 4 E4B) | **8 GB+ (16 GB nice)** | ~4 GB | embeddings are light; Metal/GPU makes answers snappy. Drop to E2B on 8 GB |
+| 2 light local (search-only) | 4 GB | ~250 MB | Raspberry-Pi-class hardware is fine |
+| 3 Gemini API | anything | ~0 | needs internet, any machine |
 
 Mixed mode works too: local embeddings + API generation — only the few
 retrieved chunks are ever sent out, never the vault.
@@ -234,7 +238,7 @@ robustness without any model in the loop.
 
 The one place a language model genuinely helps is **deep multi-hop on a huge
 vault** — "A가 위치한 지역의 X" where the answer note is only reachable through
-a link and never mentions the query's words. On the 33k-chunk namuwiki corpus
+a link and never mentions the query's words. On the ~42k-chunk namuwiki corpus
 this is hard for every system: Lemory's zero-LLM 2-hop full-support is ~0.14,
 and the honest reason is that the answer note carries almost no lexical or
 semantic signal of its own (BENCHMARKS 5e keeps this as a standing open
@@ -255,8 +259,8 @@ or per call: `lemory search "..." --expand --rerank`.
 **Two honest caveats, both measured.**
 
 First, the model matters enormously, and small local models are not enough.
-On a 40-question 2-hop sample over the namuwiki corpus, with a local
-`qwen2.5:3b` through Ollama:
+On a 40-question 2-hop sample over the namuwiki corpus, with a generic small
+local model (`qwen2.5:3b`):
 
 | setting | 2-hop full-support | latency |
 |---|---|---|
@@ -279,60 +283,57 @@ was trained on an English/tech query distribution and hallucinates on short
 Korean queries ("스우 테마곡" -> "big data"), so it is a poor default for a
 Korean-first vault. Worth trying, not worth hard-wiring.
 
-**Use a dedicated reranker, not generic LLM scoring.** Lemory ships a proper
-cross-encoder path: set `reranker = true` and it scores candidates with
-Qwen3-Reranker (`ollama_reranker_model`) instead of asking a chat model to
-grade itself. Measured on the namuwiki corpus, 30 single/masked questions,
-local Qwen3-Reranker-0.6B:
+**A dedicated reranker is available — but ships off by default, and here is
+why.** Set `reranker = true` to reorder the top candidates with a cross-encoder
+instead of fusion alone. A cross-encoder can only reorder what retrieval already
+surfaced, so it can lift doc@1 but cannot fix a deep-multi-hop recall miss. On a
+*strong* embedder it barely earns its keep — measured on KorMapleQA v2 (full
+2,067) on top of the e5-small-ko-v2 default:
 
-| | recall@1 | recall@8 | latency |
+| reranker | doc@1 | doc@8 | latency |
 |---|---|---|---|
-| baseline | 0.633 | 0.767 | 36 ms |
-| + dedicated reranker | **0.700** | 0.767 | 4.1 s |
+| none (default) | 0.610 | 0.879 | ~30 ms/query |
+| Qwen3-Reranker-0.6B | 0.580 | 0.885 | ~1.9 s/query |
+| jina-reranker-v2 | 0.622 | 0.890 | ~0.8 s/query |
 
-That is the reranker doing exactly its job: recall@8 unchanged (it can only
-reorder what was already retrieved), recall@1 up 6.7 pt (it promotes the
-right retrieved note to the top). It does **not** help deep multi-hop, whose
-failure is recall (the answer note never entered the candidate set), not
-ranking — a reranker cannot surface what retrieval missed. So reach for
-`reranker` when the right note is *in* the results but not at #1, accept the
-seconds-per-query cost, and keep it off for everyday lookups.
+Qwen3-Reranker actually **hurt** doc@1 (a 0.6B reranker second-guessing an
+already-correct top result), and even the stronger jina cross-encoder bought
+~+1 pt for 25-60x the query latency. So retrieval ships **without** a reranker —
+the embedder + BM25 + link-graph fusion already rank well — and `reranker`
+stays an opt-in precision knob for corpora where the right note lands in the
+results but not at #1.
 
 ### The local stack, in tiers
 
 Everything above is opt-in on top of a fast, free default. Pick the tier you
-want in `lemory setup` or `lemory.toml`:
+want in the dashboard's **Settings › Models** card or `lemory.toml`:
 
-1. **Best local, no daemon (`lemory[llama]`, Harrier-OSS-0.6B):** in-process
-   llama.cpp (Metal/GPU), the same runtime qmd uses. Hybrid **doc@8 0.853**,
-   closing over half the gap to the Gemini ceiling (0.906) with zero keys and
-   no server to run. Gains land on the hard types (masked +11, 2-hop
-   full-support 0.18 to 0.29, typo +7). Costs: a native wheel (compiles if no
-   prebuilt), ~640 MB GGUF (auto-downloaded once), and query latency ~100 ms vs
-   MiniLM's ~18 ms. `pip install "lemory[llama]"`.
-2. **Lightest local (`lemory[local]`, fastembed MiniLM):** pure-Python ONNX,
-   ~220 MB, milliseconds, no native compile. doc@8 0.788. The fallback when the
-   llama wheel won't build, or when index speed on a huge vault matters more
-   than the last few points.
-3. **Same Harrier via a shared daemon (Ollama):** `provider = ollama` runs the
-   *identical* Harrier GGUF (doc@8 0.853) through an Ollama server instead of
-   in-process. Pick this only if you already run Ollama or want one daemon
-   serving embeddings + reranker + Gemma together.
-   `ollama pull hf.co/mradermacher/harrier-oss-v1-0.6b-GGUF:Q8_0`.
-4. **Precision mode (+ dedicated reranker):** `reranker = true` reorders the
-   top candidates with an in-process ONNX cross-encoder (jina-reranker-v2
-   multilingual, strong Korean, ~ms, no daemon). `reranker_backend="ollama"`
-   uses the Qwen3-Reranker GGUF instead.
-5. **Grounded answers (+ Gemma):** `ollama_llm_model` (default `gemma4:e4b`, or the lighter `gemma4:e2b`)
-   powers `lemory ask` fully offline. Retrieval never needs it; only `ask`
-   does.
+1. **Default embedder (`lemory[local]`, e5-small-ko-v2):** dragonkue's
+   Korean-tuned multilingual-e5-small via fastembed (pure-Python ONNX, 384d,
+   ~9 ms/embed, no native compile). Measured **hybrid doc@8 0.889** on the full
+   KorMapleQA v2 — the strongest local embedder we measured, above the 1024-d
+   Harrier (0.853) and the old MiniLM (0.788), and it never lost to Harrier on
+   the English or long-doc corpora tested. `local_embed_backend = auto` picks it.
+2. **Optional 1024-d embedder (`lemory[llama]`, Harrier-OSS-0.6B):** in-process
+   llama.cpp (Metal/GPU), doc@8 0.853. It measured *below* e5-small-ko-v2 here
+   and is heavier (~640 MB GGUF, ~100 ms/query vs ~9 ms) — kept as an option
+   (`local_embed_backend = "llamacpp"`) for those who want the larger dimension,
+   but it is no longer the default.
+3. **Precision mode (+ dedicated reranker), off by default:** `reranker = true`
+   reorders the top candidates with a cross-encoder. Measured on the strong
+   local embedders it barely helps or even hurts, at a large latency cost (table
+   above), so it ships **off** — reach for it only on a corpus where the right
+   note lands in the results but not at #1.
+4. **Grounded answers (+ Gemma 4, on-device):** the same `lemory[llama]` engine
+   runs **Gemma 4 E4B** (Q4_K_M GGUF) so `lemory ask` and the web console answer
+   fully offline. Switch to the lighter **E2B** in the console. Retrieval never
+   needs it; only `ask` does.
 
-Second, when you do run an LLM, run it **local, not the free-tier API**. The
+Second, when you do run an LLM, run it **on-device, not the free-tier API**. The
 slowness of an LLM pipeline is almost never the model, it is the API queue
-(we hit the exact `429 credits depleted` wall measuring this). Ollama on an
-M-series laptop answers a `generate_json` call in ~1.3 s with no per-query
-bill and no queue. Point Lemory at it with `lemory setup` → local mode or
-`LEMORY_PROVIDER=ollama`.
+(we hit the exact `429 credits depleted` wall measuring this). Gemma 4 on
+llama.cpp Metal answers with no per-query bill and no queue — it's what `lemory
+up` sets up by default on-device.
 
 ## Big vaults
 
@@ -355,7 +356,7 @@ lemory status
 
 | Symptom | Fix |
 |---|---|
-| `No API key found` | set `GEMINI_API_KEY` — `lemory setup` does it for you |
+| `No API key found` | set `GEMINI_API_KEY` — `lemory up --key <KEY>` does it for you |
 | 429 / brief stalls | free-tier limit; Lemory waits and retries. Not a charge |
 | Odd results | `lemory index --full`; still odd → open an issue |
 | Console won't open | is `lemory serve` running? port 8377 free? |
