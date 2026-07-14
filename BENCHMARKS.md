@@ -211,7 +211,12 @@ isolates model + architecture, which favors it if anything).
 | full-support@8 | multihop | 2-hop | paraphrase | korean | typo | maple | law | kepano |
 |---|---|---|---|---|---|---|---|---|
 | SC-class (bge-micro-v2, cosine) | 0.456 | 0.262 | 0.446 | 0.475 | 0.404 | 0.727 | 0.842 | **1.000** |
-| **Lemory** (local MiniLM) | **0.860** | **0.810** | **0.821** | **0.850** | **0.772** | **1.000** | **1.000** | 0.955 |
+| **Lemory** (local, MiniLM-era) | **0.860** | **0.810** | **0.821** | **0.850** | **0.772** | **1.000** | **1.000** | 0.955 |
+
+<sub>The two "Lemory (local)" rows in §4g were measured on the retired MiniLM
+default; the current e5-small-ko-v2 default measures higher on the same axes
+(headline in §5e). The comparison against SC-class / Omnisearch — architecture,
+not embedder — is unchanged.</sub>
 
 Honest read: on the small English personal vault (kepano) dense-only
 saturates and edges Lemory by one question — consistent with §5d. Everywhere
@@ -442,14 +447,22 @@ BM25 (3.6→1.5 pt)** — while the multi-hop (1.000) and robustness
 further (3.0) starts costing paraphrase robustness, so this is the knee of
 the curve, not the end of it.
 
-## 6b. Keyless laptop regime (local MiniLM embedder): Korean morphology + the verbatim pin
+## 6b. Keyless laptop regime: Korean morphology + the verbatim pin (dev history)
 
-Everything above runs on Gemini embeddings. In **keyless local mode**
-(fastembed multilingual MiniLM, CPU, zero API calls) the dense leg is far
+> This section documents the keyless-local hardening as it was measured on the
+> **then-default MiniLM embedder**. The default is now the Korean-tuned
+> e5-small-ko-v2, whose dense leg is far stronger on Korean (keyless-local
+> KorQuAD hybrid recall@1 **0.935**, KorMapleQA doc@8 **0.889** — see §5e). The
+> RRF-margin gate and verbatim pin below still ship and still help; the absolute
+> "weak dense leg" numbers here are the historical record of why they were added.
+
+Everything above runs on Gemini embeddings. In the older **keyless local mode**
+(fastembed multilingual MiniLM, CPU, zero API calls) the dense leg was far
 weaker on Korean — and rank-only RRF let that weak leg corrupt decisive
 lexical wins: a chunk mediocre in *both* legs outranks a decisive BM25 top-1,
 because RRF sees ranks, not margins. On KorQuAD/local, hybrid recall@1 was
-0.525 vs BM25's 0.923 — a 40 pt hole (Gemini regime: 1.5 pt).
+0.525 vs BM25's 0.923 — a 40 pt hole (Gemini regime: 1.5 pt). With the e5
+default this hole is gone (0.935 vs 0.900), but the margin gate stays.
 
 Two fixes, both LLM-free (`retrieval/search.py`):
 
