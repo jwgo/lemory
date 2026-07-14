@@ -2,13 +2,15 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
-## 0.3.0 · One llama.cpp engine (Harrier + Qwen3-Reranker + Gemma 4), KorMapleQA v2
+## 0.3.0 · Korean-tuned e5 default (0.879 doc@8), on-device Gemma answers, no Ollama
 
-**One local engine.** Embeddings, reranker, and answers now all run on a single
-llama.cpp runtime — GPU everywhere it exists (Metal on Mac, CUDA/Vulkan on
-Linux/Windows, CPU offload otherwise), one dependency (`lemory[llama]`), no
-daemon and no second runtime. Harrier embeds, Qwen3-Reranker reranks, Gemma 4
-answers; all three GGUFs auto-download once.
+**Better retrieval, simpler stack.** The keyless local default is now a
+Korean-tuned e5 embedder that measures **hybrid doc@8 0.879 on KorMapleQA** —
+above the old MiniLM default (0.788) and even the llama.cpp Harrier tier
+(0.853), second only to the Gemini config (0.906). On-device answers moved to
+Gemma 4 on llama.cpp (GPU everywhere: Metal / CUDA / Vulkan / CPU offload). A
+dedicated reranker is available but ships **off** — measured, a small reranker
+doesn't help a strong embedder (details below). Ollama and LiteRT-LM are gone.
 
 ### Local embeddings
 
@@ -18,20 +20,24 @@ answers; all three GGUFs auto-download once.
   runtime qmd uses. Measured hybrid **doc@8 0.853 on KorMapleQA**, closing over
   half the gap to the Gemini ceiling (0.906) with zero keys. The GGUF
   auto-downloads from HuggingFace once.
-- **The light default (fastembed, no compiler) is now dragonkue's Korean-tuned
+- **The default (fastembed, no compiler) is now dragonkue's Korean-tuned
   `multilingual-e5-small-ko-v2`** (384d), replacing MiniLM. Registered from a
-  community ONNX export so it stays pure-Python and torch-free. Measured dense
-  doc@8 **0.86 vs MiniLM's 0.14** on a KorMapleQA subcorpus (Korean semantic
-  retrieval) at ~9 ms/embed — a big Korean jump for the same weight class.
-  `local_embed_backend = "auto"` uses it when llama-cpp-python is not installed.
+  community ONNX export so it stays pure-Python and torch-free, ~9 ms/embed.
+  Measured **hybrid doc@8 0.879 on the full KorMapleQA v2** (2,067) — vs MiniLM's
+  0.788 and above the Harrier tier's 0.853, at a fraction of the weight and no
+  native compile. `local_embed_backend = "auto"` still prefers Harrier when
+  llama-cpp-python is installed, but e5-small-ko-v2 is the stronger measured
+  embedder here — see the standings chart.
 
 ### Retrieval quality
 
-- **Dedicated cross-encoder reranker** (`reranker = true`): **Qwen3-Reranker-0.6B**
-  (2025 SOTA small reranker) on the same llama.cpp engine, scored by its official
-  `P("yes")` method on GPU, instead of a chat model grading itself. It reorders,
-  so it lifts doc@1 but cannot fix a deep-multi-hop recall miss. On by default in
-  best-local setup.
+- **Dedicated cross-encoder reranker** (`reranker = true`) — available but
+  **off by default, and here is the honest reason.** On the full KorMapleQA v2
+  over the e5 default: no reranker doc@1 0.610 / doc@8 0.879 (~30 ms/q);
+  Qwen3-Reranker-0.6B doc@1 **0.580** (it *hurt* — a 0.6B reranker second-guessing
+  an already-correct top result) at ~1.9 s/q; jina-reranker-v2 doc@1 0.622 (+1 pt)
+  at ~0.8 s/q. A strong embedder + BM25 + link-graph fusion already ranks well,
+  so retrieval ships without a reranker; `reranker` stays an opt-in precision knob.
 
 ### On-device answers & assistant
 
@@ -44,8 +50,8 @@ answers; all three GGUFs auto-download once.
   local STT (faster-whisper) and on-device neural TTS (Supertonic), streamed
   sentence-by-sentence — no cloud round-trip. `pip install "lemory[assistant]"`.
 - **First-run setup builds the whole best-local stack.** `lemory setup` → `1`
-  offers to `pip install "lemory[llama]"`, turns the reranker on, and points the
-  vault at Harrier + Qwen3-Reranker + Gemma 4 — keyless and daemonless.
+  offers to `pip install "lemory[llama]"` and points the vault at Harrier +
+  Gemma 4 (reranker off by measurement) — keyless and daemonless.
 
 ### Removed
 

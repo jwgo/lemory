@@ -394,9 +394,9 @@ deletes, aliases, Korean filenames: the watcher keeps up live.
   SQLite (DuckDB, LanceDB) and published why we didn't
   ([report](docs/STORAGE.md)).
 - **Cost that rounds to zero**: content-addressed embedding cache; the free
-  Gemini tier runs ~250 questions/day; a fully on-device mode (Harrier
-  embeddings + Qwen3-Reranker + Gemma 4 answers on one llama.cpp GPU engine, no
-  daemon) for airgapped/망분리 environments where zero bytes may leave the machine.
+  Gemini tier runs ~250 questions/day; a fully on-device mode (Korean-tuned e5
+  embeddings + Gemma 4 answers on llama.cpp, no daemon) for airgapped/망분리
+  environments where zero bytes may leave the machine.
 
 ## For developers
 

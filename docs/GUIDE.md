@@ -48,9 +48,9 @@ lemory setup
 ```
 
 It asks for your vault path, lets you pick an execution mode
-(**1** ⭐ best local — fully on-device on one llama.cpp engine: Harrier
-embeddings + Qwen3-Reranker + Gemma 4 answers · **2** light local, search-only ·
-**3** Gemini free API),
+(**1** ⭐ best local — fully on-device: Harrier embeddings + Gemma 4 answers on
+llama.cpp · **2** light local, search-only (e5-small-ko-v2) · **3** Gemini free
+API),
 health-checks the connection, and runs the first index. Then:
 
 ```bash
@@ -133,13 +133,14 @@ The whole stack on-device, keyless. `lemory setup` → `1` offers to
 `pip install "lemory[llama]"` for you; the three GGUFs auto-download once.
 
 - Embeddings: **Harrier-OSS-0.6B** (Q8 GGUF, ~640 MB, 1024d, Qwen3-based
-  multilingual). Measured hybrid **doc@8 0.853** on KorMapleQA.
-- Reranker: **Qwen3-Reranker-0.6B** (2025 SOTA small reranker, GGUF), scored by
-  its `P("yes")` method on GPU — on by default in this mode.
+  multilingual). Measured hybrid **doc@8 0.853** on KorMapleQA. (The light
+  e5-small-ko-v2 default actually scores higher — 0.879 — so `lemory[llama]`'s
+  real win here is on-device *answers*, not embeddings.)
 - Answers: **Gemma 4 E4B** (Q4_K_M GGUF, Google's recommended size), streamed.
   Switch to the lighter **E2B** in the web console.
-- All three run on the same llama.cpp GPU engine. Not a byte of your vault ever
-  leaves the machine.
+- Both run on the llama.cpp GPU engine. A dedicated reranker is available
+  (`reranker = true`) but ships **off** — see below. Not a byte of your vault
+  ever leaves the machine.
 
 **Mode 2 — light local (search-only): smallest footprint**
 
@@ -287,18 +288,25 @@ was trained on an English/tech query distribution and hallucinates on short
 Korean queries ("스우 테마곡" -> "big data"), so it is a poor default for a
 Korean-first vault. Worth trying, not worth hard-wiring.
 
-**Use a dedicated reranker, not generic LLM scoring.** Lemory ships a proper
-cross-encoder path: set `reranker = true` and it scores candidates with
-**Qwen3-Reranker-0.6B** (2025 SOTA small reranker) on the same llama.cpp engine,
-by its official `P("yes")` relevance method on GPU, instead of asking a chat
-model to grade itself.
+**A dedicated reranker is available — but ships off by default, and here is
+why.** Set `reranker = true` to reorder the top candidates with a cross-encoder
+instead of fusion alone. A cross-encoder can only reorder what retrieval already
+surfaced, so it can lift doc@1 but cannot fix a deep-multi-hop recall miss. On a
+*strong* embedder it barely earns its keep — measured on KorMapleQA v2 (full
+2,067) on top of the e5-small-ko-v2 default:
 
-A cross-encoder can only reorder what retrieval already surfaced: it lifts the
-right retrieved note toward the top (doc@1) but leaves doc@8 unchanged, and it
-does **not** help deep multi-hop, whose failure is recall (the answer note never
-entered the candidate set), not ranking — a reranker cannot surface what
-retrieval missed. So it is on by default in best-local setup, and pays off most
-when the right note is *in* the results but not at #1.
+| reranker | doc@1 | doc@8 | latency |
+|---|---|---|---|
+| none (default) | 0.610 | 0.879 | ~30 ms/query |
+| Qwen3-Reranker-0.6B | 0.580 | 0.885 | ~1.9 s/query |
+| jina-reranker-v2 | 0.622 | 0.890 | ~0.8 s/query |
+
+Qwen3-Reranker actually **hurt** doc@1 (a 0.6B reranker second-guessing an
+already-correct top result), and even the stronger jina cross-encoder bought
+~+1 pt for 25-60x the query latency. So retrieval ships **without** a reranker —
+the embedder + BM25 + link-graph fusion already rank well — and `reranker`
+stays an opt-in precision knob for corpora where the right note lands in the
+results but not at #1.
 
 ### The local stack, in tiers
 
@@ -318,11 +326,11 @@ want in `lemory setup` or `lemory.toml`:
    KorMapleQA subcorpus — a big Korean jump for zero extra weight. The fallback
    when the llama wheel won't build, or when index speed matters more than the
    last few hybrid points.
-3. **Precision mode (+ dedicated reranker):** `reranker = true` reorders the top
-   candidates with **Qwen3-Reranker-0.6B** on the same llama.cpp engine (GPU, no
-   daemon). ~57 ms/candidate on Metal (≈0.7 s for the default top-12) — on by
-   default in best-local setup, worth it when the right note is *in* the results
-   but not at #1.
+3. **Precision mode (+ dedicated reranker), off by default:** `reranker = true`
+   reorders the top candidates with a cross-encoder. Measured on the strong
+   local embedders it barely helps or even hurts, at a large latency cost (table
+   above), so it ships **off** — reach for it only on a corpus where the right
+   note lands in the results but not at #1.
 4. **Grounded answers (+ Gemma 4, on-device):** the same `lemory[llama]` engine
    runs **Gemma 4 E4B** (Q4_K_M GGUF) so `lemory ask` and the web console answer
    fully offline. Switch to the lighter **E2B** in the console. Retrieval never

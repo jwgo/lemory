@@ -164,8 +164,8 @@ def setup(
     else:
         console.print(
             "\n2) 어떻게 쓸까요?  [dim](검색·시맨틱 임베딩은 이미 로컬에서 기본 동작합니다)[/dim]\n"
-            "   [bold]1[/bold]  ⭐ 최고 로컬 (완전 온디바이스, 추천) — Harrier 임베딩 + Qwen3 리랭커\n"
-            "      + Gemma 4 로컬 답변, 전부 llama.cpp GPU 한 엔진. 키·데몬 0 [dim](lemory[llama])[/dim]\n"
+            "   [bold]1[/bold]  ⭐ 최고 로컬 (완전 온디바이스, 추천) — Harrier 임베딩\n"
+            "      + Gemma 4 로컬 답변 (llama.cpp GPU). 키·데몬 0 [dim](lemory[llama])[/dim]\n"
             "   [bold]2[/bold]  가벼운 로컬 — e5-small-ko-v2(한국어 384d)만, 검색 전용 [dim](설치 최소·제로설정)[/dim]\n"
             "   [bold]3[/bold]  Gemini 무료 API — 임베딩+답변까지 클라우드 [dim](카드 불필요)[/dim]"
         )
@@ -219,9 +219,10 @@ def _machine_ram_gb() -> float:
 
 def _setup_best_local() -> str:
     """The recommended fully-on-device stack, no key and no daemon: Harrier
-    all on one llama.cpp engine (Metal / CUDA / CPU offload): Harrier embeddings +
-    Qwen3-Reranker + Gemma 4 local answers. Offers to pip-install `lemory[llama]`
-    and turns the reranker on. Returns extra lemory.toml lines."""
+    embeddings + Gemma 4 local answers on llama.cpp (Metal / CUDA / CPU offload).
+    The dedicated reranker stays off — measured, a small reranker doesn't help
+    the strong local embedder. Offers to pip-install `lemory[llama]`. Returns
+    extra lemory.toml lines."""
     import subprocess
     import sys
 
@@ -231,7 +232,7 @@ def _setup_best_local() -> str:
     if not _has_module("llama_cpp"):
         console.print(
             "   최고 로컬 스택엔 [bold]lemory[llama][/bold] 가 필요합니다 "
-            "[dim](Harrier ~640MB · Qwen3-Reranker ~600MB · Gemma 4 답변 모델은 첫 사용 때 자동 다운로드)[/dim]")
+            "[dim](Harrier ~640MB · Gemma 4 답변 모델은 첫 사용 때 자동 다운로드)[/dim]")
         if typer.confirm("   지금 설치할까요?", default=True):
             with console.status("설치 중... (llama-cpp-python 빌드에 몇 분 걸릴 수 있어요)"):
                 r = subprocess.run([sys.executable, "-m", "pip", "install", "lemory[llama]"])
@@ -245,10 +246,10 @@ def _setup_best_local() -> str:
         console.print("   [green]✔[/green] Harrier-0.6B (1024d) 임베딩 — 데몬 없이 프로세스 안 Metal/GPU (doc@8 0.853)")
     else:
         console.print("   [green]✔[/green] e5-small-ko-v2 (한국어 384d) 임베딩 [dim](llama-cpp-python 설치되면 Harrier로 자동 전환)[/dim]")
-    console.print("   [green]✔[/green] Qwen3-Reranker-0.6B + Gemma 4 E4B 로컬 답변 — 전부 같은 llama.cpp 엔진(GPU), 키·데몬 0")
+    console.print("   [green]✔[/green] Gemma 4 E4B 로컬 답변 (llama.cpp GPU) — 키·데몬 0 [dim](리랭커는 기본 꺼짐: 강한 e5-ko 위에선 소형 리랭커가 도움이 안 돼 측정으로 제외)[/dim]")
     if 0 < ram < 8:
         console.print(f"   [yellow]⚠ RAM {ram:.0f}GB — Gemma 4 E4B 답변은 8GB+ 권장. 웹 콘솔에서 E2B로 낮출 수 있어요.[/yellow]")
-    return f'provider = "local"\nlocal_embed_backend = "{backend}"\nreranker = true\n'
+    return f'provider = "local"\nlocal_embed_backend = "{backend}"\n'
 
 
 def _setup_local(backend: str) -> str:
