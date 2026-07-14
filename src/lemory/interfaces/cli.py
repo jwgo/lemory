@@ -1,4 +1,4 @@
-"""Lemory CLI: `lemory init | index | watch | search | ask | serve | status`."""
+"""Lemory CLI: `lemory up | index | watch | search | ask | serve | status`."""
 
 from __future__ import annotations
 
@@ -36,9 +36,10 @@ def _welcome(ctx: typer.Context):
     else:
         console.print(
             "처음이세요? [bold]이 한 줄이면 설정·색인·서버까지 전부[/bold] 됩니다:\n\n"
-            "  [bold cyan]lemory up ~/내볼트경로[/bold cyan]\n\n"
-            "  [dim]키 없이 로컬 임베딩으로 바로 검색돼요. 답변(ask)까지 원하면"
-            " 대화형 [bold]lemory setup[/bold]에서 최고 로컬(온디바이스 Gemma 4)이나 Gemini 키를 고르세요.[/dim]\n")
+            "  [bold cyan]lemory up[/bold cyan]              [dim]# 볼트를 물어봅니다[/dim]\n"
+            "  [bold cyan]lemory up ~/내볼트경로[/bold cyan]   [dim]# 질문 없이 바로[/dim]\n\n"
+            "  [dim]키 없이 온디바이스로 검색·답변까지 됩니다 (Gemma 4). Gemini를 쓰려면"
+            " [bold]lemory up ~/볼트 --key <KEY>[/bold].[/dim]\n")
     console.print("[dim]전체 명령: [bold]lemory --help[/bold][/dim]")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -49,76 +50,112 @@ def _engine(vault: Optional[Path]):
     return create_engine(vault=vault)
 
 
-@app.command()
-def init(vault: Path = typer.Argument(..., help="Path to your Obsidian vault")):
-    """Write a lemory.toml pointing at your vault (one-time setup)."""
-    vault = vault.expanduser().resolve()
-    if not vault.is_dir():
-        console.print(f"[red]not a directory:[/red] {vault}")
-        raise typer.Exit(1)
-    cfg_file = Path.cwd() / "lemory.toml"
-    # json.dumps produces a valid TOML basic string (escapes backslashes and
-    # quotes) — bare f-string interpolation breaks on Windows paths
-    cfg_file.write_text(f"[lemory]\nvault = {json.dumps(str(vault))}\n")
-    console.print(f"[green]wrote[/green] {cfg_file}")
-    console.print("Set GEMINI_API_KEY in your environment (free-tier key works), then run: [bold]lemory index[/bold]")
+@app.command(hidden=True)
+def init(vault: Path = typer.Argument(..., help="Obsidian 볼트 경로")):
+    """(deprecated) `lemory init`은 `lemory up`으로 통합됐습니다."""
+    console.print("[yellow]ℹ[/yellow]  `lemory init`은 [bold]`lemory up`[/bold]으로 통합됐어요 "
+                  "— config만 쓰고 넘어갑니다.\n")
+    _start(vault, serve_after=False, index_now=False)
 
 
 @app.command()
 def up(
-    vault: Path = typer.Argument(..., help="Obsidian vault path"),
+    vault: Optional[Path] = typer.Argument(None, help="Obsidian 볼트 경로 (생략하면 물어봅니다)"),
+    key: Optional[str] = typer.Option(None, "--key", help="Gemini API 키 (선택 — 넣으면 클라우드 답변·임베딩)"),
     port: int = typer.Option(8377),
-    serve_after: bool = typer.Option(True, "--serve/--no-serve",
-                                     help="Start the server after indexing"),
+    serve_after: bool = typer.Option(True, "--serve/--no-serve", help="색인 후 웹 서버 실행"),
+    index_now: bool = typer.Option(True, "--index/--no-index", help="첫 색인 실행"),
 ):
-    """🍋 시작은 이것 하나 (config + index + serve 한 번에). 질문 안 물어봄:
-    detect a key (env/.env/~/.lemory/env), pick the best available mode, write
-    config, index, and serve.
+    """🍋 Lemory 시작 — 이 명령 하나면 됩니다.
 
-    * Gemini key found        → full mode (answers + embeddings)
-    * no key, fastembed there → local search-only mode
-    * Gemini key found          → full mode (answers + cloud embeddings)
-    * no key, llama.cpp there    → e5-small-ko-v2 embeddings + on-device Gemma answers
-    * no key, fastembed (base)   → local e5-small-ko-v2 embeddings (keyless, search-only)
-    * none of the above (rare)   → keyless mode (BM25 + link graph)
+    볼트를 가리키면 최적 모드를 자동으로 잡고(키 있으면 클라우드, 없으면 온디바이스
+    e5-small-ko-v2 임베딩 + Gemma 4 답변), 첫 색인 후 대시보드까지 띄웁니다. 모델·검색
+    설정은 이후 대시보드의 '설정'에서 바꿉니다.
+
+      lemory up                       대화형 — 볼트를 물어봅니다
+      lemory up ~/Obsidian/Vault      질문 없이 진행 (스크립트/CI)
+      lemory up ~/Vault --key <KEY>   Gemini 클라우드 모드
     """
-    from ..config import _has_module, load_config
+    _start(vault, key=key, port=port, serve_after=serve_after, index_now=index_now)
 
+
+def _start(vault: Optional[Path], key: Optional[str] = None, port: int = 8377,
+           serve_after: bool = True, index_now: bool = True) -> None:
+    """Shared onboarding flow behind `up` (and the deprecated setup/init aliases).
+    A plain function, not a command, so the aliases can call it without typer's
+    OptionInfo defaults leaking through."""
+    from ..config import _has_module, load_config, save_global_env
+
+    # 1) vault — argument, or prompt when run bare
+    interactive = vault is None
+    if interactive:
+        console.print("[bold]🍋 Lemory[/bold] — 볼트만 있으면 바로 시작합니다.\n")
+        vault = Path(typer.prompt("Obsidian 볼트 경로 (예: ~/Obsidian/MyVault)"))
     v = vault.expanduser().resolve()
     if not v.is_dir():
         console.print(f"[red]폴더가 없습니다:[/red] {v}")
         raise typer.Exit(1)
     n_md = sum(1 for _ in v.rglob("*.md"))
 
+    # 2) optional Gemini key (opt-in cloud)
+    if key:
+        env_file = save_global_env({"GEMINI_API_KEY": key.strip()})
+        console.print(f"[green]✔[/green] Gemini 키 저장: {env_file} (권한 600)")
+
+    # 3) pick the best available mode — no menu, just detect
     extra = ""
-    if load_config().resolved_gemini_key():
-        mode_desc = "Gemini (키 감지됨 — 질문·답변 포함)"
+    if key or load_config().resolved_gemini_key():
+        mode_desc = "Gemini (키 감지 — 답변·클라우드 임베딩)"
     elif _has_module("llama_cpp"):
         extra = 'provider = "local"\n'
-        mode_desc = "로컬 e5-small-ko-v2 임베딩 + 온디바이스 Gemma 답변 (키 없음)"
+        mode_desc = "온디바이스 e5-small-ko-v2 임베딩 + Gemma 4 답변 (키 0)"
+        ram = _machine_ram_gb()
+        if 0 < ram < 8:
+            console.print(f"[yellow]![/yellow] RAM {ram:.0f}GB — Gemma 4 E4B는 8GB+ 권장. "
+                          "대시보드 '설정 › 모델'에서 E2B로 낮출 수 있어요.")
     elif _has_module("fastembed"):
         extra = 'provider = "local"\n'
-        mode_desc = "로컬 e5-small-ko-v2 임베딩 (한국어 특화 384d, 키 없음 · 답변은 pip install \"lemory[llama]\")"
+        # fastembed ships as a base dep, so local search always works; offer to
+        # add on-device answers (Gemma via llama.cpp) — but only when interactive.
+        if interactive and typer.confirm(
+                "\n온디바이스 답변(Gemma 4)까지 켤까요? [dim]lemory[llama] 설치 · 검색은 없이도 됩니다[/dim]",
+                default=True):
+            import subprocess
+            import sys
+            with console.status("설치 중... (llama-cpp-python 빌드에 몇 분 걸릴 수 있어요)"):
+                r = subprocess.run([sys.executable, "-m", "pip", "install", "lemory[llama]"])
+            if r.returncode == 0 and _has_module("llama_cpp"):
+                mode_desc = "온디바이스 e5-small-ko-v2 임베딩 + Gemma 4 답변 (키 0)"
+            else:
+                console.print('[yellow]![/yellow] 설치 실패 — 수동: pip install "lemory[llama]"')
+                mode_desc = "온디바이스 e5-small-ko-v2 임베딩 (384d, 키 0 · 답변은 lemory[llama])"
+        else:
+            mode_desc = "온디바이스 e5-small-ko-v2 임베딩 (384d, 키 0 · 답변은 pip install \"lemory[llama]\")"
     else:
-        mode_desc = "키 없음 — BM25+링크 그래프 (pip install \"lemory[local]\"로 시맨틱 켜짐)"
+        mode_desc = "키 0 — BM25+링크 그래프 (pip install \"lemory[local]\"로 시맨틱)"
 
+    # 4) write config
     cfg_file = v / "lemory.toml"
     if not cfg_file.exists():
         cfg_file.write_text(f"[lemory]\nvault = {json.dumps(str(v))}\n{extra}")
     console.print(f"[green]✔[/green] {v} ({n_md}개 노트) · 모드: {mode_desc}")
 
-    eng = _engine(v)
-    plan = eng.index_plan()
-    if plan.embeds_needed:
-        console.print(f"  첫 색인: 청크 {plan.chunks_total}개 · 예상 {plan.human_eta()}")
-    with console.status("색인 중..."):
-        rep = eng.index()
-    console.print(f"[green]✔[/green] 색인 완료: 노트 {rep.added + rep.updated}개, "
-                  f"청크 {rep.chunks}개 ({rep.seconds:.0f}s)")
+    # 5) first index (skip engine construction entirely for config-only runs)
+    eng = _engine(v) if (index_now or serve_after) else None
+    if index_now:
+        plan = eng.index_plan()
+        if plan.embeds_needed:
+            console.print(f"  첫 색인: 청크 {plan.chunks_total}개 · 예상 {plan.human_eta()}")
+        with console.status("색인 중..."):
+            rep = eng.index()
+        console.print(f"[green]✔[/green] 색인 완료: 노트 {rep.added + rep.updated}개, "
+                      f"청크 {rep.chunks}개 ({rep.seconds:.0f}s)")
+
+    # 6) next steps + serve
     console.print(
-        f"\n  대시보드  →  http://127.0.0.1:{port}\n"
+        f"\n  대시보드     →  http://127.0.0.1:{port}   [dim](모델·검색 설정은 여기 '설정'에서)[/dim]\n"
         f"  Claude 연결  →  claude mcp add lemory -- lemory mcp --vault {v}\n"
-        f"  질문  →  lemory ask \"요새 내가 하던 그거 뭐였지?\"\n")
+        f"  질문         →  lemory ask \"요새 내가 하던 그거 뭐였지?\"\n")
     if serve_after:
         import uvicorn
 
@@ -127,87 +164,16 @@ def up(
         uvicorn.run(build_app(eng, watch=True), host="127.0.0.1", port=port)
 
 
-@app.command()
+@app.command(hidden=True)
 def setup(
-    vault: Optional[Path] = typer.Option(None, help="Vault path (prompted if omitted)"),
-    key: Optional[str] = typer.Option(None, help="Gemini API key (prompted if omitted)"),
-    index_now: bool = typer.Option(True, help="Run the first index at the end"),
+    vault: Optional[Path] = typer.Option(None, help="Obsidian 볼트 경로"),
+    key: Optional[str] = typer.Option(None, help="Gemini API 키"),
+    index_now: bool = typer.Option(True),
 ):
-    """One-shot setup: vault + embedding tier (API key optional) + first index.
-
-    Semantic search works with no key at all (local embeddings ship by
-    default); a key only adds AI answers (`ask`). Any key you do provide is
-    stored in ~/.lemory/env (owner-only), so Obsidian/Claude/VS Code
-    integrations work without shell environment tricks.
-    """
-    from ..config import load_config, save_global_env
-
-    console.print("[bold]Lemory setup[/bold] — 세 가지만 하면 끝납니다.\n")
-
-    # 1. vault
-    while True:
-        v = vault or Path(typer.prompt("1) Obsidian 볼트 경로 (예: ~/Obsidian/MyVault)"))
-        v = v.expanduser().resolve()
-        if v.is_dir():
-            break
-        console.print(f"[red]폴더가 없습니다:[/red] {v}")
-        vault = None
-    n_md = sum(1 for _ in v.rglob("*.md"))
-    console.print(f"   [green]✔[/green] {v} ({n_md}개 노트)")
-
-    # 2. execution mode. Semantic embeddings already work out of the box
-    # (fastembed ships as a base dependency), so the choice here is about
-    # embedding quality + whether you also want AI answers (`ask`).
-    extra_toml = ""
-    if key is not None:
-        mode = "3"  # explicit --key means Gemini mode
-    else:
-        console.print(
-            "\n2) 어떻게 쓸까요?  [dim](검색·시맨틱 임베딩은 이미 로컬에서 기본 동작합니다)[/dim]\n"
-            "   [bold]1[/bold]  ⭐ 최고 로컬 (완전 온디바이스, 추천) — e5-small-ko-v2 임베딩\n"
-            "      + Gemma 4 로컬 답변 (llama.cpp GPU). 키·데몬 0 [dim](lemory[llama])[/dim]\n"
-            "   [bold]2[/bold]  가벼운 로컬 — e5-small-ko-v2(한국어 384d)만, 검색 전용 [dim](설치 최소·제로설정)[/dim]\n"
-            "   [bold]3[/bold]  Gemini 무료 API — 임베딩+답변까지 클라우드 [dim](카드 불필요)[/dim]"
-        )
-        mode = typer.prompt("   선택", default="1").strip()
-
-    if mode == "2":
-        extra_toml = _setup_local("auto")
-    elif mode == "3":
-        existing = load_config().resolved_gemini_key()
-        if key is None and existing:
-            console.print("   [green]✔[/green] Gemini 키가 이미 설정되어 있습니다")
-        else:
-            k = key or typer.prompt("   Gemini API 키 (무료: https://aistudio.google.com)", hide_input=True)
-            env_file = save_global_env({"GEMINI_API_KEY": k.strip()})
-            console.print(f"   [green]✔[/green] 키 저장: {env_file} (권한 600)")
-    else:
-        extra_toml = _setup_best_local()
-
-    # 3. config file
-    cfg_file = Path.cwd() / "lemory.toml"
-    cfg_file.write_text(f"[lemory]\nvault = {json.dumps(str(v))}\n{extra_toml}")
-    console.print(f"   [green]✔[/green] 설정 저장: {cfg_file}")
-
-    # health check + first index
-    eng = _engine(v)
-    try:
-        vec = eng.llm.embed(["setup ping"])
-        console.print(f"   [green]✔[/green] 임베딩 연결 확인 ({vec.shape[-1]}d)")
-    except Exception as e:
-        console.print(f"   [red]✘ 연결 확인 실패:[/red] {str(e)[:160]}")
-        raise typer.Exit(1)
-    if index_now:
-        with console.status("첫 인덱싱 중... (이후에는 변경분만 처리됩니다)"):
-            rep = eng.index()
-        console.print(f"   [green]✔[/green] 인덱싱 완료: 노트 {rep.added + rep.updated}개, "
-                      f"청크 {rep.chunks}개 ({rep.seconds:.0f}s)")
-    console.print(
-        "\n[bold]다 됐습니다![/bold] 이렇게 써보세요:\n"
-        "  lemory ask \"요새 내가 뭐 했지?\"\n"
-        "  lemory serve            # http://127.0.0.1:8377 웹 UI + Obsidian 플러그인 백엔드\n"
-        "  claude mcp add lemory -- lemory mcp   # Claude Code에서 바로 사용"
-    )
+    """(deprecated) `lemory setup`은 `lemory up`으로 통합됐습니다."""
+    console.print("[yellow]ℹ[/yellow]  `lemory setup`은 이제 [bold]`lemory up`[/bold] 하나로 통합됐어요 "
+                  "— 그걸 실행합니다.\n")
+    _start(vault, key=key, serve_after=False, index_now=index_now)
 
 
 def _machine_ram_gb() -> float:
@@ -215,66 +181,6 @@ def _machine_ram_gb() -> float:
         return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1024**3
     except (ValueError, OSError, AttributeError):
         return 0.0  # unknown (e.g. Windows) — skip the warning
-
-
-def _setup_best_local() -> str:
-    """The recommended fully-on-device stack, no key and no daemon: the
-    Korean-tuned e5-small-ko-v2 embedder (fastembed, no compile) plus Gemma 4
-    local answers on llama.cpp (Metal / CUDA / CPU offload). e5-small-ko-v2
-    measured higher than Harrier (doc@8 0.879 vs 0.853) while lighter and
-    faster, so llama.cpp is only needed for the *answers*. The dedicated reranker
-    stays off — measured, a small reranker doesn't help the strong embedder.
-    Offers to pip-install `lemory[llama]` (for Gemma). Returns lemory.toml lines."""
-    import subprocess
-    import sys
-
-    from ..config import _has_module
-
-    ram = _machine_ram_gb()
-    if not _has_module("llama_cpp"):
-        console.print(
-            "   온디바이스 답변(Gemma 4)엔 [bold]lemory[llama][/bold] 가 필요합니다 "
-            "[dim](검색·임베딩은 이것 없이도 됩니다 · Gemma 4 답변 모델은 첫 사용 때 자동 다운로드)[/dim]")
-        if typer.confirm("   지금 설치할까요?", default=True):
-            with console.status("설치 중... (llama-cpp-python 빌드에 몇 분 걸릴 수 있어요)"):
-                r = subprocess.run([sys.executable, "-m", "pip", "install", "lemory[llama]"])
-            if r.returncode != 0:
-                console.print('   [yellow]![/yellow] 설치 실패 — 수동으로: pip install "lemory[llama]"')
-        else:
-            console.print('   나중에: [bold]pip install "lemory[llama]"[/bold]')
-
-    console.print("   [green]✔[/green] e5-small-ko-v2 (한국어 특화 384d) 임베딩 — 무컴파일·키 0 (하이브리드 doc@8 0.879)")
-    console.print("   [green]✔[/green] Gemma 4 E4B 로컬 답변 (llama.cpp GPU) [dim](리랭커는 기본 꺼짐: 강한 임베더 위에선 소형 리랭커가 측정상 도움 안 됨)[/dim]")
-    if 0 < ram < 8:
-        console.print(f"   [yellow]⚠ RAM {ram:.0f}GB — Gemma 4 E4B 답변은 8GB+ 권장. 웹 콘솔에서 E2B로 낮출 수 있어요.[/yellow]")
-    # embeddings default (auto -> fastembed/e5-small-ko-v2); llama.cpp powers answers
-    return 'provider = "local"\n'
-
-
-def _setup_local(backend: str) -> str:
-    """Local-embeddings mode. backend='auto' uses e5-small-ko-v2 (measured the
-    strongest local embedder); 'llamacpp' asks for the 1024-d Harrier explicitly.
-    Returns extra lemory.toml lines."""
-    from ..config import _has_module
-
-    if backend == "llamacpp":
-        if not _has_module("llama_cpp"):
-            console.print(
-                "   [yellow]![/yellow] Harrier는 llama-cpp-python이 필요합니다. 설치 후 다시:\n"
-                "     [bold]pip install \"lemory[llama]\"[/bold]  →  [bold]lemory setup[/bold]\n"
-                "   [dim](기본 e5-small-ko-v2로 계속합니다 — 오히려 더 강하고 가벼워요)[/dim]"
-            )
-            backend = "auto"
-        else:
-            console.print("   [green]✔[/green] Harrier-0.6B (1024d) — 첫 색인 때 GGUF ~640MB 자동 다운로드")
-            console.print("   [dim]데몬 없이 프로세스 안에서 Metal/GPU로 실행됩니다.[/dim]")
-            return 'provider = "local"\nlocal_embed_backend = "llamacpp"\n'
-
-    # auto / default: fastembed is a base dependency, so this always works
-    console.print("   [green]✔[/green] e5-small-ko-v2 (한국어 특화 384d) — 첫 색인 때 모델 자동 다운로드")
-    console.print("   [dim](측정상 가장 강한 로컬 임베더 · Harrier 1024d를 원하면 local_embed_backend=\"llamacpp\")[/dim]")
-    console.print("   [dim]검색·색인·콘솔은 전부 로컬로 됩니다. ask(답변)은 최고 로컬(모드 1·온디바이스 Gemma 4)이나 Gemini 키로.[/dim]")
-    return 'provider = "local"\n'
 
 
 @app.command()

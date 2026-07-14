@@ -82,7 +82,9 @@ def test_init_toml_escapes_special_paths(tmp_path, monkeypatch):
 
     result = CliRunner().invoke(app, ["init", str(weird)])
     assert result.exit_code == 0
-    parsed = tomllib.loads((tmp_path / "lemory.toml").read_text())
+    # `init` (now an alias for `up`) writes the config into the vault root;
+    # config discovery honors both the vault root and CWD.
+    parsed = tomllib.loads((weird / "lemory.toml").read_text())
     assert parsed["lemory"]["vault"] == str(weird)
 
 
