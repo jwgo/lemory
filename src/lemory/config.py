@@ -256,8 +256,8 @@ class LemoryConfig(BaseSettings):
         raise RuntimeError(
             "No API key found. Set GEMINI_API_KEY (a free-tier key from "
             "https://aistudio.google.com works), OPENAI_API_KEY, or install "
-            "local embeddings: pip install 'lemory[local]' (e5-small-ko-v2, best) or "
-            "'lemory[local]' (fastembed, lighter)"
+            "local embeddings: pip install 'lemory[local]' "
+            "(keyless e5-small-ko-v2; add 'lemory[llama]' for the 1024-d Harrier)"
         )
 
     def resolved_local_backend(self) -> str:

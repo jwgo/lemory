@@ -489,6 +489,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             "llm_model": _safe(cfg.active_llm_model) if hasattr(cfg, "active_llm_model") else cfg.llm_model,
             "embed_model": _safe(cfg.active_embed_model) if hasattr(cfg, "active_embed_model") else cfg.embed_model,
             "embed_dim": _safe(cfg.active_embed_dim) if hasattr(cfg, "active_embed_dim") else cfg.embed_dim,
+            "reranker": bool(getattr(cfg, "reranker", False)),
         }
         return {"tunable": values, "readonly": readonly}
 

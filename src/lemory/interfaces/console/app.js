@@ -884,8 +884,9 @@ async function renderModelsCard(tunable, readonly) {
   const embDetail = cloud
     ? `${dim}d · ${esc(provider)} 클라우드`
     : backend === "llamacpp" ? `${dim}d · llama.cpp GPU` : `${dim}d · fastembed · 무컴파일`;
-  // reranker identity
-  const rerankOn = !!tunable.rerank;
+  // reranker identity — the dedicated Qwen3 cross-encoder is the `reranker`
+  // config flag (not the generic LLM `rerank` self-scoring pass)
+  const rerankOn = !!readonly.reranker;
 
   return `<div class="card models-card">
     <div class="card-head">모델 <span class="spacer"></span>
