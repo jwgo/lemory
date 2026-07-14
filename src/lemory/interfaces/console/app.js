@@ -881,8 +881,9 @@ async function renderModelsCard(tunable, readonly) {
   const embName = esc(readonly.embed_model || "e5-small-ko-v2");
   const backend = String(tunable.local_embed_backend ?? "auto");
   const dim = readonly.embed_dim || (backend === "llamacpp" ? 1024 : 384);
-  const embDetail = backend === "llamacpp"
-    ? `${dim}d · llama.cpp GPU` : `${dim}d · fastembed · 무컴파일`;
+  const embDetail = cloud
+    ? `${dim}d · ${esc(provider)} 클라우드`
+    : backend === "llamacpp" ? `${dim}d · llama.cpp GPU` : `${dim}d · fastembed · 무컴파일`;
   // reranker identity
   const rerankOn = !!tunable.rerank;
 
@@ -985,13 +986,21 @@ async function renderSettings() {
   }</div></div>`;
   grid.innerHTML = html;
 
-  // answer-model (Gemma E4B/E2B) live switch — dedicated endpoint, persists to lemory.toml
+  // answer-model (Gemma E4B/E2B) live switch — dedicated endpoint, persists to lemory.toml.
+  // Update the picks in place rather than re-rendering the whole view, so any
+  // unsaved edits in the other settings cards survive the switch.
   $$(".model-pick", grid).forEach(b => b.onclick = async () => {
     if (b.disabled || b.classList.contains("on")) return;
     try {
       await jpost("/api/assistant/model", { size: b.dataset.size });
       toast(`답변 모델 → ${b.dataset.size}`, "ok");
-      renderSettings();
+      $$(".model-pick", grid).forEach(x => {
+        const on = x === b;
+        x.classList.toggle("on", on);
+        const badge = x.querySelector(".mp-badge");
+        if (on && !badge) x.querySelector(".mp-top").insertAdjacentHTML("beforeend", '<span class="mp-badge">사용 중</span>');
+        if (!on && badge) badge.remove();
+      });
     } catch (e) { toast(e.message, "err"); }
   });
 

@@ -120,10 +120,12 @@ def _start(vault: Optional[Path], key: Optional[str] = None, port: int = 8377,
         if interactive and typer.confirm(
                 "\n온디바이스 답변(Gemma 4)까지 켤까요? [dim]lemory[llama] 설치 · 검색은 없이도 됩니다[/dim]",
                 default=True):
+            import importlib
             import subprocess
             import sys
             with console.status("설치 중... (llama-cpp-python 빌드에 몇 분 걸릴 수 있어요)"):
                 r = subprocess.run([sys.executable, "-m", "pip", "install", "lemory[llama]"])
+            importlib.invalidate_caches()  # let find_spec see the just-installed package
             if r.returncode == 0 and _has_module("llama_cpp"):
                 mode_desc = "온디바이스 e5-small-ko-v2 임베딩 + Gemma 4 답변 (키 0)"
             else:
