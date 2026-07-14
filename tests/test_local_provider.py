@@ -72,3 +72,30 @@ def test_local_with_gemini_generator_uses_it(tmp_path):
 
     client = LocalClient(generator=FakeGen())
     assert client.generate("hi") == "generated!"
+
+
+def test_embed_falls_back_when_e5_onnx_unavailable(monkeypatch):
+    """If the community e5-ko ONNX repo is unreachable, embedding degrades to the
+    built-in multilingual MiniLM (same 384d) instead of hard-failing the install."""
+    import fastembed
+
+    from lemory.providers import local as L
+
+    monkeypatch.setattr(L, "_REGISTERED", set())  # isolate module-global registry
+    seen = []
+
+    class FakeTE:
+        def __init__(self, model_name):
+            seen.append(model_name)
+            if model_name == L.DEFAULT_EMBED_MODEL:
+                raise RuntimeError("HF repo 404")
+
+        def embed(self, texts):
+            return [np.ones(LOCAL_EMBED_DIM, dtype=np.float32) for _ in texts]
+
+    monkeypatch.setattr(fastembed, "TextEmbedding", FakeTE)
+    c = LocalClient(embed_model=L.DEFAULT_EMBED_MODEL)
+    v = c.embed(["안녕하세요"])
+    assert c.embed_model == L._FALLBACK_EMBED_MODEL          # switched off the dead repo
+    assert v.shape == (1, LOCAL_EMBED_DIM)                   # still 384d, still works
+    assert seen == [L.DEFAULT_EMBED_MODEL, L._FALLBACK_EMBED_MODEL]  # tried e5 first
