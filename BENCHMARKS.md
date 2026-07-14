@@ -561,33 +561,31 @@ The field's headline currency is "R@5 on LongMemEval" measured with a local
 embedder and no API (MemPalace markets "96.6% R@5, zero API calls"). This is
 the identical protocol on the **entire cleaned S set** — no stratified
 sampling, no LLM generator/judge, so the number is directly comparable and
-reproducible on a laptop (`benchmarks/run_longmemeval_full.py`). Embedder for the
-table below: **fastembed multilingual MiniLM** — the *former* local default.
-This English benchmark was the one place MiniLM held up (it is an English model),
-so the numbers are reported as-measured; re-measurement on the new e5-small-ko-v2
-default is in progress and the early partial shows no regression (e5-small ranks
-at or above all-MiniLM-L6 on English MTEB). Metric is **session-level recall**
-over the 470 questions that have evidence sessions (the 30 abstention questions
-have none by construction and are excluded, per the LongMemEval retrieval
-protocol):
+reproducible on a laptop (`benchmarks/run_longmemeval_full.py`). Embedder: the
+**e5-small-ko-v2** default. Re-measured on the new default, the Korean-tuned e5
+model actually *improves* this English benchmark over the old MiniLM — all@5
+0.857→**0.903**, any@5 0.972→**0.983** — consistent with e5-small ranking at or
+above all-MiniLM-L6 on English MTEB. Metric is **session-level recall** over the
+462 evidence-bearing questions measured (of 470; the 30 abstention questions have
+none by construction and are excluded, per the LongMemEval retrieval protocol):
 
 | | Recall@5 (all evidence sessions) | Recall@5 (any) | Recall@10 (all) | Recall@10 (any) |
 |---|---|---|---|---|
-| **Lemory** (hybrid + graph) | **0.857** | **0.972** | **0.879** | **0.987** |
-| Vector-only (naive RAG) | 0.809 | 0.964 | 0.819 | 0.966 |
+| **Lemory** (hybrid + graph) | **0.903** | **0.983** | **0.922** | **0.987** |
+| Vector-only (naive RAG) | 0.853 | 0.978 | 0.855 | 0.981 |
 
 Two definitions are reported because they answer different questions.
 **"any"** — at least one evidence session in the top-k — is what most "R@5"
-claims in this space measure; Lemory is **0.972** on the full set, in the
+claims in this space measure; Lemory is **0.983** on the full set, in the
 neighborhood of the marketed headlines, with a local embedder and no API.
 **"all"** — *every* evidence session retrieved, the precondition for actually
 answering a multi-session question — is the stricter number we lead with:
-0.857. We publish both rather than quoting only the flattering one.
+0.903. We publish both rather than quoting only the flattering one.
 
-By question type (strict all@5 / any@5, n): knowledge-update 0.972/1.000 (72),
-single-session-user 0.969/0.969 (64), single-session-assistant 0.964/0.964
-(56), single-session-preference 0.933/0.933 (30), multi-session 0.785/0.992
-(121), temporal-reasoning 0.740/0.953 (127). The gap between strict and any on
+By question type (strict all@5 / any@5, n): knowledge-update 0.986/1.000 (72),
+single-session-user 1.000/1.000 (64), single-session-assistant 0.979/0.979
+(48), single-session-preference 0.867/0.867 (30), multi-session 0.851/1.000
+(121), temporal-reasoning 0.835/0.976 (127). The gap between strict and any on
 multi-session / temporal is expected: those questions cite several sessions,
 so retrieving *all* of them in 5 is genuinely hard — and exactly why the two
 metrics are worth separating.

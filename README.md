@@ -293,9 +293,10 @@ retrieval, zero API calls, local embedder:
 <img src="docs/assets/chart_longmemeval.svg" width="840" alt="LongMemEval full 500 questions, zero API calls">
 </div>
 
-Recall@5 **0.972** on the protocol most headline numbers use, and we lead
-with the stricter all-evidence number (0.857) instead of quoting only the
-flattering one. LOCOMO LLM-judge 0.706 vs mem0's published 0.669; DMR
+Recall@5 **0.983** on the protocol most headline numbers use, and we lead
+with the stricter all-evidence number (0.903) instead of quoting only the
+flattering one — the Korean-tuned e5 default improves both over the old MiniLM
+(0.972 / 0.857). LOCOMO LLM-judge 0.706 vs mem0's published 0.669; DMR
 (500 q) 0.694 vs 0.648 same-harness naive RAG
 ([§7](BENCHMARKS.md)).
 

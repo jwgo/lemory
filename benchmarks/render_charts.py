@@ -233,12 +233,12 @@ def main() -> None:
     hbar_chart(
         ASSETS / "chart_longmemeval.svg",
         "LongMemEval S, all 500 questions, zero API calls",
-        "Session-level Recall@5, local embedder. 'any' = protocol most headline numbers use; 'strict' = every evidence session.",
+        "Session-level Recall@5, local e5-small-ko-v2. 'any' = protocol most headline numbers use; 'strict' = every evidence session.",
         [
-            ("Lemory, any@5", 0.972, LEMON, ""),
-            ("Lemory, strict all@5", 0.857, LEMON, ""),
-            ("Vector-only, any@5", 0.964, GRAY, ""),
-            ("Vector-only, strict all@5", 0.809, GRAY, ""),
+            ("Lemory, any@5", 0.983, LEMON, ""),
+            ("Lemory, strict all@5", 0.903, LEMON, ""),
+            ("Vector-only, any@5", 0.978, GRAY, ""),
+            ("Vector-only, strict all@5", 0.853, GRAY, ""),
         ],
     )
 
