@@ -58,7 +58,7 @@
 Lemory는 보스 노트 자체를 1위로, 13ms에, LLM 0회로 돌려줍니다.
 
 qmd가 로컬 LLM 풀파이프라인(질의 확장 + 리랭크)을 돌려도, 같은 329문항에서
-Lemory의 LLM-프리 하이브리드보다 아래입니다 — 게다가 쿼리당 59.5초를 냅니다:
+Lemory의 LLM-프리 하이브리드보다 아래입니다 - 게다가 쿼리당 59.5초를 냅니다:
 
 <div align="center">
 <img src="docs/assets/chart_qmd_rematch.svg" width="840" alt="동일 329문항: Lemory 0.875@~16ms vs qmd query 0.769@59.5s">
