@@ -14,20 +14,18 @@ doesn't help a strong embedder (details below). Ollama and LiteRT-LM are gone.
 
 ### Local embeddings
 
-- **In-process Harrier-OSS-0.6B is the best local embedder**
-  (`pip install "lemory[llama]"`). A Qwen3-based multilingual embedder (Q8
-  GGUF) runs inside the process via llama.cpp on Metal/GPU, no daemon, the same
-  runtime qmd uses. Measured hybrid **doc@8 0.853 on KorMapleQA**, closing over
-  half the gap to the Gemini ceiling (0.906) with zero keys. The GGUF
-  auto-downloads from HuggingFace once.
-- **The default (fastembed, no compiler) is now dragonkue's Korean-tuned
-  `multilingual-e5-small-ko-v2`** (384d), replacing MiniLM. Registered from a
-  community ONNX export so it stays pure-Python and torch-free, ~9 ms/embed.
-  Measured **hybrid doc@8 0.879 on the full KorMapleQA v2** (2,067) — vs MiniLM's
-  0.788 and above the Harrier tier's 0.853, at a fraction of the weight and no
-  native compile. `local_embed_backend = "auto"` still prefers Harrier when
-  llama-cpp-python is installed, but e5-small-ko-v2 is the stronger measured
-  embedder here — see the standings chart.
+- **The default local embedder is dragonkue's Korean-tuned
+  `multilingual-e5-small-ko-v2`** (fastembed, 384d), replacing MiniLM. Registered
+  from a community ONNX export so it stays pure-Python and torch-free, ~9 ms/embed,
+  no native compile. Measured **hybrid doc@8 0.879 on the full KorMapleQA v2**
+  (2,067) — above MiniLM's 0.788 **and the 1024-d Harrier's 0.853**, and it never
+  lost to Harrier on the English/long-doc corpora tested. `local_embed_backend =
+  "auto"` picks it everywhere.
+- **Harrier-OSS-0.6B is now an option, not the default.** The in-process
+  llama.cpp Qwen3-based embedder (doc@8 0.853) measured *below* e5-small-ko-v2 and
+  is heavier (~640 MB GGUF, ~100 ms/query), so it is demoted to an explicit
+  choice (`local_embed_backend = "llamacpp"`); llama.cpp's job in the best-local
+  stack is now the Gemma 4 *answer* model, not embeddings.
 
 ### Retrieval quality
 

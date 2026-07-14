@@ -48,9 +48,8 @@ lemory setup
 ```
 
 It asks for your vault path, lets you pick an execution mode
-(**1** ⭐ best local — fully on-device: Harrier embeddings + Gemma 4 answers on
-llama.cpp · **2** light local, search-only (e5-small-ko-v2) · **3** Gemini free
-API),
+(**1** ⭐ best local — fully on-device: e5-small-ko-v2 embeddings + Gemma 4
+answers on llama.cpp · **2** light local, search-only · **3** Gemini free API),
 health-checks the connection, and runs the first index. Then:
 
 ```bash
@@ -130,36 +129,33 @@ number in `lemory setup`:
 **Mode 1 — ⭐ best local (recommended): even answers run offline**
 
 The whole stack on-device, keyless. `lemory setup` → `1` offers to
-`pip install "lemory[llama]"` for you; the three GGUFs auto-download once.
+`pip install "lemory[llama]"` (for the answer model); the GGUFs auto-download once.
 
-- Embeddings: **Harrier-OSS-0.6B** (Q8 GGUF, ~640 MB, 1024d, Qwen3-based
-  multilingual). Measured hybrid **doc@8 0.853** on KorMapleQA. (The light
-  e5-small-ko-v2 default actually scores higher — 0.879 — so `lemory[llama]`'s
-  real win here is on-device *answers*, not embeddings.)
-- Answers: **Gemma 4 E4B** (Q4_K_M GGUF, Google's recommended size), streamed.
-  Switch to the lighter **E2B** in the web console.
-- Both run on the llama.cpp GPU engine. A dedicated reranker is available
-  (`reranker = true`) but ships **off** — see below. Not a byte of your vault
-  ever leaves the machine.
+- Embeddings: **e5-small-ko-v2** (dragonkue's Korean-tuned multilingual-e5-small,
+  fastembed, 384d, no compile). Measured hybrid **doc@8 0.879** on KorMapleQA —
+  the strongest local embedder we measured, above the 1024-d Harrier (0.853).
+- Answers: **Gemma 4 E4B** (Q4_K_M GGUF) on llama.cpp GPU, streamed. Switch to
+  the lighter **E2B** in the web console. This is what `lemory[llama]` is for.
+- A dedicated reranker is available (`reranker = true`) but ships **off** — a
+  small reranker measured *worse* on the strong embedder (see below). Not a byte
+  of your vault ever leaves the machine.
 
-**Mode 2 — light local (search-only): smallest footprint**
+**Mode 2 — light local (search-only): no answer model**
 
-- **e5-small-ko-v2 (default): `pip install "lemory[local]"`** — dragonkue's
-  Korean-tuned multilingual-e5-small via fastembed (pure-Python ONNX, 384d,
-  ~9 ms/embed). No native compile, tiny footprint, yet **far stronger on Korean
-  than the old MiniLM default** — measured dense doc@8 0.86 vs 0.14 on a
-  KorMapleQA subcorpus. The right pick if `lemory[llama]` won't build on your
-  box, or on Raspberry-Pi-class hardware. Search + semantic embeddings, no `ask()`.
+- Same **e5-small-ko-v2** embedder, without the Gemma answer model — `pip
+  install "lemory[local]"`, pure-Python ONNX, no native compile, tiny footprint.
+  Search + semantic embeddings on Raspberry-Pi-class hardware, no `ask()`.
 
-`local_embed_backend = auto` uses Harrier when `lemory[llama]` is installed, else
-e5-small-ko-v2. Everything except `ask()` works with embeddings alone; `ask()`
-needs a generator — on-device Gemma 4 (best local) or a Gemini key.
+`local_embed_backend = auto` uses e5-small-ko-v2 (it measured strongest); set
+`llamacpp` for the 1024-d Harrier if you prefer it. Everything except `ask()`
+works with embeddings alone; `ask()` needs a generator — on-device Gemma 4 (add
+`lemory[llama]`) or a Gemini key.
 
 **Minimum specs**
 
 | Mode | RAM | Disk | Notes |
 |---|---|---|---|
-| 1 best local (Harrier + Gemma 4 E4B) | **8 GB+ (16 GB nice)** | ~4.5 GB | CPU works; Metal/GPU makes answers snappy. Drop to E2B on 8 GB |
+| 1 best local (e5 + Gemma 4 E4B) | **8 GB+ (16 GB nice)** | ~4 GB | embeddings are light; Metal/GPU makes answers snappy. Drop to E2B on 8 GB |
 | 2 light local (search-only) | 4 GB | ~250 MB | Raspberry-Pi-class hardware is fine |
 | 3 Gemini API | anything | ~0 | needs internet, any machine |
 
@@ -313,19 +309,17 @@ results but not at #1.
 Everything above is opt-in on top of a fast, free default. Pick the tier you
 want in `lemory setup` or `lemory.toml`:
 
-1. **Best local, no daemon (`lemory[llama]`, Harrier-OSS-0.6B):** in-process
-   llama.cpp (Metal/GPU), the same runtime qmd uses. Hybrid **doc@8 0.853**,
-   closing over half the gap to the Gemini ceiling (0.906) with zero keys and
-   no server to run. Gains land on the hard types (masked +11, 2-hop
-   full-support 0.18 to 0.29, typo +7). Costs: a native wheel (compiles if no
-   prebuilt), ~640 MB GGUF (auto-downloaded once), and query latency ~100 ms vs
-   the light tier's ~9 ms. `pip install "lemory[llama]"`.
-2. **Lightest local (`lemory[local]`, e5-small-ko-v2):** dragonkue's Korean-tuned
-   multilingual-e5-small via fastembed (pure-Python ONNX, 384d, ~9 ms/embed), no
-   native compile. Measured dense doc@8 **0.86 vs the old MiniLM's 0.14** on a
-   KorMapleQA subcorpus — a big Korean jump for zero extra weight. The fallback
-   when the llama wheel won't build, or when index speed matters more than the
-   last few hybrid points.
+1. **Default embedder (`lemory[local]`, e5-small-ko-v2):** dragonkue's
+   Korean-tuned multilingual-e5-small via fastembed (pure-Python ONNX, 384d,
+   ~9 ms/embed, no native compile). Measured **hybrid doc@8 0.879** on the full
+   KorMapleQA v2 — the strongest local embedder we measured, above the 1024-d
+   Harrier (0.853) and the old MiniLM (0.788), and it never lost to Harrier on
+   the English or long-doc corpora tested. `local_embed_backend = auto` picks it.
+2. **Optional 1024-d embedder (`lemory[llama]`, Harrier-OSS-0.6B):** in-process
+   llama.cpp (Metal/GPU), doc@8 0.853. It measured *below* e5-small-ko-v2 here
+   and is heavier (~640 MB GGUF, ~100 ms/query vs ~9 ms) — kept as an option
+   (`local_embed_backend = "llamacpp"`) for those who want the larger dimension,
+   but it is no longer the default.
 3. **Precision mode (+ dedicated reranker), off by default:** `reranker = true`
    reorders the top candidates with a cross-encoder. Measured on the strong
    local embedders it barely helps or even hurts, at a large latency cost (table

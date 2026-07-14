@@ -56,11 +56,10 @@ class LemoryConfig(BaseSettings):
     # export so fastembed runs it with no compiler and no torch. Measured dense
     # doc@8 0.86 vs the old MiniLM's 0.14 on KorMapleQA Korean retrieval.
     local_embed_model: str = "dragonkue/multilingual-e5-small-ko-v2"
-    # which in-process local embedder: "auto" uses in-process llama.cpp Harrier
-    # (doc@8 0.853) when llama-cpp-python is installed (pip install lemory[llama]),
-    # else falls back to the lighter fastembed e5-small-ko-v2 (384d, pure-Python).
-    # Harrier-OSS-0.6B (Q8, Qwen3-based multilingual) closes over half the gap to
-    # Gemini's 0.906 with zero keys, fully on-device via llama.cpp Metal/CPU.
+    # which in-process local embedder: "auto" uses fastembed e5-small-ko-v2 (the
+    # strongest local embedder measured, doc@8 0.879). "llamacpp" switches to the
+    # 1024-d Harrier-OSS-0.6B GGUF (doc@8 0.853, heavier/slower) for those who
+    # want it — it is no longer the default.
     local_embed_backend: str = "auto"  # auto | llamacpp | fastembed
     local_embed_gguf_repo: str = "mradermacher/harrier-oss-v1-0.6b-GGUF"
     local_embed_gguf_file: str = "harrier-oss-v1-0.6b.Q8_0.gguf"
@@ -251,16 +250,19 @@ class LemoryConfig(BaseSettings):
         raise RuntimeError(
             "No API key found. Set GEMINI_API_KEY (a free-tier key from "
             "https://aistudio.google.com works), OPENAI_API_KEY, or install "
-            "local embeddings: pip install 'lemory[llama]' (Harrier, best) or "
+            "local embeddings: pip install 'lemory[local]' (e5-small-ko-v2, best) or "
             "'lemory[local]' (fastembed, lighter)"
         )
 
     def resolved_local_backend(self) -> str:
-        """Which in-process local embedder to use: 'llamacpp' (Harrier) or
-        'fastembed' (e5-small-ko-v2). 'auto' prefers llama.cpp when installed."""
+        """Which in-process local embedder to use: 'fastembed' (e5-small-ko-v2,
+        the default) or 'llamacpp' (Harrier). 'auto' picks e5-small-ko-v2 — it
+        measured higher hybrid doc@8 than Harrier (0.879 vs 0.853 on KorMapleQA)
+        while being lighter, faster, and needing no native compile; set
+        'llamacpp' explicitly to use the 1024-d Harrier instead."""
         if self.local_embed_backend in ("llamacpp", "fastembed"):
             return self.local_embed_backend
-        return "llamacpp" if _has_module("llama_cpp") else "fastembed"
+        return "fastembed"
 
     def active_embed_model(self) -> str:
         p = self.resolved_provider()
