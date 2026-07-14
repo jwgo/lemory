@@ -5,13 +5,13 @@ All notable changes to Lemory. Dates are the merge date of the release.
 ## 0.3.0 · Korean-tuned e5 default (0.889 doc@8), one-command setup, on-device Gemma, no Ollama
 
 **Better retrieval, simpler stack, one way in.** The keyless local default is now a
-Korean-tuned e5 embedder that measures **hybrid doc@8 0.889 on KorMapleQA** —
+Korean-tuned e5 embedder that measures **hybrid doc@8 0.889 on KorMapleQA** -
 above the old MiniLM default (0.788) and the llama.cpp Harrier tier
 (0.853), second only to the Gemini config (0.906). Onboarding collapsed to a
 single command (`lemory up`). On-device answers moved to
 Gemma 4 on llama.cpp (GPU everywhere: Metal / CUDA / Vulkan / CPU offload), now
 selectable in the web dashboard. A dedicated reranker is available but ships
-**off** — measured, a small reranker doesn't help a strong embedder (details
+**off** - measured, a small reranker doesn't help a strong embedder (details
 below). Ollama and LiteRT-LM are gone.
 
 ### Local embeddings
@@ -20,18 +20,18 @@ below). Ollama and LiteRT-LM are gone.
   `multilingual-e5-small-ko-v2`** (fastembed, 384d), replacing MiniLM. Registered
   from a community ONNX export so it stays pure-Python and torch-free, ~9 ms/embed,
   no native compile. Measured **hybrid doc@8 0.889 on the full KorMapleQA v2**
-  (2,067) — above MiniLM's 0.788 **and the 1024-d Harrier's 0.853**, and it never
+  (2,067) - above MiniLM's 0.788 **and the 1024-d Harrier's 0.853**, and it never
   lost to Harrier on the English/long-doc corpora tested. `local_embed_backend =
   "auto"` picks it everywhere.
 - **Chunk size tuned to the embedder's window: `chunk_chars` 1400 → 882.**
   882 characters ≈ 512 tokens of Korean (measured 1.70 char/token), exactly the
-  e5-small-ko-v2 context window — the largest chunk it encodes in full, so no
+  e5-small-ko-v2 context window - the largest chunk it encodes in full, so no
   content is truncated before embedding while each chunk stays maximally coherent.
   A full sweep on KorMapleQA (700–2200 chars) showed note-level doc@8 is flat
   within noise across the range (the 1024-token BM25 leg covers whatever the
   vector leg truncates), so we picked the principled point; 1400 happened to sit
   at the sweep's low. e5's Korean re-measurement lifts the local dense leg sharply
-  — vector-only doc@8 0.149 → 0.863, masked-entity 0.461 → 0.777, 2-hop
+  - vector-only doc@8 0.149 → 0.863, masked-entity 0.461 → 0.777, 2-hop
   full-support 0.141 → 0.477 (now ahead of qmd's 0.333).
 - **Harrier-OSS-0.6B is now an option, not the default.** The in-process
   llama.cpp Qwen3-based embedder (doc@8 0.853) measured *below* e5-small-ko-v2 and
@@ -41,10 +41,10 @@ below). Ollama and LiteRT-LM are gone.
 
 ### Retrieval quality
 
-- **Dedicated cross-encoder reranker** (`reranker = true`) — available but
+- **Dedicated cross-encoder reranker** (`reranker = true`) - available but
   **off by default, and here is the honest reason.** On the full KorMapleQA v2
   over the e5 default: no reranker doc@1 0.610 / doc@8 0.879 (~30 ms/q);
-  Qwen3-Reranker-0.6B doc@1 **0.580** (it *hurt* — a 0.6B reranker second-guessing
+  Qwen3-Reranker-0.6B doc@1 **0.580** (it *hurt* - a 0.6B reranker second-guessing
   an already-correct top result) at ~1.9 s/q; jina-reranker-v2 doc@1 0.622 (+1 pt)
   at ~0.8 s/q. A strong embedder + BM25 + link-graph fusion already ranks well,
   so retrieval ships without a reranker; `reranker` stays an opt-in precision knob.
@@ -52,32 +52,32 @@ below). Ollama and LiteRT-LM are gone.
 ### On-device answers & assistant
 
 - **Local answers with no key, no daemon.** `lemory ask` and the web console's
-  search view answer fully on-device via **Gemma 4** on llama.cpp (Q4_K_M GGUF —
+  search view answer fully on-device via **Gemma 4** on llama.cpp (Q4_K_M GGUF -
   E4B default, switch to the lighter E2B in the console; `pip install
   "lemory[llama]"`). The answer model shares the engine with the embedder and
   reranker; it runs with an 8192-token context and the RAG prompt is fit to it.
 - **Voice assistant mode** in the web console: grounded chat over the vault with
   local STT (faster-whisper) and on-device neural TTS (Supertonic), streamed
-  sentence-by-sentence — no cloud round-trip. `pip install "lemory[assistant]"`.
+  sentence-by-sentence - no cloud round-trip. `pip install "lemory[assistant]"`.
 ### Onboarding & web console
 
 - **One command to start: `lemory up`.** Onboarding was scattered across three
-  overlapping commands — `init` (config only), `setup` (interactive wizard), and
+  overlapping commands - `init` (config only), `setup` (interactive wizard), and
   `up` (auto). Now there is one way: `lemory up` prompts for the vault when run
   bare, `lemory up ~/Vault` runs zero-question for scripts, `--key <KEY>` selects
   Gemini. It auto-detects the best mode and offers to install `lemory[llama]` for
   Gemma answers; the old number-menu is gone. `init`/`setup` remain as hidden
   deprecated aliases that forward to `up`.
-- **Pick the answer model in the dashboard.** Settings gained a **Models** card —
+- **Pick the answer model in the dashboard.** Settings gained a **Models** card -
   the one place to see and switch the on-device answer LLM (Gemma 4 E4B ⇄ E2B,
   with size/context/GPU shown) and read the resolved embedding and reranker
-  identities. Previously the model toggle was buried in the assistant view — and
+  identities. Previously the model toggle was buried in the assistant view - and
   silently broken: its switch request omitted the JSON `Content-Type`, so the
   server rejected it with 422. Fixed.
 
 ### Removed
 
-- **Ollama is gone entirely.** No server to install, run, or `pull` from — the
+- **Ollama is gone entirely.** No server to install, run, or `pull` from - the
   `ollama` provider, the `ollama_*` config keys, and the Ollama setup mode were
   removed.
 - **LiteRT-LM dropped for a single llama.cpp engine.** An earlier build ran

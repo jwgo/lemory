@@ -72,7 +72,7 @@ English-first embedder with no Korean lexical path. Lemory returns the boss
 note itself as the first hit, in 13 ms, with zero LLM calls.
 
 When qmd runs its full local-LLM pipeline (query expansion + rerank), it still
-lands below Lemory's LLM-free hybrid on the same 329 questions — and pays
+lands below Lemory's LLM-free hybrid on the same 329 questions - and pays
 59.5 seconds per query to get there:
 
 <div align="center">
@@ -94,7 +94,7 @@ lemory up ~/Obsidian/MyVault     # config → index → dashboard, in one comman
 lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"
 ```
 
-`lemory up` is the one way in — it picks the best mode automatically: a Gemini
+`lemory up` is the one way in - it picks the best mode automatically: a Gemini
 key if it finds one (cloud embeddings + answers), otherwise the **on-device
 stack that ships by default** (Korean-tuned e5-small-ko-v2 embeddings + Gemma 4
 answers, no key, no daemon), so search works with no setup. Run it bare
@@ -295,13 +295,13 @@ retrieval, zero API calls, local embedder:
 
 Recall@5 **0.983** on the protocol most headline numbers use, and we lead
 with the stricter all-evidence number (0.903) instead of quoting only the
-flattering one — the Korean-tuned e5 default improves both over the old MiniLM
+flattering one - the Korean-tuned e5 default improves both over the old MiniLM
 (0.972 / 0.857). LOCOMO LLM-judge 0.706 vs mem0's published 0.669; DMR
 (500 q) 0.694 vs 0.648 same-harness naive RAG
 ([§7](BENCHMARKS.md)).
 
 **[KorQuAD 1.0](https://korquad.github.io/)**, 140 real Korean Wikipedia
-articles, 400 human-written questions — keyless local (e5-small-ko-v2):
+articles, 400 human-written questions - keyless local (e5-small-ko-v2):
 
 | System | Recall@1 | Recall@5 | MRR@10 |
 |---|---|---|---|
