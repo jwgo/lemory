@@ -106,7 +106,7 @@ def split_sections(body: str) -> list[Section]:
 
 
 def chunk_note(
-    body: str, chunk_chars: int = 1400, overlap: int = 180, min_chars: int = 120
+    body: str, chunk_chars: int = 882, overlap: int = 180, min_chars: int = 120
 ) -> list[tuple[str, str]]:
     """Heading-aware chunking. Returns [(heading_breadcrumb, chunk_text)].
 

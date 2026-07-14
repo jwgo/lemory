@@ -150,10 +150,10 @@ def main() -> None:
     hbar_chart(
         ASSETS / "chart_kormapleqa.svg",
         "KorMapleQA: who actually finds Korean notes",
-        "2,067 real namuwiki questions, gold-doc in top-8. Full corpus: 1,469 documents / 33k chunks.",
+        "2,067 real namuwiki questions, gold-doc in top-8. Full corpus: 1,469 documents / 42k chunks.",
         [
             ("Lemory (Gemini embeddings)", 0.906, LEMON, "12 ms/query"),
-            ("Lemory (local e5-small-ko-v2, zero keys)", 0.879, LEMON, "~31 ms/query, no compile"),
+            ("Lemory (local e5-small-ko-v2, zero keys)", 0.889, LEMON, "~16 ms/query, no compile"),
             ("Lemory (local Harrier-0.6B, llama.cpp GPU)", 0.853, LEMON, "~100 ms/query, zero keys"),
             ("qmd query (local LLM)", 0.769, BLUE, "59.5 s/query, n=329 sample"),
             ("qmd vsearch", 0.657, BLUE, "4.2 s/query, n=280 sample"),
@@ -179,10 +179,10 @@ def main() -> None:
     # 3. The qmd rematch (identical 329 questions)
     hbar_chart(
         ASSETS / "chart_qmd_rematch.svg",
-        "Identical 329 questions: quality tie, 2,930x the speed",
+        "Identical 329 questions: Lemory leads quality, ~3,700x the speed",
         "qmd's full local-LLM pipeline (expansion + rerank) vs Lemory's LLM-free hybrid, same questions.",
         [
-            ("Lemory local, 20.3 ms/query", 0.775, LEMON, "doc@8"),
+            ("Lemory local, ~16 ms/query", 0.875, LEMON, "doc@8"),
             ("qmd query, 59.5 s/query", 0.769, BLUE, "doc@8"),
         ],
     )

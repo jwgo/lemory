@@ -7,7 +7,7 @@
 
 <img src="docs/assets/demo1_korean.gif" alt="실제 나무위키 1,469노트 볼트에서 한국어 질문이 13ms에 답변되고 오타가 자동 교정되는 실제 데모" width="840">
 
-<sub>목업이 아닙니다. 실제 나무위키 1,469문서 / 33,382청크 볼트에서 한국어
+<sub>목업이 아닙니다. 실제 나무위키 1,469문서 / ~42,000청크 볼트에서 한국어
 질문이 로컬 연산 13ms에 답변되고, 오타는 API 없이 교정되는 장면입니다.
 [`benchmarks/`](benchmarks/)로 재현됩니다.</sub>
 
@@ -57,11 +57,11 @@
 돌려주고, MemPalace는 영어 중심 임베더에 한국어 어휘 경로가 없습니다.
 Lemory는 보스 노트 자체를 1위로, 13ms에, LLM 0회로 돌려줍니다.
 
-qmd가 로컬 LLM 풀파이프라인(질의 확장 + 리랭크)을 돌리면 품질은 Lemory
-수준에 도달합니다. 대신 쿼리당 59.5초를 냅니다:
+qmd가 로컬 LLM 풀파이프라인(질의 확장 + 리랭크)을 돌려도, 같은 329문항에서
+Lemory의 LLM-프리 하이브리드보다 아래입니다 — 게다가 쿼리당 59.5초를 냅니다:
 
 <div align="center">
-<img src="docs/assets/chart_qmd_rematch.svg" width="840" alt="동일 329문항: Lemory 0.775@20ms vs qmd query 0.769@59.5s">
+<img src="docs/assets/chart_qmd_rematch.svg" width="840" alt="동일 329문항: Lemory 0.875@~16ms vs qmd query 0.769@59.5s">
 </div>
 
 가장 스타가 많은 OSS 메모리 레이어 mem0와는 같은 코퍼스, 같은 Gemini 모델
@@ -75,13 +75,14 @@ qmd가 로컬 LLM 풀파이프라인(질의 확장 + 리랭크)을 돌리면 품
 
 ```bash
 pipx install "git+https://github.com/jwgo/lemory"
-lemory up ~/Obsidian/MyVault    # 딸깍: 키 감지, 모드 선택, 색인, 대시보드
+lemory up ~/Obsidian/MyVault    # 한 번에: 키 감지 → 모드 자동 → 색인 → 대시보드
 lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"
 ```
 
 키가 없어도 됩니다. Gemini 키가 있으면 클라우드(임베딩+답변), 없으면 **기본
-탑재된 로컬 임베딩**(MiniLM 기본, `pip install "lemory[llama]"`면 Harrier-0.6B)
-으로 알아서 동작합니다. 즉 키 없이도 시맨틱 검색이 바로 됩니다.
+탑재된 로컬 임베딩**(dragonkue/multilingual-e5-small-ko-v2, 한국어 특화 384d
+기본; `pip install "lemory[llama]"` + `local_embed_backend="llamacpp"`면 1024d
+Harrier-0.6B)으로 알아서 동작합니다. 즉 키 없이도 시맨틱 검색이 바로 됩니다.
 
 그다음엔 **`lemory serve`를 계속 켜두세요.** 옵시디언 플러그인, Claude/MCP,
 웹 대시보드가 붙는 상시 백엔드이고, 볼트를 편집하면 몇 초 안에 자동 재색인합니다.
@@ -165,10 +166,10 @@ AI가 적은 모든 노트는 대시보드의 **AI 메모리 피드**에 "누가
 <img src="docs/assets/chart_robustness.svg" width="840" alt="패러프레이즈, 한국어, 키워드, 오타 강건성">
 </div>
 
-**KorQuAD 1.0** (실제 한국어 위키피디아, 인간 작성 질문 400개): recall@1
-**0.940**으로 BM25(0.928)를 추월했습니다. 이 표는 오랫동안 BM25가 이겼고
-우리는 그동안 그 사실을 그대로 실었습니다. 2026-07 한국어 검색 라운드가
-드디어 뒤집었습니다.
+**KorQuAD 1.0** (실제 한국어 위키피디아, 인간 작성 질문 400개, 키 제로 로컬
+e5-small-ko-v2): recall@1 **0.935**로 BM25(0.900)를 추월했습니다. 이 표는
+오랫동안 BM25가 이겼고 우리는 그동안 그 사실을 그대로 실었습니다. 2026-07
+한국어 검색 라운드가 드디어 뒤집었습니다.
 
 **[KorMapleQA](benchmarks/data/kormapleqa/README.md)**: 실제 나무위키
 메이플스토리 도메인 위의 2,075문항 벤치마크를 직접 만들어 공개합니다.
@@ -201,7 +202,7 @@ $ lemory context                            # 에이전트용 볼트 요약 한 
 
 ## 큰 볼트도, 망분리도 됩니다
 
-- 나무위키 실문서 1,469편(청크 33,382개, 실제 위키링크 24,850개)을 그대로
+- 나무위키 실문서 1,469편(청크 ~42,000개, 실제 위키링크 24,850개)을 그대로
   색인해 검증했습니다.
 - 청크 2만 개를 넘으면 IVF-int8 인덱스로 자동 전환(여전히 numpy뿐):
   **청크 100만 개에서 5.9ms/질의, 정확 검색 대비 recall 1.000, RAM 4분의 1**.
@@ -225,7 +226,7 @@ $ lemory context                            # 에이전트용 볼트 요약 한 
 공개한 숫자는 누군가 검증합니다. 그래서 비교한 모든 시스템의 하니스를
 커밋하고, 경쟁 제품이 이기는 축(kepano 밀집 검색, qmd의 2-hop 문서
 커버리지, Omnisearch의 키워드 홈그라운드)을 그대로 인쇄하고, 미해결
-문제(33k 청크 코퍼스의 2-hop full-support는 우리 포함 전원이 어렵습니다)를
+문제(~42k 청크 코퍼스의 2-hop full-support는 우리 포함 전원이 어렵습니다)를
 BENCHMARKS.md에 상시 게시합니다. 재현이 안 되는 숫자가 있으면 이슈를
 열어주세요. 이슈가 아니라 숫자를 고치겠습니다.
 

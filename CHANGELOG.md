@@ -2,25 +2,37 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
-## 0.3.0 · Korean-tuned e5 default (0.879 doc@8), on-device Gemma answers, no Ollama
+## 0.3.0 · Korean-tuned e5 default (0.889 doc@8), one-command setup, on-device Gemma, no Ollama
 
-**Better retrieval, simpler stack.** The keyless local default is now a
-Korean-tuned e5 embedder that measures **hybrid doc@8 0.879 on KorMapleQA** —
-above the old MiniLM default (0.788) and even the llama.cpp Harrier tier
-(0.853), second only to the Gemini config (0.906). On-device answers moved to
-Gemma 4 on llama.cpp (GPU everywhere: Metal / CUDA / Vulkan / CPU offload). A
-dedicated reranker is available but ships **off** — measured, a small reranker
-doesn't help a strong embedder (details below). Ollama and LiteRT-LM are gone.
+**Better retrieval, simpler stack, one way in.** The keyless local default is now a
+Korean-tuned e5 embedder that measures **hybrid doc@8 0.889 on KorMapleQA** —
+above the old MiniLM default (0.788) and the llama.cpp Harrier tier
+(0.853), second only to the Gemini config (0.906). Onboarding collapsed to a
+single command (`lemory up`). On-device answers moved to
+Gemma 4 on llama.cpp (GPU everywhere: Metal / CUDA / Vulkan / CPU offload), now
+selectable in the web dashboard. A dedicated reranker is available but ships
+**off** — measured, a small reranker doesn't help a strong embedder (details
+below). Ollama and LiteRT-LM are gone.
 
 ### Local embeddings
 
 - **The default local embedder is dragonkue's Korean-tuned
   `multilingual-e5-small-ko-v2`** (fastembed, 384d), replacing MiniLM. Registered
   from a community ONNX export so it stays pure-Python and torch-free, ~9 ms/embed,
-  no native compile. Measured **hybrid doc@8 0.879 on the full KorMapleQA v2**
+  no native compile. Measured **hybrid doc@8 0.889 on the full KorMapleQA v2**
   (2,067) — above MiniLM's 0.788 **and the 1024-d Harrier's 0.853**, and it never
   lost to Harrier on the English/long-doc corpora tested. `local_embed_backend =
   "auto"` picks it everywhere.
+- **Chunk size tuned to the embedder's window: `chunk_chars` 1400 → 882.**
+  882 characters ≈ 512 tokens of Korean (measured 1.70 char/token), exactly the
+  e5-small-ko-v2 context window — the largest chunk it encodes in full, so no
+  content is truncated before embedding while each chunk stays maximally coherent.
+  A full sweep on KorMapleQA (700–2200 chars) showed note-level doc@8 is flat
+  within noise across the range (the 1024-token BM25 leg covers whatever the
+  vector leg truncates), so we picked the principled point; 1400 happened to sit
+  at the sweep's low. e5's Korean re-measurement lifts the local dense leg sharply
+  — vector-only doc@8 0.149 → 0.863, masked-entity 0.461 → 0.777, 2-hop
+  full-support 0.141 → 0.477 (now ahead of qmd's 0.333).
 - **Harrier-OSS-0.6B is now an option, not the default.** The in-process
   llama.cpp Qwen3-based embedder (doc@8 0.853) measured *below* e5-small-ko-v2 and
   is heavier (~640 MB GGUF, ~100 ms/query), so it is demoted to an explicit
@@ -47,9 +59,21 @@ doesn't help a strong embedder (details below). Ollama and LiteRT-LM are gone.
 - **Voice assistant mode** in the web console: grounded chat over the vault with
   local STT (faster-whisper) and on-device neural TTS (Supertonic), streamed
   sentence-by-sentence — no cloud round-trip. `pip install "lemory[assistant]"`.
-- **First-run setup builds the whole best-local stack.** `lemory setup` → `1`
-  offers to `pip install "lemory[llama]"` and points the vault at Harrier +
-  Gemma 4 (reranker off by measurement) — keyless and daemonless.
+### Onboarding & web console
+
+- **One command to start: `lemory up`.** Onboarding was scattered across three
+  overlapping commands — `init` (config only), `setup` (interactive wizard), and
+  `up` (auto). Now there is one way: `lemory up` prompts for the vault when run
+  bare, `lemory up ~/Vault` runs zero-question for scripts, `--key <KEY>` selects
+  Gemini. It auto-detects the best mode and offers to install `lemory[llama]` for
+  Gemma answers; the old number-menu is gone. `init`/`setup` remain as hidden
+  deprecated aliases that forward to `up`.
+- **Pick the answer model in the dashboard.** Settings gained a **Models** card —
+  the one place to see and switch the on-device answer LLM (Gemma 4 E4B ⇄ E2B,
+  with size/context/GPU shown) and read the resolved embedding and reranker
+  identities. Previously the model toggle was buried in the assistant view — and
+  silently broken: its switch request omitted the JSON `Content-Type`, so the
+  server rejected it with 422. Fixed.
 
 ### Removed
 

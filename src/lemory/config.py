@@ -95,7 +95,13 @@ class LemoryConfig(BaseSettings):
     openai_embed_rpm: int = 300
 
     # --- chunking ---
-    chunk_chars: int = 1400
+    # 882 chars ≈ 512 tokens of Korean (measured 1.70 char/tok), which is exactly
+    # the e5-small-ko-v2 embedding window: the largest chunk the default embedder
+    # encodes in full (no truncation) while keeping each chunk maximally coherent.
+    # A full chunk-size sweep on KorMapleQA (700–2200) showed doc@8 is flat within
+    # noise across the range, so we pick the principled point rather than the
+    # nominal max.
+    chunk_chars: int = 882
     chunk_overlap: int = 180
     min_chunk_chars: int = 120
 

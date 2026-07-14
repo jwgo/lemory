@@ -14,7 +14,7 @@
 
 <img src="docs/assets/demo1_korean.gif" alt="Live search on a real 1,469-note namuwiki vault: Korean question answered in 13ms, typo repaired automatically" width="840">
 
-<sub>Not a mock. A real 1,469-note / 33,382-chunk namuwiki vault: a natural
+<sub>Not a mock. A real 1,469-note / ~42,000-chunk namuwiki vault: a natural
 Korean question answered in 13 ms of local compute, a typo repaired without
 any API call. Reproducible from [`benchmarks/`](benchmarks/).</sub>
 
@@ -71,11 +71,12 @@ semantics, so a natural Korean question returns nothing. MemPalace ships an
 English-first embedder with no Korean lexical path. Lemory returns the boss
 note itself as the first hit, in 13 ms, with zero LLM calls.
 
-When qmd runs its full local-LLM pipeline (query expansion + rerank) it does
-reach Lemory-level quality. It costs 59.5 seconds per query to get there:
+When qmd runs its full local-LLM pipeline (query expansion + rerank), it still
+lands below Lemory's LLM-free hybrid on the same 329 questions — and pays
+59.5 seconds per query to get there:
 
 <div align="center">
-<img src="docs/assets/chart_qmd_rematch.svg" width="840" alt="Identical 329 questions: Lemory 0.775 at 20ms vs qmd query 0.769 at 59.5s">
+<img src="docs/assets/chart_qmd_rematch.svg" width="840" alt="Identical 329 questions: Lemory 0.875 at ~16ms vs qmd query 0.769 at 59.5s">
 </div>
 
 And against mem0, the most-starred OSS memory layer, same corpus and same
@@ -89,15 +90,16 @@ Gemini models end to end:
 
 ```bash
 pipx install "git+https://github.com/jwgo/lemory"
-lemory up ~/Obsidian/MyVault     # 딸깍: detect key → pick mode → index → dashboard
+lemory up ~/Obsidian/MyVault     # config → index → dashboard, in one command
 lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"
 ```
 
-`lemory up` asks zero questions: it uses a Gemini key if it finds one (cloud
-embeddings + answers), otherwise the **local embeddings that ship by default**
-(Korean-tuned e5-small-ko-v2 out of the box, or Harrier-0.6B with `pip install "lemory[llama]"`), so
-semantic search works with no key and no extra setup. Prefer a guided
-wizard? `lemory setup`.
+`lemory up` is the one way in — it picks the best mode automatically: a Gemini
+key if it finds one (cloud embeddings + answers), otherwise the **on-device
+stack that ships by default** (Korean-tuned e5-small-ko-v2 embeddings + Gemma 4
+answers, no key, no daemon), so search works with no setup. Run it bare
+(`lemory up`) and it prompts for the vault; pass `--key <KEY>` for Gemini. Model
+and search settings live in the dashboard's **Settings**.
 
 Then just **keep `lemory serve` running**: it's the always-on backend for the
 Obsidian plugin, Claude/MCP, and the web dashboard, and it re-indexes your
@@ -298,13 +300,13 @@ flattering one. LOCOMO LLM-judge 0.706 vs mem0's published 0.669; DMR
 ([§7](BENCHMARKS.md)).
 
 **[KorQuAD 1.0](https://korquad.github.io/)**, 140 real Korean Wikipedia
-articles, 400 human-written questions:
+articles, 400 human-written questions — keyless local (e5-small-ko-v2):
 
 | System | Recall@1 | Recall@5 | MRR@10 |
 |---|---|---|---|
-| **Lemory** (hybrid+graph) | **0.940** | 0.993 | **0.963** |
-| BM25 | 0.928 | **0.993** | 0.954 |
-| Vector-only RAG | 0.855 | 0.968 | 0.902 |
+| **Lemory** (hybrid+graph) | **0.935** | 0.980 | **0.954** |
+| BM25 | 0.900 | **0.985** | 0.937 |
+| Vector-only RAG | 0.840 | 0.953 | 0.887 |
 
 <sub>For most of this project's history BM25 won this table and we printed
 that anyway, because SQuAD-family questions are written while looking at the
@@ -448,14 +450,15 @@ Search is local and LLM-free (~3-13 ms). One embedding call per query
   printed that for as long as it was true. It stopped being true in the
   2026-07 Korean retrieval round (KorQuAD table above); the git history
   keeps the old numbers.
-- On qmd's headline mode the honest read is a quality tie: 0.775 vs 0.769
-  on identical questions is inside the confidence interval. The 2,930x
-  latency difference is not.
+- On qmd's headline mode Lemory now leads on quality too: 0.875 vs 0.769
+  on identical questions once the Korean-tuned e5 default landed (it was a
+  tie, 0.775, under the old MiniLM). The ~3,700x latency gap was always there.
 - kepano's small English vault nearly saturates for dense-only retrieval;
   vector-only edges us there by one question and BENCHMARKS says so.
-- 2-hop full-support on the 33k-chunk namuwiki corpus is an open problem
-  for every system we measured, including us (0.141; qmd spends 60 s to
-  reach 0.333). It's in BENCHMARKS as a standing challenge.
+- 2-hop full-support on the ~42k-chunk namuwiki corpus is hard for every
+  system we measured; the e5 default lifts our local number to 0.477 (from
+  0.141 under MiniLM), now ahead of qmd's 0.333 (which costs 60 s/query).
+  BENCHMARKS keeps it as a standing challenge.
 - LOCOMO/LongMemEval judged numbers use stratified samples sized for API
   budgets; `--all` flags run the full sets. Other teams' published numbers
   use different generators/judges and are quoted as context, not victory

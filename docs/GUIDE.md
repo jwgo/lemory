@@ -34,27 +34,25 @@ Without a billing account attached there is **no way to be charged** — hitting
 the free limit means waiting, not paying. Lemory rate-limits itself to stay
 inside it.
 
-## 3. Setup — one click is enough
+## 3. Setup — one command is enough
 
 ```bash
-lemory up ~/Obsidian/MyVault   # zero questions: detect key → pick mode → index → dashboard
+lemory up                        # interactive: asks for your vault, then indexes
+lemory up ~/Obsidian/MyVault     # zero questions: detect mode → index → dashboard
+lemory up ~/Vault --key <KEY>    # Gemini cloud mode
 ```
 
-Key in the environment → full mode; no key → local/keyless mode, upgraded in
-place when a key appears. Prefer choosing step by step? The wizard:
-
-```bash
-lemory setup
-```
-
-It asks for your vault path, lets you pick an execution mode
-(**1** ⭐ best local — fully on-device: e5-small-ko-v2 embeddings + Gemma 4
-answers on llama.cpp · **2** light local, search-only · **3** Gemini free API),
-health-checks the connection, and runs the first index. Then:
+`up` auto-detects the best mode: a Gemini key → cloud; llama.cpp installed →
+e5-small-ko-v2 embeddings + Gemma 4 answers on-device; otherwise search-only
+local. Run it interactively and it offers to `pip install "lemory[llama]"` for
+on-device Gemma answers. No number menu, no wizard. Then:
 
 ```bash
 lemory ask "what did we decide in last week's meeting?"
 ```
+
+Want a different answer model or embedder (Gemma E4B/E2B, embedder backend,
+reranker)? Change it later in the dashboard's **Settings › Models** card.
 
 ## 4. How to use it — set up once, then keep using it
 
@@ -67,8 +65,8 @@ talks to it.
 lemory up ~/Obsidian/MyVault      # config + first index + serve, in one go
 ```
 Search works with no key at all (local embeddings). Want AI answers (`ask`)?
-run `lemory setup` and pick **best local** (on-device Gemma 4, no key) or a
-Gemini key.
+`lemory up` sets up on-device Gemma 4 by default (no key) when llama.cpp is
+installed; pass `--key <KEY>` for Gemini instead.
 
 **2. Keep it running (recommended — the always-on backend)**
 ```bash
@@ -123,16 +121,17 @@ twice — editing back and forth, or a full rebuild, costs nothing.
 
 Every local path runs **in-process on one llama.cpp engine** — no Ollama, no
 server to babysit, GPU everywhere it exists (Metal on Mac, CUDA/Vulkan on
-Linux/Windows, CPU offload otherwise), the way qmd uses node-llama-cpp. Pick a
-number in `lemory setup`:
+Linux/Windows, CPU offload otherwise), the way qmd uses node-llama-cpp. `lemory
+up` picks the right one for your machine:
 
 **Mode 1 — ⭐ best local (recommended): even answers run offline**
 
-The whole stack on-device, keyless. `lemory setup` → `1` offers to
-`pip install "lemory[llama]"` (for the answer model); the GGUFs auto-download once.
+The whole stack on-device, keyless — this is what `lemory up` sets up by default
+when llama.cpp is present. It offers to `pip install "lemory[llama]"` (for the
+answer model); the GGUFs auto-download once.
 
 - Embeddings: **e5-small-ko-v2** (dragonkue's Korean-tuned multilingual-e5-small,
-  fastembed, 384d, no compile). Measured hybrid **doc@8 0.879** on KorMapleQA —
+  fastembed, 384d, no compile). Measured hybrid **doc@8 0.889** on KorMapleQA —
   the strongest local embedder we measured, above the 1024-d Harrier (0.853).
 - Answers: **Gemma 4 E4B** (Q4_K_M GGUF) on llama.cpp GPU, streamed. Switch to
   the lighter **E2B** in the web console. This is what `lemory[llama]` is for.
@@ -307,11 +306,11 @@ results but not at #1.
 ### The local stack, in tiers
 
 Everything above is opt-in on top of a fast, free default. Pick the tier you
-want in `lemory setup` or `lemory.toml`:
+want in the dashboard's **Settings › Models** card or `lemory.toml`:
 
 1. **Default embedder (`lemory[local]`, e5-small-ko-v2):** dragonkue's
    Korean-tuned multilingual-e5-small via fastembed (pure-Python ONNX, 384d,
-   ~9 ms/embed, no native compile). Measured **hybrid doc@8 0.879** on the full
+   ~9 ms/embed, no native compile). Measured **hybrid doc@8 0.889** on the full
    KorMapleQA v2 — the strongest local embedder we measured, above the 1024-d
    Harrier (0.853) and the old MiniLM (0.788), and it never lost to Harrier on
    the English or long-doc corpora tested. `local_embed_backend = auto` picks it.
@@ -333,8 +332,8 @@ want in `lemory setup` or `lemory.toml`:
 Second, when you do run an LLM, run it **on-device, not the free-tier API**. The
 slowness of an LLM pipeline is almost never the model, it is the API queue
 (we hit the exact `429 credits depleted` wall measuring this). Gemma 4 on
-llama.cpp Metal answers with no per-query bill and no queue. Point Lemory at it
-with `lemory setup` → best local.
+llama.cpp Metal answers with no per-query bill and no queue — it's what `lemory
+up` sets up by default on-device.
 
 ## Big vaults
 
@@ -357,7 +356,7 @@ lemory status
 
 | Symptom | Fix |
 |---|---|
-| `No API key found` | set `GEMINI_API_KEY` — `lemory setup` does it for you |
+| `No API key found` | set `GEMINI_API_KEY` — `lemory up --key <KEY>` does it for you |
 | 429 / brief stalls | free-tier limit; Lemory waits and retries. Not a charge |
 | Odd results | `lemory index --full`; still odd → open an issue |
 | Console won't open | is `lemory serve` running? port 8377 free? |
