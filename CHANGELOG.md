@@ -43,11 +43,12 @@ below). Ollama and LiteRT-LM are gone.
 
 - **Dedicated cross-encoder reranker** (`reranker = true`) - available but
   **off by default, and here is the honest reason.** On the full KorMapleQA v2
-  over the e5 default: no reranker doc@1 0.610 / doc@8 0.879 (~30 ms/q);
-  Qwen3-Reranker-0.6B doc@1 **0.580** (it *hurt* - a 0.6B reranker second-guessing
-  an already-correct top result) at ~1.9 s/q; jina-reranker-v2 doc@1 0.622 (+1 pt)
-  at ~0.8 s/q. A strong embedder + BM25 + link-graph fusion already ranks well,
-  so retrieval ships without a reranker; `reranker` stays an opt-in precision knob.
+  over the e5 default (chunk 882): no reranker doc@1 0.628 / doc@8 0.889 (~20 ms/q);
+  Qwen3-Reranker-0.6B doc@1 **0.605** (it *hurt* - a 0.6B reranker second-guessing
+  an already-correct top result) at ~1.9 s/q. (An earlier fastembed jina-reranker-v2
+  path, since retired, bought ~+1 pt doc@8 at ~40x latency.) A strong embedder +
+  BM25 + link-graph fusion already ranks well, so retrieval ships without a
+  reranker; `reranker` stays an opt-in precision knob.
 
 ### On-device answers & assistant
 

@@ -292,16 +292,15 @@ surfaced, so it can lift doc@1 but cannot fix a deep-multi-hop recall miss. On a
 
 | reranker | doc@1 | doc@8 | latency |
 |---|---|---|---|
-| none (default) | 0.610 | 0.879 | ~30 ms/query |
-| Qwen3-Reranker-0.6B | 0.580 | 0.885 | ~1.9 s/query |
-| jina-reranker-v2 | 0.622 | 0.890 | ~0.8 s/query |
+| none (default) | 0.628 | 0.889 | ~20 ms/query |
+| Qwen3-Reranker-0.6B | 0.605 | 0.892 | ~1.9 s/query |
 
 Qwen3-Reranker actually **hurt** doc@1 (a 0.6B reranker second-guessing an
-already-correct top result), and even the stronger jina cross-encoder bought
-~+1 pt for 25-60x the query latency. So retrieval ships **without** a reranker —
-the embedder + BM25 + link-graph fusion already rank well — and `reranker`
-stays an opt-in precision knob for corpora where the right note lands in the
-results but not at #1.
+already-correct top result) for ~90x the query latency. (An earlier fastembed
+jina-reranker-v2 path, since retired, bought ~+1 pt doc@8 at ~40x latency.) So
+retrieval ships **without** a reranker — the embedder + BM25 + link-graph fusion
+already rank well — and `reranker` stays an opt-in precision knob for corpora
+where the right note lands in the results but not at #1.
 
 ### The local stack, in tiers
 
