@@ -8,8 +8,8 @@ qmd uses (node-llama-cpp) ported to Python (llama-cpp-python).
 
 Runs **Harrier-OSS-0.6B** (Qwen3-based multilingual, Q8 GGUF) fully in this
 process on Apple GPU Metal or CPU — no daemon, no server. Measured on
-KorMapleQA: hybrid doc@8 0.853 vs fastembed MiniLM's 0.788 (+6.5pt). The GGUF
-(~640MB) is auto-downloaded from HuggingFace once and cached, like qmd.
+KorMapleQA: hybrid doc@8 0.853, the top local tier above the lighter fastembed
+e5-small-ko-v2 default. The GGUF (~640MB) auto-downloads from HuggingFace once.
 
 ask() still needs a generator LLM: pass one, or set a Gemini/OpenAI key for a
 mixed mode where embeddings stay local and only answer generation uses the API.

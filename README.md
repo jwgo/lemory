@@ -95,7 +95,7 @@ lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"
 
 `lemory up` asks zero questions: it uses a Gemini key if it finds one (cloud
 embeddings + answers), otherwise the **local embeddings that ship by default**
-(MiniLM out of the box, or Harrier-0.6B with `pip install "lemory[llama]"`), so
+(Korean-tuned e5-small-ko-v2 out of the box, or Harrier-0.6B with `pip install "lemory[llama]"`), so
 semantic search works with no key and no extra setup. Prefer a guided
 wizard? `lemory setup`.
 

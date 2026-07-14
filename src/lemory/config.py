@@ -52,10 +52,13 @@ class LemoryConfig(BaseSettings):
     # --- provider: "auto" picks gemini/openai from whichever key is set,
     # falling back to fully-local embeddings when no key exists ---
     provider: str = "auto"  # auto | gemini | openai | local
-    local_embed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    # Korean-tuned multilingual-e5-small (dragonkue), 384d, via a community ONNX
+    # export so fastembed runs it with no compiler and no torch. Measured dense
+    # doc@8 0.86 vs the old MiniLM's 0.14 on KorMapleQA Korean retrieval.
+    local_embed_model: str = "dragonkue/multilingual-e5-small-ko-v2"
     # which in-process local embedder: "auto" uses in-process llama.cpp Harrier
     # (doc@8 0.853) when llama-cpp-python is installed (pip install lemory[llama]),
-    # else falls back to the lighter fastembed MiniLM (0.788, 384d, pure-Python).
+    # else falls back to the lighter fastembed e5-small-ko-v2 (384d, pure-Python).
     # Harrier-OSS-0.6B (Q8, Qwen3-based multilingual) closes over half the gap to
     # Gemini's 0.906 with zero keys, fully on-device via llama.cpp Metal/CPU.
     local_embed_backend: str = "auto"  # auto | llamacpp | fastembed
@@ -123,8 +126,8 @@ class LemoryConfig(BaseSettings):
     # gate 0.60; gating the stronger lean at 0.85+ coverage avoids that regime.
     # reciting tier: at this coverage the query IS the note's text — BM25's
     # internal ordering is preserved outright (dense candidates fill in below).
-    # Rank-only RRF can't honor a decisive lexical margin; this can. Weak-
-    # embedder regimes (local MiniLM on Korean) are where it matters most.
+    # Rank-only RRF can't honor a decisive lexical margin; this can. Weaker-
+    # embedder regimes (the light local tier on Korean) are where it matters most.
     # Swept 0.60-0.90 on KorQuAD/SQuAD with multihop/robustness/law/maple/
     # kepano guards (local embedder): 0.65 is the knee — KorQuAD recall@1
     # 0.525→0.825, SQuAD 0.690→0.760, paraphrase +1.7pt, every guard flat;
@@ -254,7 +257,7 @@ class LemoryConfig(BaseSettings):
 
     def resolved_local_backend(self) -> str:
         """Which in-process local embedder to use: 'llamacpp' (Harrier) or
-        'fastembed' (MiniLM). 'auto' prefers llama.cpp when it is installed."""
+        'fastembed' (e5-small-ko-v2). 'auto' prefers llama.cpp when installed."""
         if self.local_embed_backend in ("llamacpp", "fastembed"):
             return self.local_embed_backend
         return "llamacpp" if _has_module("llama_cpp") else "fastembed"

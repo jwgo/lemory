@@ -130,7 +130,7 @@ Gemini 무료 티어 기준, Lemory의 실제 소비량은 이렇습니다:
 `pip install "lemory[llama]"`를 제안하고, GGUF 3개는 첫 사용 때 자동 다운로드됩니다.
 
 - 임베딩: **Harrier-OSS-0.6B** (Q8 GGUF, ~640MB, 1024차원, Qwen3 기반 멀티링구얼).
-  KorMapleQA 하이브리드 **doc@8 0.853**(MiniLM 0.788 대비).
+  KorMapleQA 하이브리드 **doc@8 0.853**.
 - 리랭커: **Qwen3-Reranker-0.6B** (2025 SOTA 소형 리랭커, GGUF)를 공식 `P("yes")`
   방식으로 GPU 채점 — 이 모드에서 기본 ON.
 - 답변: **Gemma 4 E4B** (Q4_K_M GGUF, Google 권장 크기)를 스트리밍. 웹 콘솔에서
@@ -139,12 +139,13 @@ Gemini 무료 티어 기준, Lemory의 실제 소비량은 이렇습니다:
 
 **모드 2 — 경량 로컬 (검색 전용): 최소 풋프린트**
 
-- **MiniLM: `pip install "lemory[local]"`** — fastembed(순수 파이썬 ONNX,
-  ~220MB, 384차원), doc@8 0.788. 네이티브 컴파일 없음, 최소 풋프린트.
-  `lemory[llama]`가 빌드 안 되는 환경이나 라즈베리파이급에 알맞음. 검색+시맨틱
-  임베딩까지, `ask`는 제외.
+- **e5-small-ko-v2 (기본): `pip install "lemory[local]"`** — dragonkue의 한국어
+  특화 multilingual-e5-small을 fastembed(순수 파이썬 ONNX, 384차원, ~9ms/임베딩)로.
+  네이티브 컴파일 없이 가벼운데, **한국어는 기존 MiniLM보다 훨씬 강함** — KorMapleQA
+  서브코퍼스 dense doc@8 0.86 vs 0.14 실측. `lemory[llama]`가 빌드 안 되는 환경이나
+  라즈베리파이급에 알맞음. 검색+시맨틱 임베딩까지, `ask`는 제외.
 
-`local_embed_backend = auto`는 `lemory[llama]`가 깔려 있으면 Harrier, 없으면 MiniLM.
+`local_embed_backend = auto`는 `lemory[llama]`가 깔려 있으면 Harrier, 없으면 e5-small-ko-v2.
 임베딩만으로 `ask`를 빼고 전부 동작하며, `ask`는 생성기(최고 로컬의 온디바이스
 Gemma 4, 또는 Gemini 키)가 필요합니다.
 
@@ -299,10 +300,12 @@ rerank = true            # 융합 후 상위 후보를 LLM으로 재채점
    서버 없이 Gemini 상한(0.906) 격차의 절반 이상을 메움. 이득은 어려운 유형에
    몰립니다(masked +11, 2-hop full-support 0.18→0.29, typo +7). 대가: 네이티브
    휠(프리빌드 없으면 컴파일), GGUF ~640MB(1회 자동 다운로드), 질의 지연
-   ~100ms(MiniLM ~18ms). `pip install "lemory[llama]"`.
-2. **최경량 로컬 (`lemory[local]`, fastembed MiniLM):** 순수 파이썬 ONNX,
-   ~220MB, 밀리초, 네이티브 컴파일 없음. doc@8 0.788. llama 휠이 안 빌드되거나
-   거대 볼트 색인 속도가 마지막 몇 점보다 중요할 때의 폴백.
+   ~100ms(경량 티어 ~9ms). `pip install "lemory[llama]"`.
+2. **최경량 로컬 (`lemory[local]`, e5-small-ko-v2):** dragonkue 한국어 특화
+   multilingual-e5-small을 fastembed(순수 파이썬 ONNX, 384차원, ~9ms/임베딩)로,
+   네이티브 컴파일 없음. KorMapleQA 서브코퍼스 dense doc@8 **0.86 vs MiniLM 0.14**
+   실측 — 무게 그대로 한국어 대폭 상승. llama 휠이 안 빌드되거나 색인 속도가
+   마지막 몇 하이브리드 점보다 중요할 때의 폴백.
 3. **정밀 모드 (+ 전용 리랭커):** `reranker = true`면 상위 후보를 같은 llama.cpp
    엔진의 **Qwen3-Reranker-0.6B**(GPU, 데몬 없음)로 재정렬합니다. Metal에서
    후보당 ~57ms(기본 top-12면 ≈0.7s) — 최고 로컬 셋업에서 기본 ON, 맞는 노트가

@@ -79,7 +79,7 @@ def up(
     * no key, fastembed there → local search-only mode
     * Gemini key found          → full mode (answers + cloud embeddings)
     * no key, Harrier installed  → local Harrier embeddings (best, keyless)
-    * no key, fastembed (base)   → local MiniLM embeddings (keyless)
+    * no key, fastembed (base)   → local e5-small-ko-v2 embeddings (keyless)
     * none of the above (rare)   → keyless mode (BM25 + link graph)
     """
     from ..config import _has_module, load_config
@@ -98,7 +98,7 @@ def up(
         mode_desc = "로컬 Harrier 임베딩 (1024d, 키 없음)"
     elif _has_module("fastembed"):
         extra = 'provider = "local"\n'
-        mode_desc = "로컬 MiniLM 임베딩 (384d, 키 없음 · Harrier는 pip install \"lemory[llama]\")"
+        mode_desc = "로컬 e5-small-ko-v2 임베딩 (한국어 특화 384d, 키 없음 · Harrier는 pip install \"lemory[llama]\")"
     else:
         mode_desc = "키 없음 — BM25+링크 그래프 (pip install \"lemory[local]\"로 시맨틱 켜짐)"
 
@@ -166,7 +166,7 @@ def setup(
             "\n2) 어떻게 쓸까요?  [dim](검색·시맨틱 임베딩은 이미 로컬에서 기본 동작합니다)[/dim]\n"
             "   [bold]1[/bold]  ⭐ 최고 로컬 (완전 온디바이스, 추천) — Harrier 임베딩 + Qwen3 리랭커\n"
             "      + Gemma 4 로컬 답변, 전부 llama.cpp GPU 한 엔진. 키·데몬 0 [dim](lemory[llama])[/dim]\n"
-            "   [bold]2[/bold]  가벼운 로컬 — MiniLM(384d)만, 검색 전용 [dim](설치 최소·제로설정)[/dim]\n"
+            "   [bold]2[/bold]  가벼운 로컬 — e5-small-ko-v2(한국어 384d)만, 검색 전용 [dim](설치 최소·제로설정)[/dim]\n"
             "   [bold]3[/bold]  Gemini 무료 API — 임베딩+답변까지 클라우드 [dim](카드 불필요)[/dim]"
         )
         mode = typer.prompt("   선택", default="1").strip()
@@ -244,7 +244,7 @@ def _setup_best_local() -> str:
     if backend == "llamacpp":
         console.print("   [green]✔[/green] Harrier-0.6B (1024d) 임베딩 — 데몬 없이 프로세스 안 Metal/GPU (doc@8 0.853)")
     else:
-        console.print("   [green]✔[/green] MiniLM (384d) 임베딩 [dim](llama-cpp-python 설치되면 Harrier로 자동 전환)[/dim]")
+        console.print("   [green]✔[/green] e5-small-ko-v2 (한국어 384d) 임베딩 [dim](llama-cpp-python 설치되면 Harrier로 자동 전환)[/dim]")
     console.print("   [green]✔[/green] Qwen3-Reranker-0.6B + Gemma 4 E4B 로컬 답변 — 전부 같은 llama.cpp 엔진(GPU), 키·데몬 0")
     if 0 < ram < 8:
         console.print(f"   [yellow]⚠ RAM {ram:.0f}GB — Gemma 4 E4B 답변은 8GB+ 권장. 웹 콘솔에서 E2B로 낮출 수 있어요.[/yellow]")
@@ -253,7 +253,7 @@ def _setup_best_local() -> str:
 
 def _setup_local(backend: str) -> str:
     """Local-embeddings mode. backend='auto' keeps the default (Harrier if
-    lemory[llama] is installed, else MiniLM); 'llamacpp' asks for Harrier
+    lemory[llama] is installed, else e5-small-ko-v2); 'llamacpp' asks for Harrier
     explicitly. Returns extra lemory.toml lines."""
     from ..config import _has_module
 
@@ -262,7 +262,7 @@ def _setup_local(backend: str) -> str:
             console.print(
                 "   [yellow]![/yellow] Harrier는 llama-cpp-python이 필요합니다. 설치 후 다시:\n"
                 "     [bold]pip install \"lemory[llama]\"[/bold]  →  [bold]lemory setup[/bold]\n"
-                "   [dim](지금은 경량 MiniLM으로 계속합니다 — 나중에 위 명령이면 자동 전환)[/dim]"
+                "   [dim](지금은 경량 e5-small-ko-v2로 계속합니다 — 나중에 위 명령이면 자동 전환)[/dim]"
             )
             backend = "auto"
         else:
@@ -274,8 +274,8 @@ def _setup_local(backend: str) -> str:
     if _has_module("llama_cpp"):
         console.print("   [green]✔[/green] Harrier-0.6B (1024d) 감지 — 로컬 고품질 임베딩 사용")
     elif _has_module("fastembed"):
-        console.print("   [green]✔[/green] MiniLM (384d) — 첫 색인 때 모델 ~220MB 자동 다운로드")
-        console.print("   [dim]한국어 검색을 더 올리려면: pip install \"lemory[llama]\" (Harrier, +6.5pt)[/dim]")
+        console.print("   [green]✔[/green] e5-small-ko-v2 (한국어 특화 384d) — 첫 색인 때 모델 자동 다운로드")
+        console.print("   [dim]한국어 검색을 더 올리려면: pip install \"lemory[llama]\" (Harrier 1024d)[/dim]")
     console.print("   [dim]검색·색인·콘솔은 전부 로컬로 됩니다. ask(답변)은 최고 로컬(모드 1·온디바이스 Gemma 4)이나 Gemini 키로.[/dim]")
     return 'provider = "local"\n'
 
@@ -309,7 +309,7 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
         provider = cfg.resolved_provider()
         model = cfg.active_embed_model()
         tier = ("Harrier 1024d · 로컬 고품질" if "harrier" in model.lower()
-                else "MiniLM 384d · 로컬 경량" if "minilm" in model.lower() or "multilingual" in model.lower()
+                else "e5-small-ko 384d · 로컬 경량" if "e5" in model.lower() or "minilm" in model.lower() or "multilingual" in model.lower()
                 else f"{model} · 클라우드" if provider in ("gemini", "openai")
                 else model)
         check("provider", True, f"{provider}  ({tier})")
@@ -334,8 +334,8 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
             console.print(' [yellow]⚠[/yellow] 답변 생성 (ask) — 검색은 되지만 ask는 답변 모델이 필요합니다: '
                           '온디바이스 Gemma 4(pip install "lemory[llama]") 또는 GEMINI_API_KEY(무료)')
         # upgrade hint: on the light local tier, Harrier is a keyless win
-        if "minilm" in model.lower() or "multilingual" in model.lower():
-            console.print(" [dim]↑ 한국어 검색 품질 +6.5pt: pip install \"lemory[llama]\" "
+        if "e5" in model.lower() or "minilm" in model.lower() or "multilingual" in model.lower():
+            console.print(" [dim]↑ 한국어 검색 품질을 더 올리려면: pip install \"lemory[llama]\" "
                           "(Harrier 1024d, 데몬 없음) 후 lemory index[/dim]")
     except RuntimeError:
         console.print(

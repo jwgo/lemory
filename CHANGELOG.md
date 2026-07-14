@@ -12,15 +12,18 @@ answers; all three GGUFs auto-download once.
 
 ### Local embeddings
 
-- **In-process Harrier-OSS-0.6B is the new default local embedder**
-  (`pip install "lemory[llama]"`). Microsoft's Qwen3-based multilingual
-  embedder (Q8 GGUF) runs inside the process via llama.cpp on Metal/GPU, no
-  daemon, the same runtime qmd uses. Measured hybrid **doc@8 0.853 on
-  KorMapleQA vs fastembed MiniLM's 0.788** (+6.5pt), closing over half the gap
-  to the Gemini ceiling (0.906) with zero keys. The GGUF auto-downloads from
-  HuggingFace once. `local_embed_backend = "auto"` falls back to fastembed
-  MiniLM (0.788, pure-Python, no native compile) when llama-cpp-python is not
-  installed.
+- **In-process Harrier-OSS-0.6B is the best local embedder**
+  (`pip install "lemory[llama]"`). A Qwen3-based multilingual embedder (Q8
+  GGUF) runs inside the process via llama.cpp on Metal/GPU, no daemon, the same
+  runtime qmd uses. Measured hybrid **doc@8 0.853 on KorMapleQA**, closing over
+  half the gap to the Gemini ceiling (0.906) with zero keys. The GGUF
+  auto-downloads from HuggingFace once.
+- **The light default (fastembed, no compiler) is now dragonkue's Korean-tuned
+  `multilingual-e5-small-ko-v2`** (384d), replacing MiniLM. Registered from a
+  community ONNX export so it stays pure-Python and torch-free. Measured dense
+  doc@8 **0.86 vs MiniLM's 0.14** on a KorMapleQA subcorpus (Korean semantic
+  retrieval) at ~9 ms/embed — a big Korean jump for the same weight class.
+  `local_embed_backend = "auto"` uses it when llama-cpp-python is not installed.
 
 ### Retrieval quality
 

@@ -133,7 +133,7 @@ The whole stack on-device, keyless. `lemory setup` → `1` offers to
 `pip install "lemory[llama]"` for you; the three GGUFs auto-download once.
 
 - Embeddings: **Harrier-OSS-0.6B** (Q8 GGUF, ~640 MB, 1024d, Qwen3-based
-  multilingual). Measured hybrid **doc@8 0.853** on KorMapleQA vs MiniLM's 0.788.
+  multilingual). Measured hybrid **doc@8 0.853** on KorMapleQA.
 - Reranker: **Qwen3-Reranker-0.6B** (2025 SOTA small reranker, GGUF), scored by
   its `P("yes")` method on GPU — on by default in this mode.
 - Answers: **Gemma 4 E4B** (Q4_K_M GGUF, Google's recommended size), streamed.
@@ -143,14 +143,16 @@ The whole stack on-device, keyless. `lemory setup` → `1` offers to
 
 **Mode 2 — light local (search-only): smallest footprint**
 
-- **MiniLM: `pip install "lemory[local]"`** — multilingual MiniLM via fastembed
-  (pure-Python ONNX, ~220 MB, 384d), doc@8 0.788. No native compile, smallest
-  footprint. The right pick if `lemory[llama]` won't build on your box, or on
-  Raspberry-Pi-class hardware. Search + semantic embeddings, no `ask()`.
+- **e5-small-ko-v2 (default): `pip install "lemory[local]"`** — dragonkue's
+  Korean-tuned multilingual-e5-small via fastembed (pure-Python ONNX, 384d,
+  ~9 ms/embed). No native compile, tiny footprint, yet **far stronger on Korean
+  than the old MiniLM default** — measured dense doc@8 0.86 vs 0.14 on a
+  KorMapleQA subcorpus. The right pick if `lemory[llama]` won't build on your
+  box, or on Raspberry-Pi-class hardware. Search + semantic embeddings, no `ask()`.
 
 `local_embed_backend = auto` uses Harrier when `lemory[llama]` is installed, else
-MiniLM. Everything except `ask()` works with embeddings alone; `ask()` needs a
-generator — on-device Gemma 4 (best local) or a Gemini key.
+e5-small-ko-v2. Everything except `ask()` works with embeddings alone; `ask()`
+needs a generator — on-device Gemma 4 (best local) or a Gemini key.
 
 **Minimum specs**
 
@@ -309,11 +311,13 @@ want in `lemory setup` or `lemory.toml`:
    no server to run. Gains land on the hard types (masked +11, 2-hop
    full-support 0.18 to 0.29, typo +7). Costs: a native wheel (compiles if no
    prebuilt), ~640 MB GGUF (auto-downloaded once), and query latency ~100 ms vs
-   MiniLM's ~18 ms. `pip install "lemory[llama]"`.
-2. **Lightest local (`lemory[local]`, fastembed MiniLM):** pure-Python ONNX,
-   ~220 MB, milliseconds, no native compile. doc@8 0.788. The fallback when the
-   llama wheel won't build, or when index speed on a huge vault matters more
-   than the last few points.
+   the light tier's ~9 ms. `pip install "lemory[llama]"`.
+2. **Lightest local (`lemory[local]`, e5-small-ko-v2):** dragonkue's Korean-tuned
+   multilingual-e5-small via fastembed (pure-Python ONNX, 384d, ~9 ms/embed), no
+   native compile. Measured dense doc@8 **0.86 vs the old MiniLM's 0.14** on a
+   KorMapleQA subcorpus — a big Korean jump for zero extra weight. The fallback
+   when the llama wheel won't build, or when index speed matters more than the
+   last few hybrid points.
 3. **Precision mode (+ dedicated reranker):** `reranker = true` reorders the top
    candidates with **Qwen3-Reranker-0.6B** on the same llama.cpp engine (GPU, no
    daemon). ~57 ms/candidate on Metal (≈0.7 s for the default top-12) — on by
