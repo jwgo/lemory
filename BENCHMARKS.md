@@ -102,7 +102,11 @@ completed the graph build (**cognify: 28 min** for 54 notes).
 cognee 1.3.0's incremental updates (Topic Index, "truth-subspace" reranking,
 more search modes) lift keyless CHUNKS retrieval to 0.632 but do not close the
 gap: Lemory is still **1.000 at ~1,600× lower query latency and no LLM at
-ingest**, and cognee remains unusable keyless without a 7B-class local model. No
+ingest**, and cognee remains unusable keyless without a 7B-class local model.
+cognee's *recommended* multi-hop mode, `GRAPH_COMPLETION_COT`, is a multi-round
+LLM reasoning loop: keyless-local on the same 7B it ran **~2 min/query** (10 of
+57 in ~20 min) before we stopped it — impractical for interactive use without a
+fast cloud LLM, whereas Lemory answers from retrieval in milliseconds. No
 Korean-specific support in cognee (Korean quality is entirely the plugged-in
 LLM/embedder). cognee's own headline benchmark (BEAM 0.79) is first-party and
 self-judged; treat as a target, not ground truth.
