@@ -244,7 +244,10 @@ def render_graph_html(engine: "Engine", title: str = "") -> str:
     name = title or Path(str(engine.cfg.resolved_vault())).name
     # `</` split so a note titled "</script>" cannot terminate the inline
     # <script> block; JSON string semantics are unchanged by the backslash
-    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    # escape every '<' as < (valid JS string escape, decoded back to '<' at
+    # runtime) so a note title containing </script or <!-- can't push the HTML
+    # parser into script-data state and blank the exported graph
+    payload = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
     return (_TEMPLATE
             .replace("__TITLE__", _html_escape(name))
             .replace("__DATA__", payload))

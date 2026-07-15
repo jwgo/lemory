@@ -249,7 +249,11 @@ class Indexer:
             # privacy exclusion: `lemory: false` in frontmatter keeps a note
             # out of the index entirely — never searchable, never sent to any
             # model. If it was indexed before the flag, it is removed now.
-            if note.frontmatter.get("lemory") is False:
+            _priv = note.frontmatter.get("lemory")
+            # accept the quoted-string forms too (lemory: "false"/no/off) so a
+            # privacy opt-out never silently fails because YAML kept it a string
+            if _priv is False or (isinstance(_priv, str)
+                                  and _priv.strip().lower() in ("false", "no", "off")):
                 if existing:
                     self.store.delete_document(rel)
                     rep.removed += 1

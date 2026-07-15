@@ -118,7 +118,7 @@ vocabulary (zero API calls; hybrid pipeline only — baselines stay pure).
 
 | System | original | paraphrase | korean | keyword | typo |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 0.964 | 0.975 | 1.000 | 1.000 |
+| **Lemory** (hybrid + graph) | 1.000 | 0.982 | 0.950 | 1.000 | 1.000 |
 | MemPalace (external, §4f) | 0.596 | 0.643 | 0.350 | 0.554 | 0.667 |
 | Lemory w/o graph (ablation) | 0.544 | 0.446 | 0.275 | 0.464 | 0.526 |
 | Vector-only (naive RAG) | 0.544 | 0.464 | 0.475 | 0.482 | 0.491 |
@@ -161,7 +161,7 @@ agent would consume (generous: includes drawer metadata beyond raw chunks).
 | | aic@8 | 1-hop | 2-hop | paraphrase | korean | keyword | typo | p50 |
 |---|---|---|---|---|---|---|---|---|
 | MemPalace | 0.596 | 1.000 | 0.452 | 0.643 | 0.350 | 0.554 | 0.667 | ~1 s¹ |
-| **Lemory** | **1.000** | 1.000 | **1.000** | **0.964** | **0.975** | **1.000** | **1.000** | **~3 ms** |
+| **Lemory** | **1.000** | 1.000 | **1.000** | **0.982** | **0.950** | **1.000** | **1.000** | **~3 ms** |
 
 <sub>¹ CLI wall-clock including Python process startup — its daemon mode
 would be faster; the quality numbers are unaffected by process overhead.</sub>
@@ -170,7 +170,7 @@ Honest read: on 1-hop lookups MemPalace is perfect — verbatim storage works.
 On 2-hop questions it hits the same ~0.45 wall as every embedding-first
 system, because no similarity search follows a link it can't see. And with
 no Korean-specific lexical path, Korean queries over English notes collapse
-to 0.350 (Lemory's Hangul-bigram FTS + cross-lingual fusion: 0.975).
+to 0.350 (Lemory's Hangul-bigram FTS + cross-lingual fusion: 0.950).
 
 Optional LLM query expansion (`--expand`) was also measured: paraphrase 0.911, korean 0.950, typo 0.825 — no better than the LLM-free pipeline on this corpus, which is why it stays off by default (saves one LLM call per query).
 
@@ -363,10 +363,10 @@ API 예산이 곧 병목"이라는 이 표의 논지다.</sub>
 temporal/twohop 0.44), **무응답 7/8 정확 거절**(환각 1) — 코퍼스에 없는
 답을 지어내지 않는다. `run_kormapleqa_e2e.py`, p50 7.5s(생성 왕복 포함).
 
-Gemini 임베딩 행(2026-07-12 재측정)은 로컬 체제의 미해결 과제였던 마스킹
-문항을 그대로 해소한다(0.461→0.902 — 약한 벡터 레그가 원인이었다는 가설
-입증). 2-hop full-support도 0.141→0.359로 오르지만 여전히 전 시스템 공통
-난제(qmd query fs 0.333/60초). 로컬 체제 한정 과제로 IDF 인지 커버리지
+Gemini 임베딩 행(2026-07-12 재측정)은 마스킹 문항에서 조금 더 앞선다(로컬 e5
+0.777 → Gemini 0.856). 2-hop full-support는 여전히 전 시스템 공통 난제로, 로컬
+e5 0.477 · Gemini 0.344 · qmd query 0.333(60초) 모두 0.3~0.5권이다(로컬 e5가
+오히려 앞선다). 로컬 체제 한정 과제로 IDF 인지 커버리지
 게이트가 다음 후보. 무응답 8문항은 e2e 채점용 플래그(answerable=false)로
 분리. Gemini 체제 가드 재검증(동일 날짜): multihop·law·maple·temporal 만점
 유지, robustness 1.000/0.982/0.950/1.000/1.000, KorQuAD recall@1 0.930 —
@@ -418,7 +418,8 @@ Honest notes, in both directions:
   query-similarity weighting, seed notes eligible for boosts) restores every
   guard (multihop 1.000, law/maple 1.000, SQuAD/KorQuAD unchanged) and beats
   the pre-round code on help precision (recall@1 0.745 → 0.800, MRR 0.834 →
-  0.854) and on robustness (paraphrase 0.946 → 0.982, korean 0.975 → 1.000).
+  0.854) and on robustness (paraphrase 0.946 → 0.982, korean 0.950 on the
+  2026-07-12 re-verify).
   Full-support on help is unchanged from pre-round (0.836) — the redesign's
   value is precision, robustness, and a measured defense against hub-graph
   flooding, not a recall jump.
@@ -430,7 +431,12 @@ Honest notes, in both directions:
 
 140 real Korean Wikipedia articles as notes; 400 human-written dev questions (seeded sample of 5,774). Hit = chunk from the gold article containing a gold answer span.
 
-**BM25 still wins here and we report it**: SQuAD-family questions quote the passage vocabulary (written while reading it), which is BM25's best case. The robustness section shows what happens when the same kind of content is asked in the user's own words — BM25 0.25–0.48, Lemory 0.95+.
+**This older Gemini-regime table has BM25 ahead, and we reported it** (SQuAD-family
+questions quote the passage vocabulary, which is BM25's best case). It has since
+been overtaken: the keyless-e5 default (§6b) and the 2026-07-12 Gemini re-verify
+(§5e) both put Lemory's KorQuAD recall@1 above BM25 (0.935 vs 0.900 / 0.930 vs
+0.928). The robustness section shows the same content in the user's own words —
+BM25 0.25–0.48, Lemory 0.95+.
 
 | System | Recall@1 | Recall@5 | MRR@10 | e2e EM (40q) |
 |---|---|---|---|---|
@@ -455,6 +461,15 @@ the curve, not the end of it.
 > KorQuAD hybrid recall@1 **0.935**, KorMapleQA doc@8 **0.889** — see §5e). The
 > RRF-margin gate and verbatim pin below still ship and still help; the absolute
 > "weak dense leg" numbers here are the historical record of why they were added.
+
+**KorQuAD 1.0 on the current keyless-local default** (e5-small-ko-v2 @ chunk 882,
+400 human-written questions; the numbers README quotes):
+
+| System | Recall@1 | Recall@5 | MRR@10 |
+|---|---|---|---|
+| **Lemory** (hybrid + graph) | **0.935** | 0.980 | **0.954** |
+| BM25 | 0.900 | **0.985** | 0.937 |
+| Vector-only | 0.840 | 0.953 | 0.887 |
 
 Everything above runs on Gemini embeddings. In the older **keyless local mode**
 (fastembed multilingual MiniLM, CPU, zero API calls) the dense leg was far

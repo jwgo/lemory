@@ -28,10 +28,12 @@ LOCAL_EMBED_DIM = 384
 # 0.14 on KorMapleQA Korean semantic retrieval — the reason it is the default.
 DEFAULT_EMBED_MODEL = "dragonkue/multilingual-e5-small-ko-v2"
 _ONNX_SOURCE = "pos090011/multilingual-e5-small-ko-v2-onnx"
-# The e5-ko default rides a community ONNX export. If that repo ever becomes
-# unreachable, degrade to a fastembed built-in multilingual MiniLM (same 384d,
-# no custom registration, bundled with fastembed) so embeddings keep working —
-# Korean retrieval is weaker, but the install never hard-fails on one HF repo.
+# The e5-ko default rides a community ONNX export (downloaded once, then cached
+# locally). If that repo is unreachable at first install, we FAIL LOUD with the
+# remedy rather than silently swapping models: an auto-swap is invisible to the
+# embed-signature/cache (which key off the config's model name), so it would
+# cache MiniLM vectors under e5 keys and never re-embed. This bundled built-in
+# (same 384d) is the manual fallback we point the user at.
 _FALLBACK_EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 # e5-family models are trained with task prefixes; other models take raw text
@@ -106,14 +108,14 @@ class LocalClient:
                     except Exception as exc:  # community ONNX repo unreachable/removed
                         if self.embed_model != DEFAULT_EMBED_MODEL:
                             raise
-                        import logging
-                        logging.getLogger(__name__).warning(
-                            "e5-small-ko-v2 ONNX unavailable (%s) — falling back to "
-                            "%s. Korean retrieval will be weaker; reinstall or set "
-                            "local_embed_model to restore. Re-index after switching.",
-                            exc, _FALLBACK_EMBED_MODEL)
-                        self.embed_model = _FALLBACK_EMBED_MODEL
-                        self._model = TextEmbedding(model_name=_FALLBACK_EMBED_MODEL)
+                        raise RuntimeError(
+                            f"Could not load the default embedder "
+                            f"'{DEFAULT_EMBED_MODEL}' ({exc}). It downloads once from "
+                            f"a community ONNX export; if that HuggingFace repo is "
+                            f"unreachable, set local_embed_model = "
+                            f'"{_FALLBACK_EMBED_MODEL}" (bundled, 384d) in lemory.toml '
+                            f"and run `lemory index --full`."
+                        ) from exc
             return self._model
 
     def embed(self, texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> np.ndarray:

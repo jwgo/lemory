@@ -319,6 +319,8 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         ok, reason = whisper_stt.available()
         if not ok:
             raise HTTPException(501, reason)
+        if int(request.headers.get("content-length", 0)) > 25_000_000:
+            raise HTTPException(413, "오디오가 너무 큽니다 (최대 25MB)")
         audio = await request.body()
         if not audio:
             raise HTTPException(400, "audio가 필요합니다")
@@ -559,7 +561,10 @@ def _persist_config(engine: Engine, changed: dict[str, Any]) -> None:
         elif isinstance(v, (int, float)):
             lines.append(f"{k} = {v}")
         else:
-            lines.append(f'{k} = "{v}"')
+            # json string/array syntax is valid TOML and escapes quotes,
+            # backslashes (Windows paths), and serializes list values
+            # (include_globs / exclude_dirs) as real arrays, not a repr string.
+            lines.append(f"{k} = {json.dumps(v, ensure_ascii=False)}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
