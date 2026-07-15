@@ -74,28 +74,25 @@ def test_local_with_gemini_generator_uses_it(tmp_path):
     assert client.generate("hi") == "generated!"
 
 
-def test_embed_falls_back_when_e5_onnx_unavailable(monkeypatch):
-    """If the community e5-ko ONNX repo is unreachable, embedding degrades to the
-    built-in multilingual MiniLM (same 384d) instead of hard-failing the install."""
+def test_embed_raises_actionable_error_when_e5_onnx_unavailable(monkeypatch):
+    """If the community e5-ko ONNX repo is unreachable, embedding raises a clear,
+    actionable error (naming the bundled MiniLM fallback + `index --full`) rather
+    than silently swapping models — an auto-swap is invisible to the embed cache
+    signature and would mix vectors under e5 keys with no recovery."""
     import fastembed
 
     from lemory.providers import local as L
 
     monkeypatch.setattr(L, "_REGISTERED", set())  # isolate module-global registry
-    seen = []
 
     class FakeTE:
         def __init__(self, model_name):
-            seen.append(model_name)
-            if model_name == L.DEFAULT_EMBED_MODEL:
-                raise RuntimeError("HF repo 404")
-
-        def embed(self, texts):
-            return [np.ones(LOCAL_EMBED_DIM, dtype=np.float32) for _ in texts]
+            raise RuntimeError("HF repo 404")
 
     monkeypatch.setattr(fastembed, "TextEmbedding", FakeTE)
     c = LocalClient(embed_model=L.DEFAULT_EMBED_MODEL)
-    v = c.embed(["안녕하세요"])
-    assert c.embed_model == L._FALLBACK_EMBED_MODEL          # switched off the dead repo
-    assert v.shape == (1, LOCAL_EMBED_DIM)                   # still 384d, still works
-    assert seen == [L.DEFAULT_EMBED_MODEL, L._FALLBACK_EMBED_MODEL]  # tried e5 first
+    with pytest.raises(RuntimeError) as ei:
+        c.embed(["안녕하세요"])
+    msg = str(ei.value)
+    assert L._FALLBACK_EMBED_MODEL in msg and "index --full" in msg
+    assert c.embed_model == L.DEFAULT_EMBED_MODEL  # never silently reassigned

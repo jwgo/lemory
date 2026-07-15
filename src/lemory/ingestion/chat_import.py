@@ -92,7 +92,9 @@ def import_conversations(engine, file: Path, folder: str = "chats",
     fmt = _detect(data)
     vault = engine.cfg.resolved_vault()
     base = vault / folder.strip().strip("/")
-    if not str(base.resolve()).startswith(str(vault.resolve())):
+    # is_relative_to (vs a bare startswith) rejects sibling-prefix escapes like
+    # "../<vaultname>Secrets" that share the vault's path prefix but sit outside it
+    if not base.resolve().is_relative_to(vault.resolve()):
         raise ValueError(f"folder escapes the vault: {folder}")
     base.mkdir(parents=True, exist_ok=True)
 

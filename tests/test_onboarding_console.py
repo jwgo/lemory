@@ -4,6 +4,7 @@ field in /api/config). These paths were previously only browser/manually
 verified."""
 from __future__ import annotations
 
+import json
 import tomllib
 
 import pytest
@@ -100,3 +101,26 @@ def test_assistant_model_switch(tmp_path):
 def test_assistant_model_rejects_bad_size(tmp_path):
     r = _client(tmp_path).post("/api/assistant/model", json={"size": "BOGUS"})
     assert r.status_code == 400
+
+
+def test_persist_config_preserves_list_and_special_values(tmp_path):
+    """A Settings/model-switch write must not corrupt list keys (include_globs)
+    or special chars in the vault's lemory.toml — regression for the naive
+    f-string TOML writer that turned lists into repr strings and broke reload."""
+    import tomllib
+
+    from lemory.config import LemoryConfig
+    from lemory.engine import Engine
+    from lemory.interfaces.http import _persist_config
+    v = _vault(tmp_path)
+    toml = v / "lemory.toml"
+    toml.write_text(
+        f'[lemory]\nvault = {json.dumps(str(v))}\n'
+        'include_globs = ["**/*.md", "**/*.txt"]\ntitle_boost = 0.1\n')
+    eng = Engine(LemoryConfig(vault=v, data_dir=tmp_path / "idx", provider="local"))
+    _persist_config(eng, {"title_boost": 0.25})
+    reloaded = tomllib.loads(toml.read_text())["lemory"]
+    assert reloaded["include_globs"] == ["**/*.md", "**/*.txt"]  # list survived
+    assert reloaded["title_boost"] == 0.25                        # change applied
+    # and it must round-trip through the real config loader without error
+    LemoryConfig(vault=v, data_dir=tmp_path / "idx")

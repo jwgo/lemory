@@ -621,7 +621,8 @@ def status(vault: Optional[Path] = typer.Option(None)):
 @app.command()
 def serve(
     vault: Optional[Path] = typer.Option(None),
-    host: str = typer.Option("127.0.0.1"),
+    host: str = typer.Option("127.0.0.1", help="Bind address. The API has NO auth; "
+                             "anything other than 127.0.0.1 exposes read+write to the network."),
     port: int = typer.Option(8377),
     watch: bool = typer.Option(True, help="Keep the index live while serving"),
 ):
@@ -631,6 +632,9 @@ def serve(
 
     from .http import build_app
 
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        console.print(f"[yellow]![/yellow] {host}로 바인딩합니다 — 이 API는 인증이 없어 "
+                      "네트워크의 누구나 볼트를 읽고 쓸 수 있습니다. 신뢰된 네트워크에서만 쓰세요.")
     eng = _engine(vault)
     uvicorn.run(build_app(eng, watch=watch), host=host, port=port)
 
