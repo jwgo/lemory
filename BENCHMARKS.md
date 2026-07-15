@@ -74,21 +74,38 @@ answer string appears in the top-8 retrieved texts (LemoryBench, 57 q).
 mem0 by hops: 1-hop 0.667, 2-hop 0.548 · 212 ms/query (p50) · ingestion ran its
 LLM fact-extraction once per note (rate-limited; resumable state file).
 
-## 4b. External system: cognee (OSS)
+## 4b. External system: cognee (OSS) — re-run on v1.3.0 (2026-07-15)
 
-cognee v1.2 with the identical Gemini models (flash-lite for cognify's
-graph extraction, gemini-embedding-001 @768d), default local stores
-(LanceDB + Ladybug/Kuzu graph). Full `cognify` knowledge-graph build over
-the 54-note vault, then its `CHUNKS` retrieval; e2e uses the same
-generator/prompt as every other row (LemoryBench, 57 q / e2e 30 q).
+Same 54-note multi-hop vault, default local stores (LanceDB + Kuzu graph).
+Two regimes, because cognee's `cognify` is LLM-native (it extracts an
+entity/relationship graph and summaries with ~2 LLM calls per chunk — there is
+no LLM-free ingest path):
 
-| System | Answer-in-context@8 | 1-hop | 2-hop | e2e F1 | EM (contain) |
+**(a) cognee's cloud best-case (v1.2, Gemini).** flash-lite for graph
+extraction + gemini-embedding-001 @768d — the strongest setup we could give it.
+
+**(b) cognee keyless-local (v1.3.0, this machine).** To match Lemory's keyless
+story we pointed cognee at a local OpenAI-compatible endpoint (llama.cpp server)
++ Fastembed multilingual-MiniLM-L12 (384d). **Key finding: cognee cannot ingest
+reliably with a small local model** — its Instructor/Pydantic structured
+extraction raised fatal `ValidationError`s (missing schema fields) with
+**Gemma-4-E4B** and **Qwen2.5-3B**, crashing `cognify` mid-run. Only **Qwen2.5-7B**
+completed the graph build (**cognify: 28 min** for 54 notes).
+
+| System | Answer-in-context@8 | 1-hop | 2-hop | p50 latency | ingest |
 |---|---|---|---|---|---|
-| **Lemory** (hybrid + graph) | 1.000 | 1.000 | 1.000 | 0.867 | 1.000 |
-| cognee CHUNKS retrieval | 0.561 | 1.000 | 0.405 | 0.467 | 0.467 |
-| cognee `GRAPH_COMPLETION` (its native graph-QA pipeline) | — | — | — | 0.394 | 0.367 |
+| **Lemory** (hybrid + graph, keyless e5-ko) | **1.000** | **1.000** | **1.000** | **3.5 ms** | ~0.1 s, 0 LLM |
+| cognee v1.3.0 `CHUNKS` (keyless, Qwen2.5-7B + e5-MiniLM) | 0.632 | — | — | 5656 ms | 28 min, ~2 LLM/chunk |
+| cognee v1.2 `CHUNKS` (cloud Gemini, best-case) | 0.561 | 1.000 | 0.405 | 4994 ms | ~45 min |
+| cognee v1.2 `GRAPH_COMPLETION` (native graph-QA) | — | — | — | — | (e2e F1 0.394) |
 
-cognee retrieval p50 latency: 4994 ms/query (Lemory: ~2 ms local + one cached embedding call). cognify ingest of the 54-note vault took ~45 min under free-tier rate limits vs ~30 s for Lemory's index.
+cognee 1.3.0's incremental updates (Topic Index, "truth-subspace" reranking,
+more search modes) lift keyless CHUNKS retrieval to 0.632 but do not close the
+gap: Lemory is still **1.000 at ~1,600× lower query latency and no LLM at
+ingest**, and cognee remains unusable keyless without a 7B-class local model. No
+Korean-specific support in cognee (Korean quality is entirely the plugged-in
+LLM/embedder). cognee's own headline benchmark (BEAM 0.79) is first-party and
+self-judged; treat as a target, not ground truth.
 
 ## 4c. External system: LlamaIndex (OSS framework)
 
