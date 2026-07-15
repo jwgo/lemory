@@ -7,7 +7,7 @@ provider seam, no services — please keep it that way.
 
 ```bash
 uv venv && uv pip install -e ".[dev]"
-pytest            # 338 tests, fully offline, no API key needed
+pytest            # 344 tests, fully offline, no API key needed
 ```
 
 The test suite must stay offline: use the `FakeGemini` embedder from

@@ -95,7 +95,7 @@ def log_latency_chart(path: Path, title: str, subtitle: str,
         out.append(f'<text x="{left-12}" y="{y+bar_h/2+5}" fill="{FG}" font-size="14" '
                    f'text-anchor="end">{esc(label)}</text>')
         out.append(f'<rect x="{left}" y="{y}" width="{w:.0f}" height="{bar_h}" rx="6" fill="{color}"/>')
-        disp = (f"{ms/60000:.0f}m {ms%60000/1000:.0f}s" if ms >= 60_000
+        disp = (f"{ms//60000:.0f}m {ms%60000/1000:.0f}s" if ms >= 60_000
                 else f"{ms/1000:.1f}s" if ms >= 1000 else f"{ms:.0f}ms")
         out.append(f'<text x="{left+w+10:.0f}" y="{y+bar_h/2+5}" fill="{FG}" font-size="14" '
                    f'font-weight="600">{disp}<tspan fill="{DIM}" font-weight="400">  {esc(note)}</tspan></text>')
@@ -193,7 +193,7 @@ def main() -> None:
         "Query latency on the same Korean corpus (log scale)",
         "Local retrieval compute per query. LLM-per-query architectures pay the meter every question.",
         [
-            ("Lemory hybrid+graph", 13, LEMON, "0 LLM calls"),
+            ("Lemory hybrid+graph", 16, LEMON, "0 LLM calls"),
             ("MemPalace", 443, RED, ""),
             ("qmd vsearch", 4200, BLUE, ""),
             ("qmd query", 59500, BLUE, "1 LLM pipeline per query"),

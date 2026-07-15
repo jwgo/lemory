@@ -239,12 +239,12 @@ robustness without any model in the loop.
 The one place a language model genuinely helps is **deep multi-hop on a huge
 vault** — "A가 위치한 지역의 X" where the answer note is only reachable through
 a link and never mentions the query's words. On the ~42k-chunk namuwiki corpus
-this is hard for every system: Lemory's zero-LLM 2-hop full-support is ~0.14,
-and the honest reason is that the answer note carries almost no lexical or
-semantic signal of its own (BENCHMARKS 5e keeps this as a standing open
-problem). The systems that crack it do so with an LLM: qmd's full local-LLM
-pipeline reaches 2-hop doc-coverage 1.000 on the same corpus — at ~60 seconds
-per query.
+this is hard for every system. The Korean-tuned e5 default lifts Lemory's
+zero-LLM 2-hop full-support to 0.477 (from ~0.14 under the old MiniLM), now
+ahead of qmd's 0.333 even though qmd runs a full local-LLM pipeline at ~60 s per
+query (BENCHMARKS 5e keeps this as a standing open problem). qmd does reach 2-hop
+doc-coverage 1.000 — it surfaces the right note in the top-8 — but full-support,
+retrieving *every* evidence note, is the harder bar.
 
 Lemory exposes the same two knobs, off by default:
 
@@ -270,8 +270,8 @@ local model (`qwen2.5:3b`):
 | + expand + rerank | 0.075 | 7.3 s |
 
 Query expansion gave a small bump; **rerank with a 3B model actively hurt**,
-demoting correct chunks with noisy relevance scores. qmd reaches 2-hop 1.000
-because it ships purpose-built expansion and reranker models, not a generic
+demoting correct chunks with noisy relevance scores. qmd reaches 2-hop
+doc-coverage 1.000 because it ships purpose-built expansion and reranker models, not a generic
 small LLM. So: try `query_expansion` on a *capable* model for a specific
 multi-hop question that comes back empty, leave the generic `rerank` off, and
 do not expect a small local model to crack deep multi-hop by itself.
@@ -292,7 +292,7 @@ surfaced, so it can lift doc@1 but cannot fix a deep-multi-hop recall miss. On a
 
 | reranker | doc@1 | doc@8 | latency |
 |---|---|---|---|
-| none (default) | 0.628 | 0.889 | ~20 ms/query |
+| none (default) | 0.628 | 0.889 | ~16 ms/query |
 | Qwen3-Reranker-0.6B | 0.605 | 0.892 | ~1.9 s/query |
 
 Qwen3-Reranker actually **hurt** doc@1 (a 0.6B reranker second-guessing an
@@ -336,7 +336,7 @@ up` sets up by default on-device.
 
 ## Big vaults
 
-- Benchmarked on **1,469 real namuwiki documents (33,375 chunks, 24,850 real
+- Benchmarked on **1,469 real namuwiki documents (~42,000 chunks, 24,850 real
   wikilink edges)**: recall@8 1.00 at ~0.2 s/query, one SQLite file.
 - Synthetic scaling: full hybrid+graph search in 70 ms at 50k chunks.
 - A whole life + whole job ≈ 10k–50k notes — comfortably inside the envelope.

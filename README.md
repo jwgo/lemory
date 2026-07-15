@@ -297,8 +297,8 @@ Recall@5 **0.983** on the protocol most headline numbers use, and we lead
 with the stricter all-evidence number (0.903) instead of quoting only the
 flattering one - the Korean-tuned e5 default improves both over the old MiniLM
 (0.972 / 0.857). LOCOMO LLM-judge 0.706 vs mem0's published 0.669; DMR
-(500 q) 0.694 vs 0.648 same-harness naive RAG
-([§7](BENCHMARKS.md)).
+(500 q) 0.694 vs 0.668 same-harness naive RAG
+([§7b](BENCHMARKS.md)).
 
 **[KorQuAD 1.0](https://korquad.github.io/)**, 140 real Korean Wikipedia
 articles, 400 human-written questions - keyless local (e5-small-ko-v2):
@@ -487,7 +487,7 @@ Search is local and LLM-free (~3-13 ms). One embedding call per query
 
 ## Contributing
 
-`uv venv && uv pip install -e ".[dev,mcp,local,pdf]" && pytest`: 332 tests, fully offline.
+`uv venv && uv pip install -e ".[dev,mcp,local,pdf]" && pytest`: 344 tests, fully offline.
 [CONTRIBUTING.md](CONTRIBUTING.md) · 한국어 이슈/PR 환영합니다.
 
 Local-first by design. The trust model, the localhost server's guards

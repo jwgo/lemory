@@ -26,8 +26,8 @@
 <text x="669" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">5m 0s<tspan fill="#8b949e" font-weight="400">  one API pass, cached forever</tspan></text>
 <text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">qmd embed</text>
 <rect x="300" y="182" width="414" height="34" rx="6" fill="#58a6ff"/>
-<text x="724" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">34m 56s<tspan fill="#8b949e" font-weight="400">  local models, 27k chunks</tspan></text>
+<text x="724" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">33m 56s<tspan fill="#8b949e" font-weight="400">  local models, 27k chunks</tspan></text>
 <text x="288" y="252.0" fill="#e6edf3" font-size="14" text-anchor="end">mem0 (only 400 of the notes)</text>
 <rect x="300" y="230" width="430" height="34" rx="6" fill="#6e7681"/>
-<text x="740" y="252.0" fill="#e6edf3" font-size="14" font-weight="600">60m 55s<tspan fill="#8b949e" font-weight="400">  LLM extraction per note</tspan></text>
+<text x="740" y="252.0" fill="#e6edf3" font-size="14" font-weight="600">59m 55s<tspan fill="#8b949e" font-weight="400">  LLM extraction per note</tspan></text>
 </svg>
