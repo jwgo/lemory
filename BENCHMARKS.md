@@ -388,14 +388,17 @@ KorQuAD(문어 단일홉)와 LongMemEval(영어 대화)이 안 재는 축들을 
 상세: `benchmarks/data/kormapleqa/README.md`.
 
 **gold-doc@1 / gold-doc@8** (문서 수준 — 문서 단위 시스템과 공정 비교;
-로컬 임베더 e5-small-ko-v2 @ chunk 882, 재측정):
+로컬 임베더 e5-small-ko-v2 @ chunk 882. ANN 리콜 수정(42k 청크는 exact
+스캔, config의 `ann_threshold` 주석 참조) 후 정식 러너
+`run_kormapleqa.py`로 재측정 — 이전 공표 0.628/0.889는 IVF 빌드 리콜
+손실을 포함한 값이었다):
 
 | 시스템 | 전체 @1 | 전체 @8 | 질문형 @8 | 마스킹 @8 | 2-hop(fs) | 시간 @8 | 키워드 @8 | 구어체 @8 | 오타 @8 |
 |---|---|---|---|---|---|---|---|---|---|
 | **Lemory (Gemini 임베딩)** | **0.664** | **0.906** | **0.915** | **0.856** | **0.977 (0.344)** | **0.928** | **0.982** | **0.900** | **0.796** |
-| **Lemory** (로컬 e5-small-ko-v2, 키 제로) | **0.628** | **0.889** | **0.907** | **0.777** | **0.969 (0.477)** | 0.904 | **0.982** | **0.927** | 0.736 |
-| BM25 (Lemory의 CJK-bigram 인덱스¹) | 0.412 | 0.756 | 0.746 | 0.730 | 0.781 (0.133) | 0.783 | 0.964 | 0.900 | 0.445 |
-| Vector-only (e5-small-ko-v2) | 0.528 | 0.863 | 0.891 | 0.586 | 0.953 (0.211) | **0.976** | 0.959 | 0.927 | **0.755** |
+| **Lemory** (로컬 e5-small-ko-v2, 키 제로) | **0.641** | **0.899** | **0.920** | **0.777** | **0.969 (0.438)** | 0.916 | **0.991** | **0.941** | 0.750 |
+| BM25 (Lemory의 CJK-bigram 인덱스¹) | 0.412 | 0.756 | 0.746 | 0.730 | 0.781 (0.133) | 0.783 | 0.964 | 0.900 | 0.446 |
+| Vector-only (e5-small-ko-v2) | 0.539 | 0.889 | 0.922 | 0.600 | 0.969 (0.195) | **1.000** | 0.973 | 0.964 | **0.777** |
 | Smart-Connections-class | 0.075 | 0.200 | 0.220 | 0.047 | 0.117 (0.000) | 0.434 | 0.209 | 0.214 | 0.200 |
 | Omnisearch (실제 MiniSearch) | 0.112 | 0.149 | 0.062 | 0.014 | — (0.000) | 0.133 | 0.945² | 0.077 | 0.041 |
 
@@ -423,14 +426,14 @@ BM25 마스킹이 0.39→0.74로 뛴 것도 이 색인 변경), **어휘 증거 
 
 | | 전체 doc8 | n | p50/query | 비고 |
 |---|---|---|---|---|
-| **Lemory** | **0.889** | 2,067 | **~16 ms** | 하이브리드+그래프 (e5-small-ko-v2) |
+| **Lemory** | **0.899** | 2,067 | **~0.11 s** (42k청크 exact; 일반 볼트 수 ms) | 하이브리드+그래프 (e5-small-ko-v2) |
 | MemPalace 3.5 (57k★) | 0.033 | 2,067 | 0.76 s | sqlite_exact+번들 embeddinggemma — 한국어 대규모에서 붕괴 (자체 §4f korean 0.350과 정합) |
 | qmd `search` (BM25) | 0.092 | 2,067 | 0.09 s | AND 시맨틱스 — 키워드 축만 0.846 |
 | qmd `vsearch` | 0.657 | 280† | 4.2 s | embeddinggemma 벡터 |
 | qmd `query` (로컬 LLM 풀파이프라인) | **0.774** | 84† | **59.5 s** (CPU) | 인제스트 임베딩 33분 56초 |
 
 <sub>† 층화 시드 샘플(지연 제약). **동일 문항 재대결(n=329)**: 한국어 특화 e5
-기본으로 Lemory-local **doc8 0.875 @ ~16ms** vs qmd query **0.769 @ 59.5s** —
+기본으로 Lemory-local **doc8 0.887 @ ~0.11s** vs qmd query **0.769 @ 59.5s** —
 품질 우위(+10.6pt)를 **~3,700× 빠르게**. (구 MiniLM 기본에선 0.775로 동률권
 이었다.) 벡터 모드(vsearch)는 품질·속도 모두 밀린다(0.657@4.2s).</sub>
 
@@ -552,7 +555,7 @@ the curve, not the end of it.
 > This section documents the keyless-local hardening as it was measured on the
 > **then-default MiniLM embedder**. The default is now the Korean-tuned
 > e5-small-ko-v2, whose dense leg is far stronger on Korean (keyless-local
-> KorQuAD hybrid recall@1 **0.935**, KorMapleQA doc@8 **0.889** — see §5e). The
+> KorQuAD hybrid recall@1 **0.935**, KorMapleQA doc@8 **0.899** — see §5e). The
 > RRF-margin gate and verbatim pin below still ship and still help; the absolute
 > "weak dense leg" numbers here are the historical record of why they were added.
 
@@ -636,6 +639,14 @@ noise on this corpus (vector-only recall@1 is 0.200 here vs 0.700 for the
 Gemini regime). With Gemini embeddings the same expansion is worth +12 pt
 (§5). Weak-embedder graph gating is an open item; the numbers above are the
 default configuration either way.
+
+<sub>2026-07 update (e5-ko @882, exact-recall regime): the trade persists at
+smaller magnitude and is now a *deliberate* one — graph on: KorMapleQA doc@8
+0.899 / twohop full-support 0.438; graph off: 0.919 / 0.234. A budget/floor
+sweep (`graph_expand_budget` 4-8 × `graph_sim_floor` 0.25-0.35) moved
+nothing: shrinking the budget lost fs without recovering doc@8. We keep the
+graph on because full-support is what answers multi-hop questions; single-hop
+purists can set `graph_expansion = false`.</sub>
 
 ## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
@@ -875,12 +886,19 @@ all embedding-based systems) is excluded.
 ## 12b. Vector index at 1M chunks — the "SQLite가 발목 잡는다" question (`bench_scale.py`)
 
 The exact float32 scan above is memory-bandwidth bound: at 1M chunks every
-query streams ~3 GB. Above `ann_threshold` (default 20k embedded chunks)
+query streams ~3 GB. Above `ann_threshold` (**default 60k** embedded chunks)
 Lemory switches to an **IVF-int8** index (`storage/ann.py`, numpy only, zero
 new dependencies): spherical k-means cells, int8 vectors stored
 cluster-contiguously, candidates rescored with their true float32 rows via a
 handful of SQLite PK lookups. Below the threshold nothing changes — small
 vaults keep exact search bit-for-bit.
+
+<sub>The threshold was raised from 20k after measuring the IVF recall cost on
+the 42k-chunk namuwiki corpus: nprobe=48 scored vector doc@8 0.900 vs 0.945
+exact (and the IVF training varies between otherwise-identical builds), while
+the exact scan is ~45ms p50 there — recall is worth more than 40ms in a chat
+loop. Past 60k, `ann_nprobe` now defaults to 256 (0.930 at 42k for ~1ms
+extra). The §5e KorMapleQA table reflects the exact regime.</sub>
 
 Corpus: **real gemini-embedding-001 vectors** (pooled from the other
 benchmarks' embed caches), scaled up by SLERP between true nearest neighbors —
