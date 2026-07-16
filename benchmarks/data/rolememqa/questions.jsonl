@@ -1,0 +1,144 @@
+{"type": "long", "q": "지훈의 여동생 이름이 뭐였지?", "answers": ["김보람"], "gold_notes": ["세라와의 대화 s01"], "persona": "세라", "answerable": true, "id": "rmq-0000"}
+{"type": "long", "q": "지훈의 고향은 어디야?", "answers": ["통영"], "gold_notes": ["세라와의 대화 s02"], "persona": "세라", "answerable": true, "id": "rmq-0001"}
+{"type": "long", "q": "지훈의 직업은 뭐라고 했지?", "answers": ["수의테크니션"], "gold_notes": ["세라와의 대화 s03"], "persona": "세라", "answerable": true, "id": "rmq-0002"}
+{"type": "short", "q": "지훈이 백화점에서 뭘 샀다고 했지?", "answers": ["민트색 텀블러"], "gold_notes": ["세라와의 대화 s29"], "persona": "세라", "answerable": true, "id": "rmq-0003"}
+{"type": "short", "q": "지훈이 방금 반신욕에 뭘 넣었다고 했어?", "answers": ["라벤더 입욕제"], "gold_notes": ["세라와의 대화 s30"], "persona": "세라", "answerable": true, "id": "rmq-0004"}
+{"type": "episodic", "q": "세라랑 지훈의 '둘의 노래'는 뭐야?", "answers": ["달빛 정원"], "gold_notes": ["세라와의 대화 s08"], "persona": "세라", "answerable": true, "id": "rmq-0005"}
+{"type": "episodic", "q": "세라가 지훈에게 지어준 별명은?", "answers": ["꼬마별"], "gold_notes": ["세라와의 대화 s11"], "persona": "세라", "answerable": true, "id": "rmq-0006"}
+{"type": "episodic", "q": "세라랑 한 약속이 뭐였지?", "answers": ["벚꽃 필 때 한강 피크닉 가기"], "gold_notes": ["세라와의 대화 s25"], "persona": "세라", "answerable": true, "id": "rmq-0007"}
+{"type": "update", "q": "지훈이 요즘 제일 좋아하는 음식은 뭐야?", "answers": ["티라미수"], "gold_notes": ["세라와의 대화 s23"], "persona": "세라", "answerable": true, "trap_note": "세라와의 대화 s05", "old_answer": "민트초코", "id": "rmq-0008"}
+{"type": "temporal", "q": "5월에 지훈이랑 어디로 놀러 갔었지?", "answers": ["안면도"], "gold_notes": ["세라와의 대화 s16"], "persona": "세라", "answerable": true, "id": "rmq-0009"}
+{"type": "twohop", "q": "지훈이 세라에게 준 선물을 산 가게 이름은?", "answers": ["소소상점"], "gold_notes": ["세라와의 대화 s19", "세라와의 대화 s14"], "persona": "세라", "answerable": true, "bridge": "자개 오르골", "id": "rmq-0010"}
+{"type": "long", "q": "지훈의 반려동물 이름이 뭐야?", "answers": ["밤톨이"], "gold_notes": ["세라와의 대화 s07"], "persona": "세라", "answerable": true, "id": "rmq-0011"}
+{"type": "long", "q": "지훈은 무슨 알레르기가 있지?", "answers": ["메밀"], "gold_notes": ["세라와의 대화 s10"], "persona": "세라", "answerable": true, "id": "rmq-0012"}
+{"type": "episodic", "q": "지훈의 인생 영화는?", "answers": ["웨일 라이더"], "gold_notes": ["세라와의 대화 s13"], "persona": "세라", "answerable": true, "id": "rmq-0013"}
+{"type": "long", "q": "지훈이 무서워하는 건 뭐야?", "answers": ["천둥소리"], "gold_notes": ["세라와의 대화 s18"], "persona": "세라", "answerable": true, "id": "rmq-0014"}
+{"type": "long", "q": "지훈의 버킷리스트 1번은?", "answers": ["오로라 보기"], "gold_notes": ["세라와의 대화 s21"], "persona": "세라", "answerable": true, "id": "rmq-0015"}
+{"type": "abstention", "q": "지훈의 혈액형이 뭐였지?", "answers": [], "gold_notes": [], "persona": "세라", "answerable": false, "id": "rmq-0016"}
+{"type": "abstention", "q": "지훈이 다닌 고등학교 이름은?", "answers": [], "gold_notes": [], "persona": "세라", "answerable": false, "id": "rmq-0017"}
+{"type": "long", "q": "민지의 여동생 이름이 뭐였지?", "answers": ["이슬아"], "gold_notes": ["유노와의 대화 s01"], "persona": "유노", "answerable": true, "id": "rmq-0018"}
+{"type": "long", "q": "민지의 고향은 어디야?", "answers": ["정선"], "gold_notes": ["유노와의 대화 s02"], "persona": "유노", "answerable": true, "id": "rmq-0019"}
+{"type": "long", "q": "민지의 직업은 뭐라고 했지?", "answers": ["도예가"], "gold_notes": ["유노와의 대화 s03"], "persona": "유노", "answerable": true, "id": "rmq-0020"}
+{"type": "short", "q": "민지가 백화점에서 뭘 샀다고 했지?", "answers": ["체크 무릎담요"], "gold_notes": ["유노와의 대화 s29"], "persona": "유노", "answerable": true, "id": "rmq-0021"}
+{"type": "short", "q": "민지가 방금 반신욕에 뭘 넣었다고 했어?", "answers": ["유자 배쓰밤"], "gold_notes": ["유노와의 대화 s30"], "persona": "유노", "answerable": true, "id": "rmq-0022"}
+{"type": "episodic", "q": "유노랑 민지의 '둘의 노래'는 뭐야?", "answers": ["여름의 끝자락"], "gold_notes": ["유노와의 대화 s08"], "persona": "유노", "answerable": true, "id": "rmq-0023"}
+{"type": "episodic", "q": "유노가 민지에게 지어준 별명은?", "answers": ["솜사탕"], "gold_notes": ["유노와의 대화 s11"], "persona": "유노", "answerable": true, "id": "rmq-0024"}
+{"type": "episodic", "q": "유노랑 한 약속이 뭐였지?", "answers": ["첫눈 오면 붕어빵 사 먹기"], "gold_notes": ["유노와의 대화 s25"], "persona": "유노", "answerable": true, "id": "rmq-0025"}
+{"type": "update", "q": "민지가 요즘 제일 좋아하는 음식은 뭐야?", "answers": ["마라탕"], "gold_notes": ["유노와의 대화 s23"], "persona": "유노", "answerable": true, "trap_note": "유노와의 대화 s05", "old_answer": "고수", "id": "rmq-0026"}
+{"type": "temporal", "q": "5월에 민지랑 어디로 놀러 갔었지?", "answers": ["담양"], "gold_notes": ["유노와의 대화 s16"], "persona": "유노", "answerable": true, "id": "rmq-0027"}
+{"type": "twohop", "q": "민지가 유노에게 준 선물을 산 가게 이름은?", "answers": ["달팽이공방"], "gold_notes": ["유노와의 대화 s19", "유노와의 대화 s14"], "persona": "유노", "answerable": true, "bridge": "손뜨개 목도리", "id": "rmq-0028"}
+{"type": "long", "q": "민지의 반려동물 이름이 뭐야?", "answers": ["앵두"], "gold_notes": ["유노와의 대화 s07"], "persona": "유노", "answerable": true, "id": "rmq-0029"}
+{"type": "long", "q": "민지는 무슨 알레르기가 있지?", "answers": ["복숭아"], "gold_notes": ["유노와의 대화 s10"], "persona": "유노", "answerable": true, "id": "rmq-0030"}
+{"type": "episodic", "q": "민지의 인생 영화는?", "answers": ["패딩턴"], "gold_notes": ["유노와의 대화 s13"], "persona": "유노", "answerable": true, "id": "rmq-0031"}
+{"type": "long", "q": "민지가 무서워하는 건 뭐야?", "answers": ["높은 곳"], "gold_notes": ["유노와의 대화 s18"], "persona": "유노", "answerable": true, "id": "rmq-0032"}
+{"type": "long", "q": "민지의 버킷리스트 1번은?", "answers": ["책 출간하기"], "gold_notes": ["유노와의 대화 s21"], "persona": "유노", "answerable": true, "id": "rmq-0033"}
+{"type": "abstention", "q": "민지의 혈액형이 뭐였지?", "answers": [], "gold_notes": [], "persona": "유노", "answerable": false, "id": "rmq-0034"}
+{"type": "abstention", "q": "민지가 다닌 고등학교 이름은?", "answers": [], "gold_notes": [], "persona": "유노", "answerable": false, "id": "rmq-0035"}
+{"type": "long", "q": "도윤의 여동생 이름이 뭐였지?", "answers": ["박다혜"], "gold_notes": ["하린과의 대화 s01"], "persona": "하린", "answerable": true, "id": "rmq-0036"}
+{"type": "long", "q": "도윤의 고향은 어디야?", "answers": ["군산"], "gold_notes": ["하린과의 대화 s02"], "persona": "하린", "answerable": true, "id": "rmq-0037"}
+{"type": "long", "q": "도윤의 직업은 뭐라고 했지?", "answers": ["기상캐스터"], "gold_notes": ["하린과의 대화 s03"], "persona": "하린", "answerable": true, "id": "rmq-0038"}
+{"type": "short", "q": "도윤이 백화점에서 뭘 샀다고 했지?", "answers": ["곰돌이 머그컵"], "gold_notes": ["하린과의 대화 s29"], "persona": "하린", "answerable": true, "id": "rmq-0039"}
+{"type": "short", "q": "도윤이 방금 반신욕에 뭘 넣었다고 했어?", "answers": ["히노키 입욕제"], "gold_notes": ["하린과의 대화 s30"], "persona": "하린", "answerable": true, "id": "rmq-0040"}
+{"type": "episodic", "q": "하린이랑 도윤의 '둘의 노래'는 뭐야?", "answers": ["종이비행기 편지"], "gold_notes": ["하린과의 대화 s08"], "persona": "하린", "answerable": true, "id": "rmq-0041"}
+{"type": "episodic", "q": "하린이 도윤에게 지어준 별명은?", "answers": ["달토끼"], "gold_notes": ["하린과의 대화 s11"], "persona": "하린", "answerable": true, "id": "rmq-0042"}
+{"type": "episodic", "q": "하린이랑 한 약속이 뭐였지?", "answers": ["생일에 바다 일출 보러 가기"], "gold_notes": ["하린과의 대화 s25"], "persona": "하린", "answerable": true, "id": "rmq-0043"}
+{"type": "update", "q": "도윤이 요즘 제일 좋아하는 음식은 뭐야?", "answers": ["규카츠"], "gold_notes": ["하린과의 대화 s23"], "persona": "하린", "answerable": true, "trap_note": "하린과의 대화 s05", "old_answer": "곱창", "id": "rmq-0044"}
+{"type": "temporal", "q": "5월에 도윤이랑 어디로 놀러 갔었지?", "answers": ["경주"], "gold_notes": ["하린과의 대화 s16"], "persona": "하린", "answerable": true, "id": "rmq-0045"}
+{"type": "twohop", "q": "도윤이 하린에게 준 선물을 산 가게 이름은?", "answers": ["밤하늘문구"], "gold_notes": ["하린과의 대화 s19", "하린과의 대화 s14"], "persona": "하린", "answerable": true, "bridge": "유리 만년필", "id": "rmq-0046"}
+{"type": "long", "q": "도윤의 반려동물 이름이 뭐야?", "answers": ["느림보"], "gold_notes": ["하린과의 대화 s07"], "persona": "하린", "answerable": true, "id": "rmq-0047"}
+{"type": "long", "q": "도윤은 무슨 알레르기가 있지?", "answers": ["고등어"], "gold_notes": ["하린과의 대화 s10"], "persona": "하린", "answerable": true, "id": "rmq-0048"}
+{"type": "episodic", "q": "도윤의 인생 영화는?", "answers": ["리틀 포레스트"], "gold_notes": ["하린과의 대화 s13"], "persona": "하린", "answerable": true, "id": "rmq-0049"}
+{"type": "long", "q": "도윤이 무서워하는 건 뭐야?", "answers": ["어둠"], "gold_notes": ["하린과의 대화 s18"], "persona": "하린", "answerable": true, "id": "rmq-0050"}
+{"type": "long", "q": "도윤의 버킷리스트 1번은?", "answers": ["마라톤 완주"], "gold_notes": ["하린과의 대화 s21"], "persona": "하린", "answerable": true, "id": "rmq-0051"}
+{"type": "abstention", "q": "도윤의 혈액형이 뭐였지?", "answers": [], "gold_notes": [], "persona": "하린", "answerable": false, "id": "rmq-0052"}
+{"type": "abstention", "q": "도윤이 다닌 고등학교 이름은?", "answers": [], "gold_notes": [], "persona": "하린", "answerable": false, "id": "rmq-0053"}
+{"type": "long", "q": "서연의 여동생 이름이 뭐였지?", "answers": ["최윤서"], "gold_notes": ["카이와의 대화 s01"], "persona": "카이", "answerable": true, "id": "rmq-0054"}
+{"type": "long", "q": "서연의 고향은 어디야?", "answers": ["밀양"], "gold_notes": ["카이와의 대화 s02"], "persona": "카이", "answerable": true, "id": "rmq-0055"}
+{"type": "long", "q": "서연의 직업은 뭐라고 했지?", "answers": ["조향사"], "gold_notes": ["카이와의 대화 s03"], "persona": "카이", "answerable": true, "id": "rmq-0056"}
+{"type": "short", "q": "서연이 백화점에서 뭘 샀다고 했지?", "answers": ["별무늬 파우치"], "gold_notes": ["카이와의 대화 s29"], "persona": "카이", "answerable": true, "id": "rmq-0057"}
+{"type": "short", "q": "서연이 방금 반신욕에 뭘 넣었다고 했어?", "answers": ["장미 배쓰솔트"], "gold_notes": ["카이와의 대화 s30"], "persona": "카이", "answerable": true, "id": "rmq-0058"}
+{"type": "episodic", "q": "카이랑 서연의 '둘의 노래'는 뭐야?", "answers": ["새벽 세 시의 파도"], "gold_notes": ["카이와의 대화 s08"], "persona": "카이", "answerable": true, "id": "rmq-0059"}
+{"type": "episodic", "q": "카이가 서연에게 지어준 별명은?", "answers": ["여름날"], "gold_notes": ["카이와의 대화 s11"], "persona": "카이", "answerable": true, "id": "rmq-0060"}
+{"type": "episodic", "q": "카이랑 한 약속이 뭐였지?", "answers": ["장마 끝나면 자전거 여행 가기"], "gold_notes": ["카이와의 대화 s25"], "persona": "카이", "answerable": true, "id": "rmq-0061"}
+{"type": "update", "q": "서연이 요즘 제일 좋아하는 음식은 뭐야?", "answers": ["쌀국수"], "gold_notes": ["카이와의 대화 s23"], "persona": "카이", "answerable": true, "trap_note": "카이와의 대화 s05", "old_answer": "홍어", "id": "rmq-0062"}
+{"type": "temporal", "q": "5월에 서연이랑 어디로 놀러 갔었지?", "answers": ["양양"], "gold_notes": ["카이와의 대화 s16"], "persona": "카이", "answerable": true, "id": "rmq-0063"}
+{"type": "twohop", "q": "서연이 카이에게 준 선물을 산 가게 이름은?", "answers": ["초록지붕가게"], "gold_notes": ["카이와의 대화 s19", "카이와의 대화 s14"], "persona": "카이", "answerable": true, "bridge": "별자리 램프", "id": "rmq-0064"}
+{"type": "long", "q": "서연의 반려동물 이름이 뭐야?", "answers": ["콩떡"], "gold_notes": ["카이와의 대화 s07"], "persona": "카이", "answerable": true, "id": "rmq-0065"}
+{"type": "long", "q": "서연은 무슨 알레르기가 있지?", "answers": ["땅콩"], "gold_notes": ["카이와의 대화 s10"], "persona": "카이", "answerable": true, "id": "rmq-0066"}
+{"type": "episodic", "q": "서연의 인생 영화는?", "answers": ["월터의 상상은 현실이 된다"], "gold_notes": ["카이와의 대화 s13"], "persona": "카이", "answerable": true, "id": "rmq-0067"}
+{"type": "long", "q": "서연이 무서워하는 건 뭐야?", "answers": ["주사기"], "gold_notes": ["카이와의 대화 s18"], "persona": "카이", "answerable": true, "id": "rmq-0068"}
+{"type": "long", "q": "서연의 버킷리스트 1번은?", "answers": ["세계일주"], "gold_notes": ["카이와의 대화 s21"], "persona": "카이", "answerable": true, "id": "rmq-0069"}
+{"type": "abstention", "q": "서연의 혈액형이 뭐였지?", "answers": [], "gold_notes": [], "persona": "카이", "answerable": false, "id": "rmq-0070"}
+{"type": "abstention", "q": "서연이 다닌 고등학교 이름은?", "answers": [], "gold_notes": [], "persona": "카이", "answerable": false, "id": "rmq-0071"}
+{"type": "long", "q": "준호의 여동생 이름이 뭐였지?", "answers": ["정나래"], "gold_notes": ["모네와의 대화 s01"], "persona": "모네", "answerable": true, "id": "rmq-0072"}
+{"type": "long", "q": "준호의 고향은 어디야?", "answers": ["속초"], "gold_notes": ["모네와의 대화 s02"], "persona": "모네", "answerable": true, "id": "rmq-0073"}
+{"type": "long", "q": "준호의 직업은 뭐라고 했지?", "answers": ["무대조명감독"], "gold_notes": ["모네와의 대화 s03"], "persona": "모네", "answerable": true, "id": "rmq-0074"}
+{"type": "short", "q": "준호가 백화점에서 뭘 샀다고 했지?", "answers": ["우드 폰거치대"], "gold_notes": ["모네와의 대화 s29"], "persona": "모네", "answerable": true, "id": "rmq-0075"}
+{"type": "short", "q": "준호가 방금 반신욕에 뭘 넣었다고 했어?", "answers": ["쑥 입욕팩"], "gold_notes": ["모네와의 대화 s30"], "persona": "모네", "answerable": true, "id": "rmq-0076"}
+{"type": "episodic", "q": "모네랑 준호의 '둘의 노래'는 뭐야?", "answers": ["유리병 속 별"], "gold_notes": ["모네와의 대화 s08"], "persona": "모네", "answerable": true, "id": "rmq-0077"}
+{"type": "episodic", "q": "모네가 준호에게 지어준 별명은?", "answers": ["반딧불"], "gold_notes": ["모네와의 대화 s11"], "persona": "모네", "answerable": true, "id": "rmq-0078"}
+{"type": "episodic", "q": "모네랑 한 약속이 뭐였지?", "answers": ["단풍 들면 북한산 등산 가기"], "gold_notes": ["모네와의 대화 s25"], "persona": "모네", "answerable": true, "id": "rmq-0079"}
+{"type": "update", "q": "준호가 요즘 제일 좋아하는 음식은 뭐야?", "answers": ["감바스"], "gold_notes": ["모네와의 대화 s23"], "persona": "모네", "answerable": true, "trap_note": "모네와의 대화 s05", "old_answer": "두리안", "id": "rmq-0080"}
+{"type": "temporal", "q": "5월에 준호랑 어디로 놀러 갔었지?", "answers": ["전주"], "gold_notes": ["모네와의 대화 s16"], "persona": "모네", "answerable": true, "id": "rmq-0081"}
+{"type": "twohop", "q": "준호가 모네에게 준 선물을 산 가게 이름은?", "answers": ["모퉁이상회"], "gold_notes": ["모네와의 대화 s19", "모네와의 대화 s14"], "persona": "모네", "answerable": true, "bridge": "가죽 필통", "id": "rmq-0082"}
+{"type": "long", "q": "준호의 반려동물 이름이 뭐야?", "answers": ["먼지"], "gold_notes": ["모네와의 대화 s07"], "persona": "모네", "answerable": true, "id": "rmq-0083"}
+{"type": "long", "q": "준호는 무슨 알레르기가 있지?", "answers": ["키위"], "gold_notes": ["모네와의 대화 s10"], "persona": "모네", "answerable": true, "id": "rmq-0084"}
+{"type": "episodic", "q": "준호의 인생 영화는?", "answers": ["어바웃 타임"], "gold_notes": ["모네와의 대화 s13"], "persona": "모네", "answerable": true, "id": "rmq-0085"}
+{"type": "long", "q": "준호가 무서워하는 건 뭐야?", "answers": ["비둘기"], "gold_notes": ["모네와의 대화 s18"], "persona": "모네", "answerable": true, "id": "rmq-0086"}
+{"type": "long", "q": "준호의 버킷리스트 1번은?", "answers": ["오두막 짓기"], "gold_notes": ["모네와의 대화 s21"], "persona": "모네", "answerable": true, "id": "rmq-0087"}
+{"type": "abstention", "q": "준호의 혈액형이 뭐였지?", "answers": [], "gold_notes": [], "persona": "모네", "answerable": false, "id": "rmq-0088"}
+{"type": "abstention", "q": "준호가 다닌 고등학교 이름은?", "answers": [], "gold_notes": [], "persona": "모네", "answerable": false, "id": "rmq-0089"}
+{"type": "long", "q": "하은의 여동생 이름이 뭐였지?", "answers": ["한별이"], "gold_notes": ["리안과의 대화 s01"], "persona": "리안", "answerable": true, "id": "rmq-0090"}
+{"type": "long", "q": "하은의 고향은 어디야?", "answers": ["보성"], "gold_notes": ["리안과의 대화 s02"], "persona": "리안", "answerable": true, "id": "rmq-0091"}
+{"type": "long", "q": "하은의 직업은 뭐라고 했지?", "answers": ["수제화 장인"], "gold_notes": ["리안과의 대화 s03"], "persona": "리안", "answerable": true, "id": "rmq-0092"}
+{"type": "short", "q": "하은이 백화점에서 뭘 샀다고 했지?", "answers": ["니트 양말 세트"], "gold_notes": ["리안과의 대화 s29"], "persona": "리안", "answerable": true, "id": "rmq-0093"}
+{"type": "short", "q": "하은이 방금 반신욕에 뭘 넣었다고 했어?", "answers": ["우유 입욕제"], "gold_notes": ["리안과의 대화 s30"], "persona": "리안", "answerable": true, "id": "rmq-0094"}
+{"type": "episodic", "q": "리안이랑 하은의 '둘의 노래'는 뭐야?", "answers": ["겨울 라디오"], "gold_notes": ["리안과의 대화 s08"], "persona": "리안", "answerable": true, "id": "rmq-0095"}
+{"type": "episodic", "q": "리안이 하은에게 지어준 별명은?", "answers": ["구름과자"], "gold_notes": ["리안과의 대화 s11"], "persona": "리안", "answerable": true, "id": "rmq-0096"}
+{"type": "episodic", "q": "리안이랑 한 약속이 뭐였지?", "answers": ["연말에 스케이트장 가기"], "gold_notes": ["리안과의 대화 s25"], "persona": "리안", "answerable": true, "id": "rmq-0097"}
+{"type": "update", "q": "하은이 요즘 제일 좋아하는 음식은 뭐야?", "answers": ["츄러스"], "gold_notes": ["리안과의 대화 s23"], "persona": "리안", "answerable": true, "trap_note": "리안과의 대화 s05", "old_answer": "청국장", "id": "rmq-0098"}
+{"type": "temporal", "q": "5월에 하은이랑 어디로 놀러 갔었지?", "answers": ["단양"], "gold_notes": ["리안과의 대화 s16"], "persona": "리안", "answerable": true, "id": "rmq-0099"}
+{"type": "twohop", "q": "하은이 리안에게 준 선물을 산 가게 이름은?", "answers": ["여우별잡화점"], "gold_notes": ["리안과의 대화 s19", "리안과의 대화 s14"], "persona": "리안", "answerable": true, "bridge": "미니 화분", "id": "rmq-0100"}
+{"type": "long", "q": "하은의 반려동물 이름이 뭐야?", "answers": ["구름이"], "gold_notes": ["리안과의 대화 s07"], "persona": "리안", "answerable": true, "id": "rmq-0101"}
+{"type": "long", "q": "하은은 무슨 알레르기가 있지?", "answers": ["새우"], "gold_notes": ["리안과의 대화 s10"], "persona": "리안", "answerable": true, "id": "rmq-0102"}
+{"type": "episodic", "q": "하은의 인생 영화는?", "answers": ["빅 피쉬"], "gold_notes": ["리안과의 대화 s13"], "persona": "리안", "answerable": true, "id": "rmq-0103"}
+{"type": "long", "q": "하은이 무서워하는 건 뭐야?", "answers": ["엘리베이터"], "gold_notes": ["리안과의 대화 s18"], "persona": "리안", "answerable": true, "id": "rmq-0104"}
+{"type": "long", "q": "하은의 버킷리스트 1번은?", "answers": ["앨범 내기"], "gold_notes": ["리안과의 대화 s21"], "persona": "리안", "answerable": true, "id": "rmq-0105"}
+{"type": "abstention", "q": "하은의 혈액형이 뭐였지?", "answers": [], "gold_notes": [], "persona": "리안", "answerable": false, "id": "rmq-0106"}
+{"type": "abstention", "q": "하은이 다닌 고등학교 이름은?", "answers": [], "gold_notes": [], "persona": "리안", "answerable": false, "id": "rmq-0107"}
+{"type": "long", "q": "수빈의 여동생 이름이 뭐였지?", "answers": ["오세림"], "gold_notes": ["테오와의 대화 s01"], "persona": "테오", "answerable": true, "id": "rmq-0108"}
+{"type": "long", "q": "수빈의 고향은 어디야?", "answers": ["영월"], "gold_notes": ["테오와의 대화 s02"], "persona": "테오", "answerable": true, "id": "rmq-0109"}
+{"type": "long", "q": "수빈의 직업은 뭐라고 했지?", "answers": ["항해사"], "gold_notes": ["테오와의 대화 s03"], "persona": "테오", "answerable": true, "id": "rmq-0110"}
+{"type": "short", "q": "수빈이 백화점에서 뭘 샀다고 했지?", "answers": ["캔들 워머"], "gold_notes": ["테오와의 대화 s29"], "persona": "테오", "answerable": true, "id": "rmq-0111"}
+{"type": "short", "q": "수빈이 방금 반신욕에 뭘 넣었다고 했어?", "answers": ["레몬그라스 배쓰밤"], "gold_notes": ["테오와의 대화 s30"], "persona": "테오", "answerable": true, "id": "rmq-0112"}
+{"type": "episodic", "q": "테오랑 수빈의 '둘의 노래'는 뭐야?", "answers": ["진달래 소나기"], "gold_notes": ["테오와의 대화 s08"], "persona": "테오", "answerable": true, "id": "rmq-0113"}
+{"type": "episodic", "q": "테오가 수빈에게 지어준 별명은?", "answers": ["밤바람"], "gold_notes": ["테오와의 대화 s11"], "persona": "테오", "answerable": true, "id": "rmq-0114"}
+{"type": "episodic", "q": "테오랑 한 약속이 뭐였지?", "answers": ["봄에 딸기 뷔페 가기"], "gold_notes": ["테오와의 대화 s25"], "persona": "테오", "answerable": true, "id": "rmq-0115"}
+{"type": "update", "q": "수빈이 요즘 제일 좋아하는 음식은 뭐야?", "answers": ["밀푀유나베"], "gold_notes": ["테오와의 대화 s23"], "persona": "테오", "answerable": true, "trap_note": "테오와의 대화 s05", "old_answer": "번데기", "id": "rmq-0116"}
+{"type": "temporal", "q": "5월에 수빈이랑 어디로 놀러 갔었지?", "answers": ["평창"], "gold_notes": ["테오와의 대화 s16"], "persona": "테오", "answerable": true, "id": "rmq-0117"}
+{"type": "twohop", "q": "수빈이 테오에게 준 선물을 산 가게 이름은?", "answers": ["바다책방"], "gold_notes": ["테오와의 대화 s19", "테오와의 대화 s14"], "persona": "테오", "answerable": true, "bridge": "은반지", "id": "rmq-0118"}
+{"type": "long", "q": "수빈의 반려동물 이름이 뭐야?", "answers": ["방울이"], "gold_notes": ["테오와의 대화 s07"], "persona": "테오", "answerable": true, "id": "rmq-0119"}
+{"type": "long", "q": "수빈은 무슨 알레르기가 있지?", "answers": ["달걀"], "gold_notes": ["테오와의 대화 s10"], "persona": "테오", "answerable": true, "id": "rmq-0120"}
+{"type": "episodic", "q": "수빈의 인생 영화는?", "answers": ["인생 후르츠"], "gold_notes": ["테오와의 대화 s13"], "persona": "테오", "answerable": true, "id": "rmq-0121"}
+{"type": "long", "q": "수빈이 무서워하는 건 뭐야?", "answers": ["번지점프"], "gold_notes": ["테오와의 대화 s18"], "persona": "테오", "answerable": true, "id": "rmq-0122"}
+{"type": "long", "q": "수빈의 버킷리스트 1번은?", "answers": ["빵집 차리기"], "gold_notes": ["테오와의 대화 s21"], "persona": "테오", "answerable": true, "id": "rmq-0123"}
+{"type": "abstention", "q": "수빈의 혈액형이 뭐였지?", "answers": [], "gold_notes": [], "persona": "테오", "answerable": false, "id": "rmq-0124"}
+{"type": "abstention", "q": "수빈이 다닌 고등학교 이름은?", "answers": [], "gold_notes": [], "persona": "테오", "answerable": false, "id": "rmq-0125"}
+{"type": "long", "q": "현우의 여동생 이름이 뭐였지?", "answers": ["임가을"], "gold_notes": ["아리와의 대화 s01"], "persona": "아리", "answerable": true, "id": "rmq-0126"}
+{"type": "long", "q": "현우의 고향은 어디야?", "answers": ["남해"], "gold_notes": ["아리와의 대화 s02"], "persona": "아리", "answerable": true, "id": "rmq-0127"}
+{"type": "long", "q": "현우의 직업은 뭐라고 했지?", "answers": ["국악 연주자"], "gold_notes": ["아리와의 대화 s03"], "persona": "아리", "answerable": true, "id": "rmq-0128"}
+{"type": "short", "q": "현우가 백화점에서 뭘 샀다고 했지?", "answers": ["미니 가습기"], "gold_notes": ["아리와의 대화 s29"], "persona": "아리", "answerable": true, "id": "rmq-0129"}
+{"type": "short", "q": "현우가 방금 반신욕에 뭘 넣었다고 했어?", "answers": ["솔잎 배쓰솔트"], "gold_notes": ["아리와의 대화 s30"], "persona": "아리", "answerable": true, "id": "rmq-0130"}
+{"type": "episodic", "q": "아리랑 현우의 '둘의 노래'는 뭐야?", "answers": ["골목길 왈츠"], "gold_notes": ["아리와의 대화 s08"], "persona": "아리", "answerable": true, "id": "rmq-0131"}
+{"type": "episodic", "q": "아리가 현우에게 지어준 별명은?", "answers": ["은하수"], "gold_notes": ["아리와의 대화 s11"], "persona": "아리", "answerable": true, "id": "rmq-0132"}
+{"type": "episodic", "q": "아리랑 한 약속이 뭐였지?", "answers": ["추석에 별 보러 천문대 가기"], "gold_notes": ["아리와의 대화 s25"], "persona": "아리", "answerable": true, "id": "rmq-0133"}
+{"type": "update", "q": "현우가 요즘 제일 좋아하는 음식은 뭐야?", "answers": ["후토마키"], "gold_notes": ["아리와의 대화 s23"], "persona": "아리", "answerable": true, "trap_note": "아리와의 대화 s05", "old_answer": "산낙지", "id": "rmq-0134"}
+{"type": "temporal", "q": "5월에 현우랑 어디로 놀러 갔었지?", "answers": ["부여"], "gold_notes": ["아리와의 대화 s16"], "persona": "아리", "answerable": true, "id": "rmq-0135"}
+{"type": "twohop", "q": "현우가 아리에게 준 선물을 산 가게 이름은?", "answers": ["느티나무공방"], "gold_notes": ["아리와의 대화 s19", "아리와의 대화 s14"], "persona": "아리", "answerable": true, "bridge": "폴라로이드 카메라", "id": "rmq-0136"}
+{"type": "long", "q": "현우의 반려동물 이름이 뭐야?", "answers": ["용가리"], "gold_notes": ["아리와의 대화 s07"], "persona": "아리", "answerable": true, "id": "rmq-0137"}
+{"type": "long", "q": "현우는 무슨 알레르기가 있지?", "answers": ["자몽"], "gold_notes": ["아리와의 대화 s10"], "persona": "아리", "answerable": true, "id": "rmq-0138"}
+{"type": "episodic", "q": "현우의 인생 영화는?", "answers": ["카모메 식당"], "gold_notes": ["아리와의 대화 s13"], "persona": "아리", "answerable": true, "id": "rmq-0139"}
+{"type": "long", "q": "현우가 무서워하는 건 뭐야?", "answers": ["광대"], "gold_notes": ["아리와의 대화 s18"], "persona": "아리", "answerable": true, "id": "rmq-0140"}
+{"type": "long", "q": "현우의 버킷리스트 1번은?", "answers": ["요트 자격증 따기"], "gold_notes": ["아리와의 대화 s21"], "persona": "아리", "answerable": true, "id": "rmq-0141"}
+{"type": "abstention", "q": "현우의 혈액형이 뭐였지?", "answers": [], "gold_notes": [], "persona": "아리", "answerable": false, "id": "rmq-0142"}
+{"type": "abstention", "q": "현우가 다닌 고등학교 이름은?", "answers": [], "gold_notes": [], "persona": "아리", "answerable": false, "id": "rmq-0143"}

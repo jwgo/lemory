@@ -124,6 +124,12 @@ class LemoryConfig(BaseSettings):
     # regression; pushing further (boost 3.0) starts costing paraphrase
     # robustness, so this is the knee of the curve.
     keyword_bm25_boost: float = 2.4  # lexical weight multiplier when verbatim/keyword detected
+    # BM25 fusion damp when EVERY query content token is corpus-boilerplate
+    # (occurrence rate > 1/20 chunks): the lexical ranking is then small-talk
+    # noise (chat-log greetings/reactions gang up under RRF), so fusion leans
+    # on the semantic leg. Fires only when a vector leg exists — keyless
+    # BM25-only installs unaffected. Measured on RoleMemQA episodic-type.
+    common_bm25_damp: float = 0.5
     verbatim_gate: float = 0.60  # query-token coverage in top BM25 chunks that flips to lexical lean
     # near-exact quoting tier: at this coverage the query is reciting the note
     # (reference-QA), where paraphrase risk is nil — lean harder on lexical.
