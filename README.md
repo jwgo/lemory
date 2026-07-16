@@ -12,10 +12,10 @@
 [![Benchmarks](https://img.shields.io/badge/benchmarks-reproducible-orange.svg)](BENCHMARKS.md)
 [![KorMapleQA](https://img.shields.io/badge/KorMapleQA-2%2C075%20questions-yellow.svg)](benchmarks/data/kormapleqa/README.md)
 
-<img src="docs/assets/demo1_korean.gif" alt="Live search on a real 1,469-note namuwiki vault: Korean question answered in 13ms, typo repaired automatically" width="840">
+<img src="docs/assets/demo1_korean.gif" alt="Live search on a real 1,469-note namuwiki vault: Korean question answered in ~0.1s of local compute, typo repaired automatically" width="840">
 
 <sub>Not a mock. A real 1,469-note / ~42,000-chunk namuwiki vault: a natural
-Korean question answered in 13 ms of local compute, a typo repaired without
+Korean question answered in ~0.1 s of local compute, a typo repaired without
 any API call. Reproducible from [`benchmarks/`](benchmarks/).</sub>
 
 </div>
@@ -69,14 +69,14 @@ That is [tobi/qmd](https://github.com/tobi/qmd) and MemPalace running for
 real on the same vault, not screenshots of their docs. qmd's BM25 uses AND
 semantics, so a natural Korean question returns nothing. MemPalace ships an
 English-first embedder with no Korean lexical path. Lemory returns the boss
-note itself as the first hit, in 13 ms, with zero LLM calls.
+note itself as the first hit, in ~0.1 s, with zero LLM calls.
 
 When qmd runs its full local-LLM pipeline (query expansion + rerank), it still
 lands below Lemory's LLM-free hybrid on the same 329 questions - and pays
 59.5 seconds per query to get there:
 
 <div align="center">
-<img src="docs/assets/chart_qmd_rematch.svg" width="840" alt="Identical 329 questions: Lemory 0.875 at ~16ms vs qmd query 0.769 at 59.5s">
+<img src="docs/assets/chart_qmd_rematch.svg" width="840" alt="Identical 329 questions: Lemory 0.887 at ~0.11s vs qmd query 0.769 at 59.5s">
 </div>
 
 And against mem0, the most-starred OSS memory layer, same corpus and same
@@ -296,9 +296,21 @@ retrieval, zero API calls, local embedder:
 Recall@5 **0.983** on the protocol most headline numbers use, and we lead
 with the stricter all-evidence number (0.903) instead of quoting only the
 flattering one - the Korean-tuned e5 default improves both over the old MiniLM
-(0.972 / 0.857). LOCOMO LLM-judge 0.706 vs mem0's published 0.669; DMR
-(500 q) 0.694 vs 0.668 same-harness naive RAG
+(0.972 / 0.857). LOCOMO LLM-judge 0.706 vs mem0's published 0.669 (and on
+the key-free retrieval axis, hybrid 0.771 evidence-recall@10 beats both its
+own legs); DMR (500 q) 0.694 vs 0.668 same-harness naive RAG
 ([§7b](BENCHMARKS.md)).
+
+**Roleplay memory - the axis chat companions actually need.** We built and
+published **RoleMemQA** ([§7e](BENCHMARKS.md)): 8 personas x 30 dated chat
+sessions, 144 code-verified questions across short-term / long-term /
+episodic / preference-update / temporal / 2-hop / abstention memory. Keyless
+Lemory answers the memory-store question - *does the right session surface?*
+- at **doc@1 0.984** (update-type 1.000 with **zero** stale-preference
+traps), beating its own vector (0.938) and BM25 (0.820) legs at ~1ms. It
+also caught two real defects we then fixed: recency must anchor to the
+memory's own timeline (not the wall clock), and chat boilerplate must not
+own the lexical leg.
 
 **[KorQuAD 1.0](https://korquad.github.io/)**, 140 real Korean Wikipedia
 articles, 400 human-written questions - keyless local (e5-small-ko-v2):

@@ -1,27 +1,27 @@
 {
   "lemory": {
     "full_support@8_original": 1.0,
-    "full_support@8_paraphrase": 0.9821428571428571,
+    "full_support@8_paraphrase": 0.9285714285714286,
     "full_support@8_korean": 0.95,
-    "full_support@8_keyword": 1.0,
+    "full_support@8_keyword": 0.9821428571428571,
     "full_support@8_typo": 1.0,
-    "seconds": 0.2592761516571045
+    "seconds": 0.25862717628479004
   },
   "lemory-nograph": {
-    "full_support@8_original": 0.631578947368421,
-    "full_support@8_paraphrase": 0.5535714285714286,
-    "full_support@8_korean": 0.45,
-    "full_support@8_keyword": 0.625,
-    "full_support@8_typo": 0.5789473684210527,
-    "seconds": 0.22489213943481445
+    "full_support@8_original": 0.543859649122807,
+    "full_support@8_paraphrase": 0.5178571428571429,
+    "full_support@8_korean": 0.425,
+    "full_support@8_keyword": 0.5535714285714286,
+    "full_support@8_typo": 0.543859649122807,
+    "seconds": 0.22494792938232422
   },
   "vector": {
-    "full_support@8_original": 0.631578947368421,
-    "full_support@8_paraphrase": 0.6071428571428571,
-    "full_support@8_korean": 0.55,
-    "full_support@8_keyword": 0.5714285714285714,
-    "full_support@8_typo": 0.631578947368421,
-    "seconds": 0.026910066604614258
+    "full_support@8_original": 0.543859649122807,
+    "full_support@8_paraphrase": 0.5178571428571429,
+    "full_support@8_korean": 0.475,
+    "full_support@8_keyword": 0.5,
+    "full_support@8_typo": 0.543859649122807,
+    "seconds": 0.02601313591003418
   },
   "bm25": {
     "full_support@8_original": 0.5964912280701754,
@@ -29,6 +29,6 @@
     "full_support@8_korean": 0.275,
     "full_support@8_keyword": 0.5892857142857143,
     "full_support@8_typo": 0.43859649122807015,
-    "seconds": 0.09798192977905273
+    "seconds": 0.10139608383178711
   }
 }

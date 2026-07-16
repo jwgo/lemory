@@ -287,10 +287,16 @@ doc is one note, evaluated note-level at BEIR's standard NDCG@10 plus Recall.
 | NFCorpus | **0.3459** | 0.3207 | 0.3182 | 0.325 / 0.335 |
 | ArguAna | 0.3210 | **0.4022** | 0.2595 | 0.315 / ~0.46 |
 | SciDocs | **0.1673** | 0.1647 | 0.1474 | 0.158 / 0.13 |
+| FiQA | 0.2819 | **0.3406** | 0.2391 | 0.236 / ~0.37 |
 
-<sub>FiQA (57k docs) was attempted but excluded: its index did not finish within
-~2.5 h under this session's concurrent-eval load. Indexing scale is measured
-separately in §12b (1M chunks). Re-run: `python benchmarks/run_beir.py fiqa`.</sub>
+<sub>FiQA's first attempt appeared to hang for hours — that turned out to be a
+real O(text × titles) defect in the unlinked-mention pass at 57k documents,
+since replaced with a linear Aho-Corasick automaton (see CHANGELOG); the full
+57,638-doc / 71,609-chunk index now builds in ~43 min (embedding-bound) and
+queries at ~50 ms p50 in the IVF regime. FiQA reads like ArguAna: hybrid beats
+published BM25, dense leads the top-10 (paraphrase-heavy finance questions),
+and hybrid's **R@100 0.612 vs dense 0.555** shows fusion still retrieves MORE
+gold — ranking it into the top-10 is the (opt-in) reranker's job.</sub>
 
 <sub>The *Published* column is approximate reference points from the BEIR paper
 and the intfloat e5-small-v2 model card, not re-measured here — the controlled
@@ -388,14 +394,17 @@ KorQuAD(문어 단일홉)와 LongMemEval(영어 대화)이 안 재는 축들을 
 상세: `benchmarks/data/kormapleqa/README.md`.
 
 **gold-doc@1 / gold-doc@8** (문서 수준 — 문서 단위 시스템과 공정 비교;
-로컬 임베더 e5-small-ko-v2 @ chunk 882, 재측정):
+로컬 임베더 e5-small-ko-v2 @ chunk 882. ANN 리콜 수정(42k 청크는 exact
+스캔, config의 `ann_threshold` 주석 참조) 후 정식 러너
+`run_kormapleqa.py`로 재측정 — 이전 공표 0.628/0.889는 IVF 빌드 리콜
+손실을 포함한 값이었다):
 
 | 시스템 | 전체 @1 | 전체 @8 | 질문형 @8 | 마스킹 @8 | 2-hop(fs) | 시간 @8 | 키워드 @8 | 구어체 @8 | 오타 @8 |
 |---|---|---|---|---|---|---|---|---|---|
 | **Lemory (Gemini 임베딩)** | **0.664** | **0.906** | **0.915** | **0.856** | **0.977 (0.344)** | **0.928** | **0.982** | **0.900** | **0.796** |
-| **Lemory** (로컬 e5-small-ko-v2, 키 제로) | **0.628** | **0.889** | **0.907** | **0.777** | **0.969 (0.477)** | 0.904 | **0.982** | **0.927** | 0.736 |
-| BM25 (Lemory의 CJK-bigram 인덱스¹) | 0.412 | 0.756 | 0.746 | 0.730 | 0.781 (0.133) | 0.783 | 0.964 | 0.900 | 0.445 |
-| Vector-only (e5-small-ko-v2) | 0.528 | 0.863 | 0.891 | 0.586 | 0.953 (0.211) | **0.976** | 0.959 | 0.927 | **0.755** |
+| **Lemory** (로컬 e5-small-ko-v2, 키 제로) | **0.641** | **0.899** | **0.920** | **0.777** | **0.969 (0.438)** | 0.916 | **0.991** | **0.941** | 0.750 |
+| BM25 (Lemory의 CJK-bigram 인덱스¹) | 0.412 | 0.756 | 0.746 | 0.730 | 0.781 (0.133) | 0.783 | 0.964 | 0.900 | 0.446 |
+| Vector-only (e5-small-ko-v2) | 0.539 | 0.889 | 0.922 | 0.600 | 0.969 (0.195) | **1.000** | 0.973 | 0.964 | **0.777** |
 | Smart-Connections-class | 0.075 | 0.200 | 0.220 | 0.047 | 0.117 (0.000) | 0.434 | 0.209 | 0.214 | 0.200 |
 | Omnisearch (실제 MiniSearch) | 0.112 | 0.149 | 0.062 | 0.014 | — (0.000) | 0.133 | 0.945² | 0.077 | 0.041 |
 
@@ -423,14 +432,14 @@ BM25 마스킹이 0.39→0.74로 뛴 것도 이 색인 변경), **어휘 증거 
 
 | | 전체 doc8 | n | p50/query | 비고 |
 |---|---|---|---|---|
-| **Lemory** | **0.889** | 2,067 | **~16 ms** | 하이브리드+그래프 (e5-small-ko-v2) |
+| **Lemory** | **0.899** | 2,067 | **~0.11 s** (42k청크 exact; 일반 볼트 수 ms) | 하이브리드+그래프 (e5-small-ko-v2) |
 | MemPalace 3.5 (57k★) | 0.033 | 2,067 | 0.76 s | sqlite_exact+번들 embeddinggemma — 한국어 대규모에서 붕괴 (자체 §4f korean 0.350과 정합) |
 | qmd `search` (BM25) | 0.092 | 2,067 | 0.09 s | AND 시맨틱스 — 키워드 축만 0.846 |
 | qmd `vsearch` | 0.657 | 280† | 4.2 s | embeddinggemma 벡터 |
 | qmd `query` (로컬 LLM 풀파이프라인) | **0.774** | 84† | **59.5 s** (CPU) | 인제스트 임베딩 33분 56초 |
 
 <sub>† 층화 시드 샘플(지연 제약). **동일 문항 재대결(n=329)**: 한국어 특화 e5
-기본으로 Lemory-local **doc8 0.875 @ ~16ms** vs qmd query **0.769 @ 59.5s** —
+기본으로 Lemory-local **doc8 0.887 @ ~0.11s** vs qmd query **0.769 @ 59.5s** —
 품질 우위(+10.6pt)를 **~3,700× 빠르게**. (구 MiniLM 기본에선 0.775로 동률권
 이었다.) 벡터 모드(vsearch)는 품질·속도 모두 밀린다(0.657@4.2s).</sub>
 
@@ -552,7 +561,7 @@ the curve, not the end of it.
 > This section documents the keyless-local hardening as it was measured on the
 > **then-default MiniLM embedder**. The default is now the Korean-tuned
 > e5-small-ko-v2, whose dense leg is far stronger on Korean (keyless-local
-> KorQuAD hybrid recall@1 **0.935**, KorMapleQA doc@8 **0.889** — see §5e). The
+> KorQuAD hybrid recall@1 **0.935**, KorMapleQA doc@8 **0.899** — see §5e). The
 > RRF-margin gate and verbatim pin below still ship and still help; the absolute
 > "weak dense leg" numbers here are the historical record of why they were added.
 
@@ -637,18 +646,47 @@ Gemini regime). With Gemini embeddings the same expansion is worth +12 pt
 (§5). Weak-embedder graph gating is an open item; the numbers above are the
 default configuration either way.
 
+<sub>2026-07 update (e5-ko @882, exact-recall regime): the trade persists at
+smaller magnitude and is now a *deliberate* one — graph on: KorMapleQA doc@8
+0.899 / twohop full-support 0.438; graph off: 0.919 / 0.234. A budget/floor
+sweep (`graph_expand_budget` 4-8 × `graph_sim_floor` 0.25-0.35) moved
+nothing: shrinking the budget lost fs without recovering doc@8. We keep the
+graph on because full-support is what answers multi-hop questions; single-hop
+purists can set `graph_expansion = false`.</sub>
+
 ## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
 The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for every system; adversarial category excluded (mem0 protocol). mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini).
+
+<sub>Historical regime (MiniLM embedder + Gemini judge era). The judge axis
+needs an API key to re-run; the current-stack keyless retrieval axis is the
+second table below.</sub>
 
 | System | evidence_recall@10 | judge_acc | judge_multi_hop | judge_open_domain | judge_single_hop | judge_temporal |
 |---|---|---|---|---|---|---|
 | **Lemory** (hybrid + graph) | 0.894 | 0.706 | 0.533 | 0.375 | 0.852 | 0.822 |
 | Vector-only (naive RAG) | 0.876 | 0.688 | 0.556 | 0.375 | 0.852 | 0.733 |
 
+**Current stack, keyless (e5-small-ko-v2 @882), retrieval axis** — the same
+160-question stratified sample, evidence-recall@10 (fraction of gold dialog
+turns present in the retrieved context; no LLM anywhere,
+`benchmarks/run_locomo_retrieval.py`):
+
+| System | ev-recall@10 | multi-hop | temporal | open-domain | single-hop | p50 |
+|---|---|---|---|---|---|---|
+| **Lemory** (hybrid) | **0.771** | 0.649 | **0.844** | **0.561** | 0.870 | 11.4ms |
+| Vector-only | 0.767 | 0.691 | 0.778 | 0.522 | 0.889 | 0.1ms |
+| BM25 | 0.743 | 0.602 | 0.778 | 0.467 | 0.907 | 0.6ms |
+
+Hybrid wins the aggregate (temporal/open-domain carry it); dense leads on
+multi-hop — long paraphrased questions where a weak lexical leg drags fusion,
+the same structure as ArguAna (§4i), and likewise the reranker's axis to
+recover. Chat-log speaker names inflating BM25 term frequency is the
+underlying corpus shape.
+
 ## 7b. Memory benchmark: DMR / Deep Memory Retrieval (MemGPT/Zep), full 500 questions
 
-MSC-Self-Instruct: recall a fact from a 5-session chat. Session speaker labels inferred from dataset summaries (sessions don't always start with Speaker 1). Published Zep/MemGPT numbers (94.8/93.4) use GPT-4-class generators and their own judges — not directly comparable to this controlled all-Gemini setup.
+MSC-Self-Instruct: recall a fact from a 5-session chat. Session speaker labels inferred from dataset summaries (sessions don't always start with Speaker 1). Published Zep/MemGPT numbers (94.8/93.4) use GPT-4-class generators and their own judges — not directly comparable to this controlled all-Gemini setup. <sub>Historical regime (MiniLM + Gemini judge); judge-only benchmark, needs a key to re-run — Lemory led its ablation then and the current stack's retrieval story is §7d/§7e.</sub>
 
 | System | judge_acc |
 |---|---|
@@ -657,7 +695,7 @@ MSC-Self-Instruct: recall a fact from a 5-session chat. Session speaker labels i
 
 ## 7c. Memory benchmark: LongMemEval_S (cleaned), 100-question stratified sample
 
-Per-question ~50-session haystacks with dates; includes temporal reasoning, knowledge updates, preference personalization, and abstention. GPT-4o full-context baseline in the paper is ~0.60.
+Per-question ~50-session haystacks with dates; includes temporal reasoning, knowledge updates, preference personalization, and abstention. GPT-4o full-context baseline in the paper is ~0.60. <sub>Historical regime (MiniLM + Gemini judge, 100-question sample — small enough that ±3 questions move a column). The current-stack, key-free measurement of the same dataset is §7d (full 500, retrieval), where hybrid leads every column.</sub>
 
 | System | acc_abstention | acc_knowledge-update | acc_multi-session | acc_single-session-assistant | acc_single-session-preference | acc_single-session-user | acc_temporal-reasoning | judge_acc |
 |---|---|---|---|---|---|---|---|---|
@@ -698,6 +736,61 @@ single-session-user 1.000/1.000 (64), single-session-assistant 0.979/0.979
 multi-session / temporal is expected: those questions cite several sessions,
 so retrieving *all* of them in 5 is genuinely hard — and exactly why the two
 metrics are worth separating.
+
+## 7e. RoleMemQA — 롤플레잉 장/단기 기억 저장소 벤치마크 (신규, 자체 공개)
+
+지금까지의 벤치는 지식베이스 QA였다 — 하지만 Lemory의 또 다른 실사용은
+**캐릭터 챗/롤플레잉의 기억 저장소**다: 수개월의 멀티세션 대화가 세션당
+1노트로 쌓이고(=`lemory import chat`이 만드는 그 레이아웃), 봇은 다음
+턴을 위해 "그때 그 기억"을 소환해야 한다. 이 축을 재는 공개 벤치가
+마땅치 않아 직접 만들었다: **8 페르소나 × 30세션(약 7개월, 240노트)**,
+전부 코드 생성(시드 고정, LLM 0회), 정답 문자열이 골드 세션에만
+존재함을 전 볼트 스캔으로 검증(`benchmarks/data/rolememqa/generate.py`).
+
+질문 7종 · 144문항: 단기(직전 세션), 장기(첫 세션 사실, 이후 재언급
+없음), 에피소드("둘의 노래", 별명, 약속), **업데이트(선호가 중간에
+바뀜 — "요즘" 질문에 옛-선호 세션이 함정)**, 시간("N월에 어디
+갔었지"), 2홉(선물→산 가게), 거절(언급 없는 사실).
+
+| System (keyless local) | doc@1 | doc@8 | update doc@1 (함정↑골드) | episodic | temporal | 2홉 fs |
+|---|---|---|---|---|---|---|
+| **Lemory** (hybrid) | **0.984** | **1.000** | **1.000 (0.000)** | 0.938 | **1.000** | **1.000** |
+| Vector-only | 0.938 | 1.000 | 0.875 (0.125) | 0.969 | 0.875 | 0.875 |
+| BM25 | 0.820 | 0.953 | **0.000 (1.000)** | 0.781 | 1.000 | 1.000 |
+| Lemory + Qwen3-Reranker (opt-in) | 0.992 | 1.000 | 1.000 (0.000) | — | — | — |
+
+p50: hybrid ~1.2ms, reranker ~1.5s. (`benchmarks/run_rolememqa.py`)
+
+<sub>외부 시스템 행이 없는 이유: 키 없이 도는 실경쟁자들의 한국어 축은
+이미 대규모(2,067문항)에서 측정되어 있다 — MemPalace 0.033, qmd search
+0.091, Omnisearch 0.148 (§5e) — 한국어 롤플레잉 144문항을 다시 돌려도
+같은 붕괴를 재확인할 뿐이라 생략한다. mem0/cognee류는 인제스트에 LLM
+키가 필수라 이 키리스 벤치의 대상이 아니다(§4b).</sub>
+
+**이 벤치가 잡아낸 두 아키텍처 결함(이번 라운드에 수정):**
+
+1. **아카이브 볼트에서 recency 붕괴.** "요즘 제일 좋아하는 음식은?" —
+   기억저장소의 "현재"는 벽시계가 아니라 **기억 타임라인의 끝**이어야
+   한다. 볼트의 모든 노트가 몇 달 전이면(임포트된 채팅 로그, 쉬었다
+   재개한 롤플레잉) 벽시계 기준 지수감쇠는 전부 ~0으로 붕괴해 옛
+   선호와 새 선호가 동률이 되고, 축자 매칭이 강한 **옛 세션이
+   이긴다**(BM25 함정률 1.000이 그 증거). 수정: vague-recency 앵커를
+   `min(지금, 볼트 최신노트)`로 + 축자 핀 선택도 recency 가중.
+   결과: update doc@1 0.625 → **1.000**, 함정률 0.375 → **0.000**.
+
+2. **채팅 보일러플레이트가 BM25를 오염.** "약속 잊지마!" 같은 추임새가
+   세션마다 반복되면, 흔한 토큰만으로 된 질문("유노랑 한 약속이
+   뭐였지?")의 BM25 상위는 전부 그 잡음이다. 수정: 질문의 모든 내용
+   토큰이 코퍼스-보일러플레이트(청크당 등장률 > 1/20)면 축자 기계는
+   기권하고 퓨전은 시맨틱 레그에 기운다(`common_bm25_damp`, 벡터
+   레그가 있을 때만 — 키리스 BM25-only 설치는 무영향).
+   결과: episodic doc@1 0.844 → 0.938, 전체 0.9375 → **0.9844**.
+
+남은 2건(약속 에피소드)은 e5-ko 임베더 한계 케이스로, 리랭커(옵트인)가
+1건을 추가 회수한다(0.992). 두 수정 모두 가드 배터리에서 회귀 0을
+확인하고 채택했다: KorQuAD 0.935 정확 재현, KorMapleQA·robustness는
+stash A/B로 비트 동일, multihop/law/maple fs=1.000, temporal 시나리오
+(§10) 전 축 1.000, 348 테스트 그린.
 
 ## 8. External tool: qmd (tobi/qmd, local-model markdown search)
 
@@ -799,12 +892,19 @@ all embedding-based systems) is excluded.
 ## 12b. Vector index at 1M chunks — the "SQLite가 발목 잡는다" question (`bench_scale.py`)
 
 The exact float32 scan above is memory-bandwidth bound: at 1M chunks every
-query streams ~3 GB. Above `ann_threshold` (default 20k embedded chunks)
+query streams ~3 GB. Above `ann_threshold` (**default 60k** embedded chunks)
 Lemory switches to an **IVF-int8** index (`storage/ann.py`, numpy only, zero
 new dependencies): spherical k-means cells, int8 vectors stored
 cluster-contiguously, candidates rescored with their true float32 rows via a
 handful of SQLite PK lookups. Below the threshold nothing changes — small
 vaults keep exact search bit-for-bit.
+
+<sub>The threshold was raised from 20k after measuring the IVF recall cost on
+the 42k-chunk namuwiki corpus: nprobe=48 scored vector doc@8 0.900 vs 0.945
+exact (and the IVF training varies between otherwise-identical builds), while
+the exact scan is ~45ms p50 there — recall is worth more than 40ms in a chat
+loop. Past 60k, `ann_nprobe` now defaults to 256 (0.930 at 42k for ~1ms
+extra). The §5e KorMapleQA table reflects the exact regime.</sub>
 
 Corpus: **real gemini-embedding-001 vectors** (pooled from the other
 benchmarks' embed caches), scaled up by SLERP between true nearest neighbors —
@@ -866,6 +966,14 @@ python benchmarks/run_cognee.py            # optional, needs cognee (slow: cogni
 python benchmarks/gen_robust_queries.py    # no-op: variants are committed
 python benchmarks/run_robustness.py
 python benchmarks/report.py
+
+# key-free (local e5-ko) additions
+python benchmarks/data/rolememqa/generate.py   # roleplay memory vault+questions (§7e)
+python benchmarks/run_rolememqa.py             # §7e
+python benchmarks/prep_locomo.py               # downloads locomo10.json
+python benchmarks/run_locomo_retrieval.py      # §7 retrieval axis, no LLM
+python benchmarks/run_beir.py scifact          # §4i (nfcorpus/arguana/scidocs/fiqa)
+python benchmarks/run_beir_rerank.py arguana 300   # §4i reranker recovery
 ```
 
 ## Why these baselines

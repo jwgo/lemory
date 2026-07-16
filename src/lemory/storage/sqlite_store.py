@@ -1097,6 +1097,24 @@ class Store:
             return True  # never "correct" what we can't verify
         return row is not None
 
+    def token_chunk_df(self, token: str) -> int:
+        """How many CHUNKS contain the token — true document frequency, unlike
+        lexicon()'s occurrence counts (which one note repeating a term, or the
+        per-chunk title join, can inflate). Used by the boilerplate gate:
+        'common' must mean spread across the corpus, not merely repeated in
+        one place. One indexed FTS count per call (~sub-ms)."""
+        safe = token.replace('"', "")
+        if not safe:
+            return 0
+        try:
+            row = self.conn().execute(
+                'SELECT count(*) AS n FROM chunks_fts WHERE chunks_fts MATCH ?',
+                (f'"{safe}"',),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return 0  # unparseable token: treat as rare/discriminative
+        return int(row["n"] if row else 0)
+
     # ------------------------------------------------------------------ misc
     def title_map(self) -> dict[str, int]:
         """lowercased title -> doc_id (includes aliases from frontmatter)."""

@@ -107,10 +107,16 @@ class LemoryConfig(BaseSettings):
 
     # --- vector index scale-out ---
     # below the threshold: exact float32 scan (zero accuracy loss). Above it:
-    # int8 IVF index — 4× less RAM, sublinear query time, recall vs exact
-    # measured in BENCHMARKS.md §scale. 0 disables ANN entirely.
-    ann_threshold: int = 20_000
-    ann_nprobe: int = 48
+    # int8 IVF index — 4× less RAM, sublinear query time. 0 disables ANN.
+    # Threshold 60k (was 20k), measured on the 42k-chunk namuwiki corpus:
+    # IVF@nprobe48 silently cost -4.5pt vector doc@8 vs exact (0.900 vs
+    # 0.945) and its training varies between builds; exact is ~45ms p50 at
+    # 42k — imperceptible for chat, and recall is what benchmarks (and
+    # users) feel. Personal vaults rarely exceed 60k chunks; past it, IVF
+    # at nprobe=256 (was 48) keeps most of the recall for ~1ms extra
+    # (0.930 vs 0.900 measured at 42k).
+    ann_threshold: int = 60_000
+    ann_nprobe: int = 256
 
     # --- retrieval ---
     k_vector: int = 48
@@ -124,6 +130,12 @@ class LemoryConfig(BaseSettings):
     # regression; pushing further (boost 3.0) starts costing paraphrase
     # robustness, so this is the knee of the curve.
     keyword_bm25_boost: float = 2.4  # lexical weight multiplier when verbatim/keyword detected
+    # BM25 fusion damp when EVERY query content token is corpus-boilerplate
+    # (occurrence rate > 1/20 chunks): the lexical ranking is then small-talk
+    # noise (chat-log greetings/reactions gang up under RRF), so fusion leans
+    # on the semantic leg. Fires only when a vector leg exists — keyless
+    # BM25-only installs unaffected. Measured on RoleMemQA episodic-type.
+    common_bm25_damp: float = 0.5
     verbatim_gate: float = 0.60  # query-token coverage in top BM25 chunks that flips to lexical lean
     # near-exact quoting tier: at this coverage the query is reciting the note
     # (reference-QA), where paraphrase risk is nil — lean harder on lexical.

@@ -2,6 +2,38 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · roleplay memory, exact-recall vectors, linear mention pass
+
+**Lemory measured as a roleplay long/short-term memory store, and two silent
+recall taxes removed.**
+
+- **RoleMemQA (new benchmark, §7e):** 8 personas × 30 dated chat sessions,
+  144 code-verified questions over 7 memory types (short/long/episodic/
+  preference-update/temporal/2-hop/abstention). Keyless hybrid **doc@1 0.984**
+  (update-type 1.000 with zero stale-preference traps), above its own vector
+  (0.938) and BM25 (0.820) legs; opt-in reranker 0.992.
+- **Memory-timeline recency:** vague-recency queries ("요즘 ...") now anchor at
+  the vault's newest note instead of the wall clock, and the verbatim-pin
+  choice is recency-weighted - an archival or resumed chat vault keeps its
+  internal order (RoleMemQA update doc@1 0.625 → 1.000).
+- **Boilerplate-aware fusion:** when every query content token is
+  corpus-common (chat greetings/reactions), the verbatim machinery abstains
+  and BM25 is damped in fusion (`common_bm25_damp`, vector leg required).
+- **Exact-recall vectors by default up to 60k chunks:** IVF at the old 20k
+  threshold silently cost -4.5 pt vector doc@8 at 42k chunks (0.900 vs 0.945
+  exact) and varied between builds. `ann_threshold` 20k → 60k, `ann_nprobe`
+  48 → 256 past it. KorMapleQA doc@8 **0.889 → 0.899**, doc@1 0.628 → 0.641
+  (masked +6.5 pt); the honest cost is ~0.11 s/query at 42k chunks.
+- **Linear mention detection:** unlinked-mention scanning replaced the
+  per-title regex loop (O(text × titles) - hours at 57k docs) with a
+  pure-Python Aho-Corasick automaton with identical word-boundary semantics
+  (~24 s for the same corpus). BEIR-scale ingests no longer appear to hang.
+- **Dated daily notes get the title boost:** numeric date-stamp tokens no
+  longer veto title-boost coverage ("2023-09-12 Meeting with Steph").
+- LOCOMO gains a key-free retrieval table (§7, hybrid 0.771 evidence-recall);
+  BEIR §4i and the qmd-329 rematch re-measured under the exact regime
+  (rematch 0.875 → 0.887 vs qmd's 0.769).
+
 ## 0.3.0 · Korean-tuned e5 default (0.889 doc@8), one-command setup, on-device Gemma, no Ollama
 
 **Better retrieval, simpler stack, one way in.** The keyless local default is now a

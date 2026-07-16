@@ -131,7 +131,7 @@ when llama.cpp is present. It offers to `pip install "lemory[llama]"` (for the
 answer model); the GGUFs auto-download once.
 
 - Embeddings: **e5-small-ko-v2** (dragonkue's Korean-tuned multilingual-e5-small,
-  fastembed, 384d, no compile). Measured hybrid **doc@8 0.889** on KorMapleQA —
+  fastembed, 384d, no compile). Measured hybrid **doc@8 0.899** on KorMapleQA —
   the strongest local embedder we measured, above the 1024-d Harrier (0.853).
 - Answers: **Gemma 4 E4B** (Q4_K_M GGUF) on llama.cpp GPU, streamed. Switch to
   the lighter **E2B** in the web console. This is what `lemory[llama]` is for.
@@ -295,6 +295,10 @@ surfaced, so it can lift doc@1 but cannot fix a deep-multi-hop recall miss. On a
 | none (default) | 0.628 | 0.889 | ~16 ms/query |
 | Qwen3-Reranker-0.6B | 0.605 | 0.892 | ~1.9 s/query |
 
+<sub>A/B measured before the ANN-recall fix; the deltas (the reranker *hurts*
+doc@1) are what the decision rests on and are regime-independent. Current
+absolute numbers for the default: BENCHMARKS §5e (doc@1 0.641 / doc@8 0.899).</sub>
+
 Qwen3-Reranker actually **hurt** doc@1 (a 0.6B reranker second-guessing an
 already-correct top result) for ~90x the query latency. (An earlier fastembed
 jina-reranker-v2 path, since retired, bought ~+1 pt doc@8 at ~40x latency.) So
@@ -309,7 +313,7 @@ want in the dashboard's **Settings › Models** card or `lemory.toml`:
 
 1. **Default embedder (`lemory[local]`, e5-small-ko-v2):** dragonkue's
    Korean-tuned multilingual-e5-small via fastembed (pure-Python ONNX, 384d,
-   ~9 ms/embed, no native compile). Measured **hybrid doc@8 0.889** on the full
+   ~9 ms/embed, no native compile). Measured **hybrid doc@8 0.899** on the full
    KorMapleQA v2 — the strongest local embedder we measured, above the 1024-d
    Harrier (0.853) and the old MiniLM (0.788), and it never lost to Harrier on
    the English or long-doc corpora tested. `local_embed_backend = auto` picks it.

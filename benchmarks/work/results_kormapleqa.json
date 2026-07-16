@@ -1,48 +1,48 @@
 {
   "lemory": {
     "all_n": 2067,
-    "all_doc1": 0.6638,
-    "all_doc8": 0.9061,
-    "all_ans1": 0.4282,
-    "all_ans8": 0.7131,
-    "all_full_support@8": 0.3438,
+    "all_doc1": 0.6405,
+    "all_doc8": 0.8994,
+    "all_ans1": 0.402,
+    "all_ans8": 0.6502,
+    "all_full_support@8": 0.4375,
     "casual_n": 220,
-    "casual_doc1": 0.6227,
-    "casual_doc8": 0.9,
-    "casual_ans1": 0.4455,
-    "casual_ans8": 0.7636,
+    "casual_doc1": 0.7682,
+    "casual_doc8": 0.9409,
+    "casual_ans1": 0.4364,
+    "casual_ans8": 0.7455,
     "kw_n": 220,
-    "kw_doc1": 0.8773,
-    "kw_doc8": 0.9818,
-    "kw_ans1": 0.7318,
-    "kw_ans8": 0.8864,
+    "kw_doc1": 0.8864,
+    "kw_doc8": 0.9909,
+    "kw_ans1": 0.7045,
+    "kw_ans8": 0.9,
     "masked_n": 215,
-    "masked_doc1": 0.6279,
-    "masked_doc8": 0.8558,
-    "masked_ans1": 0.6186,
-    "masked_ans8": 0.8326,
+    "masked_doc1": 0.5488,
+    "masked_doc8": 0.7767,
+    "masked_ans1": 0.5349,
+    "masked_ans8": 0.7442,
     "single_n": 981,
-    "single_doc1": 0.632,
-    "single_doc8": 0.9154,
-    "single_ans1": 0.3863,
-    "single_ans8": 0.7278,
+    "single_doc1": 0.6106,
+    "single_doc8": 0.9195,
+    "single_ans1": 0.369,
+    "single_ans8": 0.6565,
     "temporal_n": 83,
-    "temporal_doc1": 0.8193,
-    "temporal_doc8": 0.9277,
-    "temporal_ans1": 0.2892,
-    "temporal_ans8": 0.5542,
+    "temporal_doc1": 0.5542,
+    "temporal_doc8": 0.9157,
+    "temporal_ans1": 0.241,
+    "temporal_ans8": 0.4458,
     "twohop_n": 128,
-    "twohop_doc1": 0.7812,
-    "twohop_doc8": 0.9766,
-    "twohop_ans1": 0.1094,
-    "twohop_ans8": 0.2578,
-    "twohop_full_support@8": 0.3438,
+    "twohop_doc1": 0.6953,
+    "twohop_doc8": 0.9688,
+    "twohop_ans1": 0.0938,
+    "twohop_ans8": 0.1406,
+    "twohop_full_support@8": 0.4375,
     "typo_n": 220,
-    "typo_doc1": 0.5409,
-    "typo_doc8": 0.7955,
-    "typo_ans1": 0.3455,
-    "typo_ans8": 0.6318,
-    "p50_ms": 12.89,
+    "typo_doc1": 0.4909,
+    "typo_doc8": 0.75,
+    "typo_ans1": 0.3227,
+    "typo_ans8": 0.5591,
+    "p50_ms": 109.01,
     "abstention_top1": [
       {
         "q": "보스 발드릭스의 요구 전투력은 얼마인가?",
@@ -50,15 +50,15 @@
       },
       {
         "q": "솔 에르다 조각의 최대 소지 개수는 몇 개인가?",
-        "top1": "에르다 스펙트럼"
+        "top1": "메이플스토리-일반 몬스터-아케인 리버-소멸의 여로"
       },
       {
         "q": "챌린저스 서버의 참여 조건은 무엇인가?",
-        "top1": "크로스 헌터"
+        "top1": "메이플스토리 확률조작 사건"
       },
       {
         "q": "하이퍼 버닝 MAX의 레벨 상한은 몇인가?",
-        "top1": "메이플스토리-스탯"
+        "top1": "메이플 유니온"
       },
       {
         "q": "감시자 칼로스의 입장 레벨 제한은 몇인가?",
@@ -67,6 +67,243 @@
       {
         "q": "헥사 매트릭스 강화에 필요한 재화는 무엇인가?",
         "top1": "V 매트릭스"
+      },
+      {
+        "q": "어둠의 발현 이벤트 보상은 무엇인가?",
+        "top1": "메이플스토리-엘리트 몬스터 및 보스"
+      },
+      {
+        "q": "에오스탑 리마스터에서 바뀐 몬스터 레벨은 몇인가?",
+        "top1": "루더스 호수"
+      }
+    ]
+  },
+  "lemory-nograph": {
+    "all_n": 2067,
+    "all_doc1": 0.6405,
+    "all_doc8": 0.9192,
+    "all_ans1": 0.402,
+    "all_ans8": 0.686,
+    "all_full_support@8": 0.2344,
+    "casual_n": 220,
+    "casual_doc1": 0.7682,
+    "casual_doc8": 0.9727,
+    "casual_ans1": 0.4364,
+    "casual_ans8": 0.7682,
+    "kw_n": 220,
+    "kw_doc1": 0.8864,
+    "kw_doc8": 0.9909,
+    "kw_ans1": 0.7045,
+    "kw_ans8": 0.9045,
+    "masked_n": 215,
+    "masked_doc1": 0.5488,
+    "masked_doc8": 0.8047,
+    "masked_ans1": 0.5349,
+    "masked_ans8": 0.7814,
+    "single_n": 981,
+    "single_doc1": 0.6106,
+    "single_doc8": 0.9378,
+    "single_ans1": 0.369,
+    "single_ans8": 0.7023,
+    "temporal_n": 83,
+    "temporal_doc1": 0.5542,
+    "temporal_doc8": 0.9518,
+    "temporal_ans1": 0.241,
+    "temporal_ans8": 0.5422,
+    "twohop_n": 128,
+    "twohop_doc1": 0.6953,
+    "twohop_doc8": 0.9766,
+    "twohop_ans1": 0.0938,
+    "twohop_ans8": 0.125,
+    "twohop_full_support@8": 0.2344,
+    "typo_n": 220,
+    "typo_doc1": 0.4909,
+    "typo_doc8": 0.7773,
+    "typo_ans1": 0.3227,
+    "typo_ans8": 0.6,
+    "p50_ms": 62.26,
+    "abstention_top1": [
+      {
+        "q": "보스 발드릭스의 요구 전투력은 얼마인가?",
+        "top1": "메이플스토리2-에픽 퀘스트-보이지 않는 진실"
+      },
+      {
+        "q": "솔 에르다 조각의 최대 소지 개수는 몇 개인가?",
+        "top1": "메이플스토리-일반 몬스터-아케인 리버-소멸의 여로"
+      },
+      {
+        "q": "챌린저스 서버의 참여 조건은 무엇인가?",
+        "top1": "메이플스토리 확률조작 사건"
+      },
+      {
+        "q": "하이퍼 버닝 MAX의 레벨 상한은 몇인가?",
+        "top1": "메이플 유니온"
+      },
+      {
+        "q": "감시자 칼로스의 입장 레벨 제한은 몇인가?",
+        "top1": "메이플스토리-일반 몬스터-테네브리스"
+      },
+      {
+        "q": "헥사 매트릭스 강화에 필요한 재화는 무엇인가?",
+        "top1": "V 매트릭스"
+      },
+      {
+        "q": "어둠의 발현 이벤트 보상은 무엇인가?",
+        "top1": "메이플스토리-엘리트 몬스터 및 보스"
+      },
+      {
+        "q": "에오스탑 리마스터에서 바뀐 몬스터 레벨은 몇인가?",
+        "top1": "루더스 호수"
+      }
+    ]
+  },
+  "vector": {
+    "all_n": 2067,
+    "all_doc1": 0.5394,
+    "all_doc8": 0.8887,
+    "all_ans1": 0.27,
+    "all_ans8": 0.6846,
+    "all_full_support@8": 0.1953,
+    "casual_n": 220,
+    "casual_doc1": 0.6864,
+    "casual_doc8": 0.9636,
+    "casual_ans1": 0.2455,
+    "casual_ans8": 0.6727,
+    "kw_n": 220,
+    "kw_doc1": 0.7091,
+    "kw_doc8": 0.9727,
+    "kw_ans1": 0.4091,
+    "kw_ans8": 0.8318,
+    "masked_n": 215,
+    "masked_doc1": 0.2093,
+    "masked_doc8": 0.6,
+    "masked_ans1": 0.1767,
+    "masked_ans8": 0.5442,
+    "single_n": 981,
+    "single_doc1": 0.5413,
+    "single_doc8": 0.9215,
+    "single_ans1": 0.2936,
+    "single_ans8": 0.7666,
+    "temporal_n": 83,
+    "temporal_doc1": 0.8072,
+    "temporal_doc8": 1.0,
+    "temporal_ans1": 0.506,
+    "temporal_ans8": 0.8916,
+    "twohop_n": 128,
+    "twohop_doc1": 0.5625,
+    "twohop_doc8": 0.9688,
+    "twohop_ans1": 0.0,
+    "twohop_ans8": 0.0078,
+    "twohop_full_support@8": 0.1953,
+    "typo_n": 220,
+    "typo_doc1": 0.4227,
+    "typo_doc8": 0.7773,
+    "typo_ans1": 0.2091,
+    "typo_ans8": 0.6364,
+    "p50_ms": 45.7,
+    "abstention_top1": [
+      {
+        "q": "보스 발드릭스의 요구 전투력은 얼마인가?",
+        "top1": "메이플스토리 DS-보스"
+      },
+      {
+        "q": "솔 에르다 조각의 최대 소지 개수는 몇 개인가?",
+        "top1": "메이플스토리-일반 몬스터-아케인 리버-소멸의 여로"
+      },
+      {
+        "q": "챌린저스 서버의 참여 조건은 무엇인가?",
+        "top1": "챌린지 월드"
+      },
+      {
+        "q": "하이퍼 버닝 MAX의 레벨 상한은 몇인가?",
+        "top1": "메가 버닝"
+      },
+      {
+        "q": "감시자 칼로스의 입장 레벨 제한은 몇인가?",
+        "top1": "길드 대항전"
+      },
+      {
+        "q": "헥사 매트릭스 강화에 필요한 재화는 무엇인가?",
+        "top1": "아크메이지(불,독)"
+      },
+      {
+        "q": "어둠의 발현 이벤트 보상은 무엇인가?",
+        "top1": "메이플스토리2-패치노트"
+      },
+      {
+        "q": "에오스탑 리마스터에서 바뀐 몬스터 레벨은 몇인가?",
+        "top1": "루더스 호수"
+      }
+    ]
+  },
+  "bm25": {
+    "all_n": 2067,
+    "all_doc1": 0.4122,
+    "all_doc8": 0.7557,
+    "all_ans1": 0.2791,
+    "all_ans8": 0.507,
+    "all_full_support@8": 0.1328,
+    "casual_n": 220,
+    "casual_doc1": 0.5818,
+    "casual_doc8": 0.9,
+    "casual_ans1": 0.4045,
+    "casual_ans8": 0.7091,
+    "kw_n": 220,
+    "kw_doc1": 0.7409,
+    "kw_doc8": 0.9636,
+    "kw_ans1": 0.6364,
+    "kw_ans8": 0.8818,
+    "masked_n": 215,
+    "masked_doc1": 0.5349,
+    "masked_doc8": 0.7302,
+    "masked_ans1": 0.5209,
+    "masked_ans8": 0.707,
+    "single_n": 981,
+    "single_doc1": 0.3486,
+    "single_doc8": 0.7462,
+    "single_ans1": 0.2029,
+    "single_ans8": 0.4414,
+    "temporal_n": 83,
+    "temporal_doc1": 0.2892,
+    "temporal_doc8": 0.7831,
+    "temporal_ans1": 0.0723,
+    "temporal_ans8": 0.3494,
+    "twohop_n": 128,
+    "twohop_doc1": 0.3281,
+    "twohop_doc8": 0.7812,
+    "twohop_ans1": 0.0156,
+    "twohop_ans8": 0.1406,
+    "twohop_full_support@8": 0.1328,
+    "typo_n": 220,
+    "typo_doc1": 0.1727,
+    "typo_doc8": 0.4455,
+    "typo_ans1": 0.1318,
+    "typo_ans8": 0.3,
+    "p50_ms": 9.72,
+    "abstention_top1": [
+      {
+        "q": "보스 발드릭스의 요구 전투력은 얼마인가?",
+        "top1": "메이플 유니온"
+      },
+      {
+        "q": "솔 에르다 조각의 최대 소지 개수는 몇 개인가?",
+        "top1": "파티 퀘스트"
+      },
+      {
+        "q": "챌린저스 서버의 참여 조건은 무엇인가?",
+        "top1": "클라디아"
+      },
+      {
+        "q": "하이퍼 버닝 MAX의 레벨 상한은 몇인가?",
+        "top1": "메이플 유니온"
+      },
+      {
+        "q": "감시자 칼로스의 입장 레벨 제한은 몇인가?",
+        "top1": "메이플스토리-일반 몬스터-테네브리스"
+      },
+      {
+        "q": "헥사 매트릭스 강화에 필요한 재화는 무엇인가?",
+        "top1": "메이플스토리-5차 전직-평가"
       },
       {
         "q": "어둠의 발현 이벤트 보상은 무엇인가?",

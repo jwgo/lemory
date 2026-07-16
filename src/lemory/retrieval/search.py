@@ -291,6 +291,26 @@ def hybrid_search(
         tagged_lists.append(("vec", v_hits, cfg.w_vector * weight))
         tagged_lists.append(("bm25", b_hits, cfg.w_bm25 * weight))
 
+    # temporal intent is parsed once, up front: vague recency ("요즘/최근")
+    # steers the verbatim-pin CHOICE below, not just the post-fusion boost —
+    # "요즘 X는 뭐야?"의 답은 정의상 최신 언급이므로, 커버리지가 비슷한
+    # 후보끼리는 최신 세션이 핀을 가져가야 한다 (RoleMemQA update-type:
+    # 옛 선호를 축자로 되풀이하는 함정 세션이 핀을 훔치는 실패를 고침).
+    rec_ctx = None
+    now_ts = 0.0
+    intent = None
+    if mode == "hybrid" and cfg.recency_boost > 0:
+        now_ts = getattr(engine, "now", time.time)()
+        intent = parse_temporal(query, now=now_ts)
+        if intent.active and intent.range_start is None:
+            dates_all = store.doc_dates()
+            if dates_all:
+                # the memory's present = its newest note (never later than the
+                # wall clock): archival/resumed vaults keep timeline order
+                anchor = min(now_ts, max(dates_all.values()))
+                rec_ctx = (dates_all, anchor, cfg.recency_half_life_days,
+                           cfg.recency_boost)
+
     if mode == "vector":
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(vec_hits)}
     elif mode == "bm25":
@@ -305,12 +325,19 @@ def hybrid_search(
         # the query's vocabulary the top BM25 chunks already cover. Paraphrased,
         # cross-lingual, or typo'd queries have low coverage and are unaffected.
         cov, cov_cid = 0.0, None
+        bm25_damp = 1.0
         if kw_boost == 1.0 and bm25_hits:
-            cov, cov_cid = _bm25_coverage(store, lex_query, bm25_hits)
+            cov, cov_cid = _bm25_coverage(store, lex_query, bm25_hits, rec=rec_ctx)
             if cov >= cfg.verbatim_gate:
                 kw_boost = cfg.keyword_bm25_boost
+            elif vec_hits and _all_tokens_common(store, lex_query):
+                # every content token is corpus-boilerplate: the lexical
+                # ranking is small-talk noise (measured on RoleMemQA chat
+                # logs), so fusion leans on the semantic leg. Only when a
+                # vector leg exists — keyless BM25-only installs unaffected.
+                bm25_damp = cfg.common_bm25_damp
         fused = rrf_fuse(
-            [(hits, w * (kw_boost if kind == "bm25" else 1.0))
+            [(hits, w * ((kw_boost * bm25_damp) if kind == "bm25" else 1.0))
              for kind, hits, w in tagged_lists],
             cfg.rrf_k,
         )
@@ -340,23 +367,28 @@ def hybrid_search(
     # inside the asked window get boosted hardest. MULTIPLICATIVE on the fused
     # score, so recency amplifies relevance instead of replacing it: a fresh
     # but irrelevant note stays below an on-topic one. Rule-based, zero API.
-    if mode == "hybrid" and cfg.recency_boost > 0:
-        now_ts = getattr(engine, "now", time.time)()
-        intent = parse_temporal(query, now=now_ts)
-        if intent.active:
-            dates = store.doc_dates()
-            doc_of = {cid: m.doc_id for cid, m in chunk_meta.items()}
-            for cid in fused:  # values mutated in place; no keys added/removed
-                ts = dates.get(doc_of.get(cid, -1), 0.0)
-                if ts <= 0:
-                    continue
-                if intent.range_start is not None:
-                    in_window = intent.range_start <= ts < (intent.range_end or now_ts)
-                    factor = 1.0 + cfg.recency_boost * (2.5 if in_window else 0.0)
-                else:
-                    w = recency_weight(ts, now_ts, cfg.recency_half_life_days)
-                    factor = 1.0 + cfg.recency_boost * w
-                fused[cid] *= factor
+    # vague recency ("요즘/최근") is measured from the MEMORY's present, not
+    # the wall clock: in an archival or resumed vault (chat imports, roleplay
+    # logs) every note is months old, so wall-clock decay flattens to ~0 for
+    # all of them and an OLD stale fact ties a NEWER update. Anchoring at the
+    # newest note keeps the timeline's internal order; a live vault (newest
+    # note ≈ today) is unchanged. Explicit windows ("지난주", "5월에") stay
+    # wall-clock — they name absolute time. Measured on RoleMemQA update-type.
+    if mode == "hybrid" and intent is not None and intent.active:
+        dates = rec_ctx[0] if rec_ctx else store.doc_dates()
+        anchor = rec_ctx[1] if rec_ctx else now_ts
+        doc_of = {cid: m.doc_id for cid, m in chunk_meta.items()}
+        for cid in fused:  # values mutated in place; no keys added/removed
+            ts = dates.get(doc_of.get(cid, -1), 0.0)
+            if ts <= 0:
+                continue
+            if intent.range_start is not None:
+                in_window = intent.range_start <= ts < (intent.range_end or now_ts)
+                factor = 1.0 + cfg.recency_boost * (2.5 if in_window else 0.0)
+            else:
+                w = recency_weight(ts, anchor, cfg.recency_half_life_days)
+                factor = 1.0 + cfg.recency_boost * w
+            fused[cid] *= factor
 
     # --- title boost: a chunk from a note whose title matches query terms is
     # more likely the canonical source (Obsidian notes are entity-titled).
@@ -365,8 +397,15 @@ def hybrid_search(
     if mode == "hybrid" and q_tokens and cfg.title_boost > 0:
         for cid, meta in chunk_meta.items():
             t_tokens = _tokens(meta.title)
-            if t_tokens and _covers(t_tokens, q_tokens):
-                fused[cid] += cfg.title_boost * (len(t_tokens) / max(1, len(q_tokens)))
+            # date-stamped titles ("2023-09-12 Meeting with Steph" — the
+            # Obsidian daily-note pattern) should match on their WORDS: the
+            # numeric stamp tokens are never in a natural question, and
+            # requiring them silently exempted every dated note from the
+            # boost. Numeric tokens still help when the query has them.
+            word_tokens = {t for t in t_tokens if not t.isdigit()}
+            check = word_tokens or t_tokens
+            if check and _covers(check, q_tokens):
+                fused[cid] += cfg.title_boost * (len(check) / max(1, len(q_tokens)))
 
     # usage prior (opt-in, cfg.usage_prior=0 by default — see config.py for
     # why): multiplicative like recency, so it amplifies relevance only
@@ -583,6 +622,37 @@ def _token_in_text(t: str, text: str, text_jamo: str = "", stem: str = "") -> bo
     return False
 
 
+# a term occurring more often than once per _COMMON_RATE chunks is corpus
+# boilerplate: sits between measured "quoted term" rates (<0.03/chunk) and
+# chat-filler rates (0.2+/chunk) with ~6x margin to each side
+_COMMON_RATE = 0.05
+
+
+def _all_tokens_common(store: Store, query: str) -> bool:
+    """True when every content token of the query is corpus-boilerplate —
+    present in more than _COMMON_RATE of all chunks (true chunk-level
+    document frequency via FTS, so a rare entity repeated many times inside
+    its one home note still counts as discriminative). Such a query carries
+    no lexically discriminative evidence — its BM25 ranking is driven by
+    repeated small talk (chat greetings/reactions), so verbatim machinery
+    abstains and fusion leans on the semantic leg."""
+    q_tokens = _coverage_tokens(query)
+    if not q_tokens:
+        return False
+    n_chunks = max(1, store.chunk_count())
+    # df floor: spread across at least _COMMON_RATE of chunks AND at least a
+    # handful of distinct chunks — tiny vaults have no rate resolution
+    floor = max(_COMMON_RATE * n_chunks, 4.0)
+
+    def _df(t: str) -> int:
+        df = store.token_chunk_df(t)
+        if len(t) >= 3:  # 조사-glued surface: the stem's spread is what counts
+            df = max(df, store.token_chunk_df(t[:-1]))
+        return df
+
+    return all(_df(t) > floor for t in q_tokens)
+
+
 def _idf_weight(lex: dict, token: str) -> float:
     """Rarity weight for coverage: a quoted identifier ('문브릿지') should
     dominate the gate while question furniture ('보스', 'mp') barely counts.
@@ -600,10 +670,17 @@ def _idf_weight(lex: dict, token: str) -> float:
 
 
 def _bm25_coverage(store: Store, query: str,
-                   bm25_hits: list[tuple[int, float]]) -> tuple[float, int | None]:
+                   bm25_hits: list[tuple[int, float]],
+                   rec: tuple | None = None) -> tuple[float, int | None]:
     """(coverage, best_covering_chunk_id): the IDF-weighted fraction of the
     query's content tokens present in the best-covering top-8 BM25 chunk
     (title included), and that chunk's id.
+
+    `rec` = (doc_dates, anchor_ts, half_life_days, boost) when the query has
+    vague-recency intent ("요즘"): the returned COVERAGE stays pure (gates
+    must not open on recency alone), but the CHOICE of best chunk is weighted
+    by recency — among comparably-covering candidates the newest note wins,
+    while a decisively better-covering old note still takes the pin.
 
     Count-based coverage under-fired on entity-masked questions: "위치가
     '문브릿지 : 공허의 눈'인 보스의 MP는?" quotes a unique identifier, but
@@ -620,6 +697,11 @@ def _bm25_coverage(store: Store, query: str,
     min_tokens = 2 if has_hangul else 4
     if len(q_tokens) < min_tokens:
         return 0.0, None
+    # specificity gate: a genuine recitation quotes at least one term that is
+    # discriminative in THIS corpus ("유노랑 한 약속이" is all-boilerplate →
+    # abstain; see _all_tokens_common)
+    if _all_tokens_common(store, query):
+        return 0.0, None
     lex = store.lexicon()  # one cached-dict fetch, not one per token
     weights = {t: _idf_weight(lex, t) for t in q_tokens}
     total = sum(weights.values()) or 1.0
@@ -632,14 +714,33 @@ def _bm25_coverage(store: Store, query: str,
     # rank-4..8 chunk (that being the problem the pin exists to fix) — a
     # 3-chunk window couldn't see the evidence that should open the gate
     meta = store.get_chunks([cid for cid, _ in bm25_hits[:8]])
-    best, best_cid = 0.0, None
+    scored: list[tuple[float, float, int]] = []  # (cover, recency_weighted, cid)
     for cid, m in meta.items():
         text = (m.text + " " + m.title).lower()
         text_jamo = _to_jamo(text) if has_hangul else ""
         hit = sum(w for t, w in weights.items()
                   if _token_in_text(t, text, text_jamo, stems[t]))
-        if hit / total > best:
-            best, best_cid = hit / total, cid
+        cover = hit / total
+        weighted = cover
+        if rec is not None:
+            dates, anchor, hl, boost = rec
+            ts = dates.get(m.doc_id, 0.0)
+            if ts > 0:
+                weighted = cover * (1.0 + boost * recency_weight(ts, anchor, hl))
+        scored.append((cover, weighted, cid))
+    if not scored:
+        return 0.0, None
+    best = max(c for c, _, _ in scored)
+    # recency may only break ties between COMPARABLY-covering candidates
+    # (within 80% of the best): the stale-vs-updated preference case has both
+    # near-full coverage and resolves by recency, but a half-covering fresh
+    # chunk must never steal the pin from a decisive verbatim match — the
+    # recency factor's 2x ceiling would otherwise beat coverage margins
+    # smaller than 2x.
+    best_cid, best_w = None, 0.0
+    for cover, weighted, cid in scored:  # first-wins on ties, like before
+        if cover >= 0.8 * best and weighted > best_w:
+            best_w, best_cid = weighted, cid
     return best, best_cid
 
 

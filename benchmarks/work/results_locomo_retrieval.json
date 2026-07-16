@@ -1,0 +1,38 @@
+{
+  "lemory": {
+    "n": 159,
+    "evidence_recall@10": 0.7712,
+    "cat1_recall": 0.6489,
+    "cat2_recall": 0.8444,
+    "cat3_recall": 0.5611,
+    "cat4_recall": 0.8704,
+    "p50_ms": 1.2
+  },
+  "lemory-nograph": {
+    "n": 159,
+    "evidence_recall@10": 0.7712,
+    "cat1_recall": 0.6489,
+    "cat2_recall": 0.8444,
+    "cat3_recall": 0.5611,
+    "cat4_recall": 0.8704,
+    "p50_ms": 1.1
+  },
+  "vector": {
+    "n": 159,
+    "evidence_recall@10": 0.7668,
+    "cat1_recall": 0.6907,
+    "cat2_recall": 0.7778,
+    "cat3_recall": 0.5222,
+    "cat4_recall": 0.8889,
+    "p50_ms": 0.1
+  },
+  "bm25": {
+    "n": 159,
+    "evidence_recall@10": 0.7428,
+    "cat1_recall": 0.6022,
+    "cat2_recall": 0.7778,
+    "cat3_recall": 0.4667,
+    "cat4_recall": 0.9074,
+    "p50_ms": 0.6
+  }
+}
