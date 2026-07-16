@@ -9,7 +9,8 @@
   update_trap_above_gold  옛-선호 세션(함정)이 골드(최신) 위에 랭크된 비율
                           — 기억 저장소가 "지금"을 물었는데 과거를 내밀면 실패
 
-    python benchmarks/run_rolememqa.py                 # 4 arms
+    python benchmarks/run_rolememqa.py                 # 4 arms (clean)
+    python benchmarks/run_rolememqa.py --messy         # 지저분한 실채팅 변형
     python benchmarks/run_rolememqa.py --arm lemory
 """
 
@@ -55,14 +56,21 @@ def evaluate(eng, questions: list[dict], mode: str, graph: bool) -> dict:
         ans_rank = next((i for i, h in enumerate(hits)
                          if h.title in golds and ans in normalize(h.text)),
                         None)
+        # ans_any: 정답 문자열이 top-k 어느 청크에든 존재 (출처 무관) — 증류
+        # 노트(기억요약/)가 골드 세션 대신 정답을 들고 오는 것도 성공으로 침.
+        # "골든앤서가 컨텍스트에 존재하는가"라는 이 벤치의 근본 질문 그 자체.
+        any_rank = next((i for i, h in enumerate(hits)
+                         if ans in normalize(h.text)), None)
         row = {
             "doc1": doc_rank == 0, "doc8": doc_rank is not None,
             "ans1": ans_rank == 0, "ans8": ans_rank is not None,
+            "ans_any1": any_rank == 0, "ans_any8": any_rank is not None,
         }
         if q["type"] == "twohop":
             row["full_support"] = set(golds) <= set(titles)
-        if q["type"] == "update":
-            # 함정(옛 선호 세션)이 골드(업데이트 세션)보다 위에 랭크되면 실패
+        if q.get("trap_note"):
+            # 함정(옛 값/가짜 값 세션)이 골드보다 위에 랭크되면 실패 —
+            # update(선호 변경)와 retraction(번복) 공통 지표
             trap_rank = next((i for i, t in enumerate(titles)
                               if t == q["trap_note"]), None)
             row["trap_above_gold"] = (trap_rank is not None
@@ -76,7 +84,7 @@ def evaluate(eng, questions: list[dict], mode: str, graph: bool) -> dict:
         if not n:
             continue
         summary[f"{label}_n"] = n
-        for m in ("doc1", "doc8", "ans1", "ans8"):
+        for m in ("doc1", "doc8", "ans1", "ans8", "ans_any1", "ans_any8"):
             summary[f"{label}_{m}"] = round(sum(r[m] for r in rows) / n, 4)
         if any("full_support" in r for r in rows):
             fs = [r for r in rows if "full_support" in r]
@@ -94,13 +102,16 @@ def evaluate(eng, questions: list[dict], mode: str, graph: bool) -> dict:
 
 def main() -> None:
     load_env()
-    questions = [json.loads(l) for l in QFILE.read_text().splitlines()]
+    messy = "--messy" in sys.argv
+    qfile = DATA / "rolememqa" / ("questions_messy.jsonl" if messy else "questions.jsonl")
+    vault = DATA / "rolememqa" / ("vault-messy" if messy else "vault")
+    questions = [json.loads(l) for l in qfile.read_text().splitlines()]
     arms = dict(ARMS)
     if "--arm" in sys.argv:
         name = sys.argv[sys.argv.index("--arm") + 1]
         arms = {name: ARMS[name]}
 
-    eng = make_engine(VAULT, tag="rolememqa")
+    eng = make_engine(vault, tag="rolememqa-messy" if messy else "rolememqa")
     rep = eng.index()
     print(f"index: docs={eng.store.doc_count()} chunks={eng.store.chunk_count()} "
           f"embedded={rep.embedded} ({rep.seconds:.0f}s)", flush=True)
@@ -111,8 +122,10 @@ def main() -> None:
         s = evaluate(eng, questions, opts["mode"], opts["graph"])
         results[name] = s
         print(name, f"all_doc1={s['all_doc1']} all_doc8={s['all_doc8']} "
-                    f"ans8={s['all_ans8']} p50={s['p50_ms']}ms", flush=True)
-        for t in ("short", "long", "episodic", "update", "temporal", "twohop"):
+                    f"ans8={s['all_ans8']} ans_any1={s['all_ans_any1']} "
+                    f"ans_any8={s['all_ans_any8']} p50={s['p50_ms']}ms", flush=True)
+        for t in ("short", "long", "episodic", "update", "retraction", "joke",
+                  "temporal", "twohop"):
             if f"{t}_doc8" in s:
                 extra = ""
                 if f"{t}_full_support@8" in s:
@@ -121,7 +134,7 @@ def main() -> None:
                     extra += f" trap_above_gold={s[f'{t}_trap_above_gold']}"
                 print(f"   {t:9s} doc1={s[f'{t}_doc1']} doc8={s[f'{t}_doc8']} "
                       f"ans8={s[f'{t}_ans8']}{extra}", flush=True)
-    out = WORK / "results_rolememqa.json"
+    out = WORK / ("results_rolememqa_messy.json" if messy else "results_rolememqa.json")
     save_json(out, results)
     print("saved ->", out)
 

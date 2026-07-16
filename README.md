@@ -168,6 +168,31 @@ with search_notes before asking me things my notes already answer.
 and it is never indexed, never retrieved, never sent to any model. If it was
 indexed before, the flag removes it.
 
+## The memory loop: say it once, it's remembered
+
+<div align="center">
+<img src="docs/assets/demo4_memoryloop.gif" width="840" alt="Day 1: a conversation auto-saves as a session note. Day 30: the assistant recalls the fact in 4ms with a citation.">
+</div>
+
+Every console-assistant conversation auto-saves as a dated session note in
+`chats/` - a plain Markdown file you can open, edit, or delete (that
+transparency is the undo button). A month and many conversations later, "내
+여동생 이름 뭐랬지?" comes back in ~ms with the source cited. The demo above
+replays real pipeline output. Two optional layers on top:
+
+- **`lemory distill`** - an opt-in post-pass (on-device Gemma, zero keys)
+  that writes per-conversation fact sheets into the vault with [[wikilink]]
+  provenance. Measured on the messy-chat bench: +3.1pt answer-presence at
+  rank 1; profile and limits in [BENCHMARKS §7e](BENCHMARKS.md).
+- **The skill** (`lemory skill install`) teaches external assistants the
+  same policy: save session facts via `lemory remember` before the session
+  ends.
+
+Retrieval under real chat mess is measured, not assumed: RoleMemQA-messy
+plants retracted facts, joke-fakes, and vocabulary-poisoning small talk -
+retraction recall 1.000 (zero stale traps), overall doc@1 0.820 vs 0.984
+clean ([§7e](BENCHMARKS.md)).
+
 ## A second brain, not a log file
 
 <div align="center">

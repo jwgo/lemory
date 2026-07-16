@@ -2,6 +2,26 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · the memory loop closes: auto-remember, distill, messy-chat bench
+
+**A conversation is now a memory without anyone doing anything.**
+
+- **Session auto-save (write half of the loop):** every console-assistant
+  conversation persists as a dated session note in `chats/` - a plain,
+  visible, editable Markdown file. Toggle: `assistant_log_sessions`
+  (console: 답변 생성 › 비서 대화 기억). The skill teaches external
+  assistants the same policy via `lemory remember`.
+- **`lemory distill` (opt-in):** chat sessions → fact-sheet notes
+  (기억요약/) with [[wikilink]] provenance, on-device Gemma, retraction-
+  aware. Measured honestly on the messy bench: +3.1pt answer-presence at
+  rank 1, mixed elsewhere - profile in BENCHMARKS §7e; stays opt-in.
+- **RoleMemQA-messy:** retractions, joke-fakes, and vocabulary-poisoning
+  small talk, all code-verified. Keyless hybrid: retraction recall 1.000
+  (zero stale traps), overall doc@1 0.820 vs 0.984 clean - the honest cost
+  of noise, and the target the loop features are measured against.
+- New demo: `demo4_memoryloop.gif` - day-1 fact, day-30 recall in 4ms with
+  citation, replayed from real pipeline output.
+
 ## Unreleased · roleplay memory, exact-recall vectors, linear mention pass
 
 **Lemory measured as a roleplay long/short-term memory store, and two silent

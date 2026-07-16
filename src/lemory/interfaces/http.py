@@ -45,6 +45,7 @@ TUNABLE_FIELDS: dict[str, type] = {
     "provider": str,             # auto | gemini | openai | local
     "local_embed_backend": str,  # auto | llamacpp | fastembed
     "event_log": bool,
+    "assistant_log_sessions": bool,
     "graph_expansion": bool,
     "mention_links": bool,
     "typo_correction": bool,
@@ -76,6 +77,7 @@ class AskBody(BaseModel):
 
 class ChatBody(BaseModel):
     messages: list[dict]  # [{"role": "user"|"assistant", "content": str}, ...]
+    session: str = ""  # client-generated id so same-day conversations don't merge
 
 
 class IndexBody(BaseModel):
@@ -362,9 +364,23 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         def gen():
             try:
                 yield "data: " + json.dumps({"sources": sources}, ensure_ascii=False) + "\n\n"
+                parts: list[str] = []
                 for delta in deltas():
+                    parts.append(delta)
                     yield "data: " + json.dumps({"delta": delta}, ensure_ascii=False) + "\n\n"
-                yield "data: " + json.dumps({"done": True}) + "\n\n"
+                # the write half of the memory loop: persist the finished
+                # conversation as a dated session note so today's chat is
+                # tomorrow's searchable memory (assistant_log_sessions=false
+                # keeps conversations ephemeral). Never breaks the stream.
+                logged = None
+                try:
+                    from ..ingestion.chat_import import log_assistant_session
+                    logged = log_assistant_session(engine, msgs, "".join(parts),
+                                                   session=body.session)
+                except Exception:
+                    log.warning("assistant session logging failed", exc_info=True)
+                yield "data: " + json.dumps({"done": True, "logged": logged},
+                                            ensure_ascii=False) + "\n\n"
             except Exception as e:  # surface a friendly error into the stream
                 yield "data: " + json.dumps({"error": str(e)[:200]}, ensure_ascii=False) + "\n\n"
 
