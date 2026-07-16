@@ -36,3 +36,4 @@ benchmarks/package-lock.json
 # OS junk
 .DS_Store
 benchmarks/data/rolememqa/vault/
+benchmarks/data/rolememqa/vault-messy/
