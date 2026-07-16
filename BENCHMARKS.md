@@ -287,10 +287,16 @@ doc is one note, evaluated note-level at BEIR's standard NDCG@10 plus Recall.
 | NFCorpus | **0.3459** | 0.3207 | 0.3182 | 0.325 / 0.335 |
 | ArguAna | 0.3210 | **0.4022** | 0.2595 | 0.315 / ~0.46 |
 | SciDocs | **0.1673** | 0.1647 | 0.1474 | 0.158 / 0.13 |
+| FiQA | 0.2819 | **0.3406** | 0.2391 | 0.236 / ~0.37 |
 
-<sub>FiQA (57k docs) was attempted but excluded: its index did not finish within
-~2.5 h under this session's concurrent-eval load. Indexing scale is measured
-separately in §12b (1M chunks). Re-run: `python benchmarks/run_beir.py fiqa`.</sub>
+<sub>FiQA's first attempt appeared to hang for hours — that turned out to be a
+real O(text × titles) defect in the unlinked-mention pass at 57k documents,
+since replaced with a linear Aho-Corasick automaton (see CHANGELOG); the full
+57,638-doc / 71,609-chunk index now builds in ~43 min (embedding-bound) and
+queries at ~50 ms p50 in the IVF regime. FiQA reads like ArguAna: hybrid beats
+published BM25, dense leads the top-10 (paraphrase-heavy finance questions),
+and hybrid's **R@100 0.612 vs dense 0.555** shows fusion still retrieves MORE
+gold — ranking it into the top-10 is the (opt-in) reranker's job.</sub>
 
 <sub>The *Published* column is approximate reference points from the BEIR paper
 and the intfloat e5-small-v2 model card, not re-measured here — the controlled

@@ -39,7 +39,7 @@
     "update_ans1": 1.0,
     "update_ans8": 1.0,
     "update_trap_above_gold": 0.0,
-    "p50_ms": 1.36,
+    "p50_ms": 1.17,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",

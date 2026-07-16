@@ -453,6 +453,42 @@ class Indexer:
         text = "\n".join(r["text"] for r in rows).lower()
         return {tid: 0.85 for tid in automaton.find(text) if tid != doc_id}
 
+    # ------------------------------------------------- optional LLM enrichment
+    def enrich_entities(self, max_docs: int = 50) -> int:
+        """cognify-style enrichment: extract entities per note, link co-mentions.
+
+        Optional (off by default) — the wikilink+mention graph is free, this
+        spends LLM quota for extra recall on vaults with few links.
+        """
+        c = self.store.conn()
+        rows = c.execute(
+            """SELECT d.id, d.title FROM documents d
+               WHERE d.id NOT IN (SELECT DISTINCT doc_id FROM entity_mentions)
+               LIMIT ?""",
+            (max_docs,),
+        ).fetchall()
+        n = 0
+        for r in rows:
+            chunk_rows = c.execute(
+                "SELECT text FROM chunks WHERE doc_id=? ORDER BY ord LIMIT 4", (r["id"],)
+            ).fetchall()
+            text = "\n".join(x["text"] for x in chunk_rows)[:6000]
+            try:
+                data = self.engine.llm.generate_json(
+                    "Extract the named entities (people, organizations, places, products, "
+                    "projects, concepts) central to this note. Return JSON: "
+                    '{"entities": ["..."]} with at most 12 entities.\n\n'
+                    f"NOTE TITLE: {r['title']}\n\n{text}"
+                )
+                names = [e for e in data.get("entities", []) if isinstance(e, str)][:12]
+                self.store.add_entity_mentions(r["id"], names)
+                n += 1
+            except Exception as e:
+                log.warning("entity extraction failed for %s: %s", r["title"], e)
+        if n:
+            self.store.rebuild_entity_links()
+        return n
+
 
 class _MentionAutomaton:
     """Aho-Corasick over lowercased note titles: ONE linear pass per document
@@ -524,42 +560,6 @@ class _MentionAutomaton:
                             and (i + 1 == n or not self._is_word(text[i + 1]))):
                         found.add(doc_id)
         return found
-
-    # ------------------------------------------------- optional LLM enrichment
-    def enrich_entities(self, max_docs: int = 50) -> int:
-        """cognify-style enrichment: extract entities per note, link co-mentions.
-
-        Optional (off by default) — the wikilink+mention graph is free, this
-        spends LLM quota for extra recall on vaults with few links.
-        """
-        c = self.store.conn()
-        rows = c.execute(
-            """SELECT d.id, d.title FROM documents d
-               WHERE d.id NOT IN (SELECT DISTINCT doc_id FROM entity_mentions)
-               LIMIT ?""",
-            (max_docs,),
-        ).fetchall()
-        n = 0
-        for r in rows:
-            chunk_rows = c.execute(
-                "SELECT text FROM chunks WHERE doc_id=? ORDER BY ord LIMIT 4", (r["id"],)
-            ).fetchall()
-            text = "\n".join(x["text"] for x in chunk_rows)[:6000]
-            try:
-                data = self.engine.llm.generate_json(
-                    "Extract the named entities (people, organizations, places, products, "
-                    "projects, concepts) central to this note. Return JSON: "
-                    '{"entities": ["..."]} with at most 12 entities.\n\n'
-                    f"NOTE TITLE: {r['title']}\n\n{text}"
-                )
-                names = [e for e in data.get("entities", []) if isinstance(e, str)][:12]
-                self.store.add_entity_mentions(r["id"], names)
-                n += 1
-            except Exception as e:
-                log.warning("entity extraction failed for %s: %s", r["title"], e)
-        if n:
-            self.store.rebuild_entity_links()
-        return n
 
 
 # --------------------------------------------------------------------- watch

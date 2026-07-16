@@ -629,29 +629,28 @@ _COMMON_RATE = 0.05
 
 
 def _all_tokens_common(store: Store, query: str) -> bool:
-    """True when every content token of the query is corpus-boilerplate
-    (occurrence rate above _COMMON_RATE per chunk). Such a query carries no
-    lexically discriminative evidence — its BM25 ranking is driven by
+    """True when every content token of the query is corpus-boilerplate —
+    present in more than _COMMON_RATE of all chunks (true chunk-level
+    document frequency via FTS, so a rare entity repeated many times inside
+    its one home note still counts as discriminative). Such a query carries
+    no lexically discriminative evidence — its BM25 ranking is driven by
     repeated small talk (chat greetings/reactions), so verbatim machinery
     abstains and fusion leans on the semantic leg."""
     q_tokens = _coverage_tokens(query)
     if not q_tokens:
         return False
-    lex = store.lexicon()
     n_chunks = max(1, store.chunk_count())
-    # count floor: on a tiny vault the rate statistic has no resolution (one
-    # mention in 6 chunks is 0.17/chunk) — "common" must also mean genuinely
-    # repeated, so a term needs BOTH rate above the gate and an absolute
-    # count several mentions deep before it stops counting as evidence
+    # df floor: spread across at least _COMMON_RATE of chunks AND at least a
+    # handful of distinct chunks — tiny vaults have no rate resolution
     floor = max(_COMMON_RATE * n_chunks, 4.0)
 
-    def _count(t: str) -> int:
-        c = lex.get(t)
-        if c is None and len(t) >= 3:
-            c = lex.get(t[:-1])  # 조사-stripped surface
-        return c or 0
+    def _df(t: str) -> int:
+        df = store.token_chunk_df(t)
+        if len(t) >= 3:  # 조사-glued surface: the stem's spread is what counts
+            df = max(df, store.token_chunk_df(t[:-1]))
+        return df
 
-    return all(_count(t) > floor for t in q_tokens)
+    return all(_df(t) > floor for t in q_tokens)
 
 
 def _idf_weight(lex: dict, token: str) -> float:
@@ -715,7 +714,7 @@ def _bm25_coverage(store: Store, query: str,
     # rank-4..8 chunk (that being the problem the pin exists to fix) — a
     # 3-chunk window couldn't see the evidence that should open the gate
     meta = store.get_chunks([cid for cid, _ in bm25_hits[:8]])
-    best, best_cid, best_weighted = 0.0, None, 0.0
+    scored: list[tuple[float, float, int]] = []  # (cover, recency_weighted, cid)
     for cid, m in meta.items():
         text = (m.text + " " + m.title).lower()
         text_jamo = _to_jamo(text) if has_hangul else ""
@@ -728,10 +727,20 @@ def _bm25_coverage(store: Store, query: str,
             ts = dates.get(m.doc_id, 0.0)
             if ts > 0:
                 weighted = cover * (1.0 + boost * recency_weight(ts, anchor, hl))
-        if cover > best:
-            best = cover
-        if weighted > best_weighted:
-            best_weighted, best_cid = weighted, cid
+        scored.append((cover, weighted, cid))
+    if not scored:
+        return 0.0, None
+    best = max(c for c, _, _ in scored)
+    # recency may only break ties between COMPARABLY-covering candidates
+    # (within 80% of the best): the stale-vs-updated preference case has both
+    # near-full coverage and resolves by recency, but a half-covering fresh
+    # chunk must never steal the pin from a decisive verbatim match — the
+    # recency factor's 2x ceiling would otherwise beat coverage margins
+    # smaller than 2x.
+    best_cid, best_w = None, 0.0
+    for cover, weighted, cid in scored:  # first-wins on ties, like before
+        if cover >= 0.8 * best and weighted > best_w:
+            best_w, best_cid = weighted, cid
     return best, best_cid
 
 

@@ -115,3 +115,11 @@ def test_update_style_query_end_to_end(tmp_path):
     eng.now = lambda: _ts(2026, 7, 1)
     hits = eng.search("민지가 요즘 제일 좋아하는 음식은 뭐야?", k=3)
     assert hits and hits[0].title == "s23"
+
+
+def test_indexer_keeps_public_enrich_api():
+    """Regression: inserting _MentionAutomaton above Indexer's tail methods
+    once swallowed enrich_entities into the new class (review finding #1)."""
+    from lemory.ingestion.indexer import Indexer, _MentionAutomaton
+    assert hasattr(Indexer, "enrich_entities")
+    assert not hasattr(_MentionAutomaton, "enrich_entities")
