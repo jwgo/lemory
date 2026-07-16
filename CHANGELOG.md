@@ -19,6 +19,13 @@ All notable changes to Lemory. Dates are the merge date of the release.
   small talk, all code-verified. Keyless hybrid: retraction recall 1.000
   (zero stale traps), overall doc@1 0.820 vs 0.984 clean - the honest cost
   of noise, and the target the loop features are measured against.
+- **AgentMemQA:** the general-agent memory axis (work/coding assistant, 5
+  projects x 12 weeks, mixed KR/EN tech sessions, scored reversed-decision
+  traps). Hybrid doc@1 0.956 > vector 0.911 > bm25 0.889. Drove two fixes:
+  최종/결국 join the recency lexicon, and the corpus-wide vague-recency
+  multiplier is gentler (0.6x) while the pin choice keeps full strength.
+  Counter-finding: the reranker is temporally blind (decision 0.80 -> 0.50
+  with it ON) - documented in BENCHMARKS §7f.
 - New demo: `demo4_memoryloop.gif` - day-1 fact, day-30 recall in 4ms with
   citation, replayed from real pipeline output.
 

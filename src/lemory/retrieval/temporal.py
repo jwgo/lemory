@@ -95,7 +95,10 @@ class TemporalIntent:
 
 
 _RECENT_RE = re.compile(
-    r"요새|요즘|최근|얼마\s*전|근래|이즈음|지금|현재|이제|"
+    # 최종/결국: 결정-회상의 최신성 표지 ("최종적으로 뭐 쓰기로 했지?" =
+    # 가장 나중의 결정) — 에이전트 세션 기억에서 번복된 결정의 옛 세션이
+    # 이기는 실패를 AgentMemQA가 잡아서 추가 (decision trap 0.5 → 0)
+    r"요새|요즘|최근|얼마\s*전|근래|이즈음|지금|현재|이제|최종|결국|"
     r"\brecently\b|\blately\b|\bthese\s+days\b|\bnowadays\b|\bcurrently\b|"
     r"\bright\s+now\b|\bcurrent\b",
     re.IGNORECASE,

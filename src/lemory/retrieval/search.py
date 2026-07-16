@@ -327,7 +327,8 @@ def hybrid_search(
         cov, cov_cid = 0.0, None
         bm25_damp = 1.0
         if kw_boost == 1.0 and bm25_hits:
-            cov, cov_cid = _bm25_coverage(store, lex_query, bm25_hits, rec=rec_ctx)
+            cov, cov_cid = _bm25_coverage(store, lex_query, bm25_hits, rec=rec_ctx,
+                                          pin_gate=cfg.verbatim_pin_gate)
             if cov >= cfg.verbatim_gate:
                 kw_boost = cfg.keyword_bm25_boost
             elif vec_hits and _all_tokens_common(store, lex_query):
@@ -386,7 +387,15 @@ def hybrid_search(
                 in_window = intent.range_start <= ts < (intent.range_end or now_ts)
                 factor = 1.0 + cfg.recency_boost * (2.5 if in_window else 0.0)
             else:
-                w = recency_weight(ts, anchor, cfg.recency_half_life_days)
+                # gentler than the pin-choice weighting on purpose: the
+                # corpus-wide multiplier rides on DIFFUSE relevance (every
+                # session of a project matches its name), where a full-
+                # strength 2x ceiling let brand-new small talk outrank a
+                # 4-week-old decision whose relevance edge was 1.5x
+                # (AgentMemQA decision-type). The PIN keeps full strength —
+                # there recency chooses between candidates that all quote
+                # the fact, which is exactly where it should be decisive.
+                w = 0.6 * recency_weight(ts, anchor, cfg.recency_half_life_days)
                 factor = 1.0 + cfg.recency_boost * w
             fused[cid] *= factor
 
@@ -671,7 +680,8 @@ def _idf_weight(lex: dict, token: str) -> float:
 
 def _bm25_coverage(store: Store, query: str,
                    bm25_hits: list[tuple[int, float]],
-                   rec: tuple | None = None) -> tuple[float, int | None]:
+                   rec: tuple | None = None,
+                   pin_gate: float = 0.65) -> tuple[float, int | None]:
     """(coverage, best_covering_chunk_id): the IDF-weighted fraction of the
     query's content tokens present in the best-covering top-8 BM25 chunk
     (title included), and that chunk's id.
@@ -731,15 +741,18 @@ def _bm25_coverage(store: Store, query: str,
     if not scored:
         return 0.0, None
     best = max(c for c, _, _ in scored)
-    # recency may only break ties between COMPARABLY-covering candidates
-    # (within 80% of the best): the stale-vs-updated preference case has both
-    # near-full coverage and resolves by recency, but a half-covering fresh
-    # chunk must never steal the pin from a decisive verbatim match — the
-    # recency factor's 2x ceiling would otherwise beat coverage margins
-    # smaller than 2x.
+    # recency may only choose among AUTHORITATIVE candidates: anything at or
+    # above the pin gate is, by the pin's own definition, verbatim enough to
+    # be pinned — among those, the newest statement of the fact wins (a
+    # superseded decision is often MORE verbatim than its paraphrased
+    # correction: "캐시는 X로 가기로 했어" vs "뒤집는다, Y로 최종 확정" —
+    # measured on AgentMemQA decision-type). A sub-gate chunk can never
+    # steal the pin from a decisive verbatim match no matter how fresh
+    # (review finding: 0.55-cover fresh vs 1.00-cover old).
+    floor = min(0.8 * best, pin_gate)
     best_cid, best_w = None, 0.0
     for cover, weighted, cid in scored:  # first-wins on ties, like before
-        if cover >= 0.8 * best and weighted > best_w:
+        if cover >= floor and weighted > best_w:
             best_w, best_cid = weighted, cid
     return best, best_cid
 
