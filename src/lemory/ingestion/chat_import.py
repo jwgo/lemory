@@ -83,6 +83,55 @@ def _conv_date(conv: dict, fmt: str) -> str:
     return datetime.now().date().isoformat()
 
 
+def log_assistant_session(engine, messages: list[dict], answer: str,
+                          session: str = "") -> "str | None":
+    """The write half of the memory loop: upsert THIS conversation as a dated
+    session note, in the same Markdown layout import_conversations produces —
+    so what the user tells the assistant today is a searchable memory
+    tomorrow, visible and editable in the vault like any note (that
+    transparency is the undo story). Called after each completed assistant
+    answer; the whole conversation is rewritten each time, so the note always
+    holds the full session. Returns the vault-relative path, or None when
+    `assistant_log_sessions` is off."""
+    import hashlib
+    import re as _re
+    import time
+
+    cfg = engine.cfg
+    if not getattr(cfg, "assistant_log_sessions", False):
+        return None
+    vault = cfg.resolved_vault()
+    folder = (cfg.assistant_log_folder or "chats").strip().strip("/") or "chats"
+    base = vault / folder
+    if not base.resolve().is_relative_to(vault.resolve()):
+        folder, base = "chats", vault / "chats"  # never escape the vault
+    base.mkdir(parents=True, exist_ok=True)
+
+    now_ts = getattr(engine, "now", time.time)()
+    date = time.strftime("%Y-%m-%d", time.localtime(now_ts))
+    sid = _re.sub(r"[^A-Za-z0-9가-힣-]", "", session)[:12]
+    if not sid:  # stable per conversation: derived from its first user turn
+        first = next((str(m.get("content", "")) for m in messages
+                      if m.get("role") == "user"), "")
+        sid = hashlib.sha1(first.encode("utf-8")).hexdigest()[:8]
+    title = f"{date} 어시스턴트 {sid}"
+    rel = f"{folder}/{title}.md"
+
+    who = {"user": "**나**", "assistant": "**AI**"}
+    turns = [m for m in messages if m.get("role") in who and str(m.get("content", "")).strip()]
+    turns.append({"role": "assistant", "content": answer})
+    body = "\n\n".join(f"{who[m['role']]}: {str(m['content']).strip()}" for m in turns)
+    if len(body) > MAX_NOTE_CHARS:
+        body = body[:MAX_NOTE_CHARS] + "\n\n> (truncated)"
+    (base / f"{title}.md").write_text(
+        f"---\ndate: {date}\nsource: assistant\nlemory_generated: true\n"
+        f"tags: [chat-import]\n---\n\n# {title}\n\n{body}\n",
+        encoding="utf-8",
+    )
+    engine.index(paths={rel})
+    return rel
+
+
 def import_conversations(engine, file: Path, folder: str = "chats",
                          limit: int | None = None) -> list[str]:
     """Write one Markdown note per conversation. Returns vault-relative paths.

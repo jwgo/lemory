@@ -72,6 +72,14 @@ class LemoryConfig(BaseSettings):
     assistant_gguf_repo: str = "ggml-org/gemma-4-E4B-it-GGUF"
     assistant_gguf_file: str = "gemma-4-E4B-it-Q4_K_M.gguf"
     assistant_k: int = 6                      # notes retrieved as grounding per turn
+    # the write half of the memory loop: every console-assistant conversation
+    # is upserted into the vault as a dated session note (chats/ folder, the
+    # same Markdown layout `lemory import-chats` produces), so what you tell
+    # the assistant today is retrievable tomorrow — visible, editable,
+    # deletable like any note (that transparency IS the undo story). Off =
+    # conversations stay ephemeral.
+    assistant_log_sessions: bool = True
+    assistant_log_folder: str = "chats"
     assistant_tts_voice: str = "f4"          # Supertonic voice (f1-f5, m1-m5) for spoken answers
     assistant_tts_pitch: float = 3.0         # semitones up: +3 ≈ cute/bright tone (0 = natural)
 

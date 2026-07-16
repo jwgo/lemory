@@ -37,6 +37,14 @@ to it when a session produces facts worth keeping.
   saves a Markdown note, instantly searchable. If the output mentions
   `possible duplicate` or 관련 기억, tell the user which existing note it
   relates to instead of silently stacking copies.
+- **Session memory (the write half of the loop):** when a conversation
+  produces facts about the user — preferences, people, decisions, promises,
+  updates to earlier facts — save them BEFORE the session ends: one
+  `lemory remember` per fact, phrased as a dated statement ("사용자의 여동생
+  이름은 김보람"). What you don't write, you won't remember tomorrow. When a
+  new fact supersedes an older one, still just save the new one — retrieval
+  already prefers the newer note on "요즘/최근" questions; never delete the
+  old note yourself.
 - Never edit vault files directly for memory purposes; `remember` and
   `append` keep provenance (`lemory_generated`) and undo working.
 

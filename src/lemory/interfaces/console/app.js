@@ -578,7 +578,8 @@ async function renderSearch() {
 }
 
 /* -------------------------------------------------------------- assistant */
-const ASSIST = { history: [], busy: false };
+const ASSIST = { history: [], busy: false,
+                 session: Math.random().toString(36).slice(2, 10) };
 
 async function renderAssistant() {
   const m = $("#main");
@@ -790,7 +791,7 @@ async function renderAssistant() {
     try {
       const res = await fetch("/api/assistant/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: ASSIST.history }),
+        body: JSON.stringify({ messages: ASSIST.history, session: ASSIST.session }),
       });
       if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
       const reader = res.body.getReader(), dec = new TextDecoder();
@@ -935,6 +936,7 @@ const SETTINGS_META = [
   ["답변 생성", [
     ["context_style", "컨텍스트 스타일", "full: 청크 원문 그대로 / compact: 팩트시트 압축", "select", ["full", "compact"]],
     ["context_order", "증거 배열 순서", "rank: 검색 점수순(기본) / curriculum: CDS식 매끄러운 궤적 순 — 실험적, KorQuAD A/B에서 이득 없음", "select", ["rank", "curriculum"]],
+    ["assistant_log_sessions", "비서 대화 기억", "비서와의 대화를 볼트의 세션 노트(chats/)로 자동 저장 — 오늘 말한 게 내일 검색됩니다. 노트는 직접 보고 지울 수 있어요", "bool"],
   ]],
   ["색인", [
     ["mention_links", "언급 링크", "위키링크가 없어도 제목 언급을 그래프 간선으로", "bool"],
