@@ -236,7 +236,7 @@ def main() -> None:
         "Session-level Recall@5, local e5-small-ko-v2. 'any' = protocol most headline numbers use; 'strict' = every evidence session.",
         [
             ("Lemory, any@5", 0.983, LEMON, ""),
-            ("Lemory, strict all@5", 0.903, LEMON, ""),
+            ("Lemory, strict all@5", 0.904, LEMON, ""),
             ("Vector-only, any@5", 0.978, GRAY, ""),
             ("Vector-only, strict all@5", 0.853, GRAY, ""),
         ],

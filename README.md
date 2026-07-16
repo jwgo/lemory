@@ -294,7 +294,7 @@ retrieval, zero API calls, local embedder:
 </div>
 
 Recall@5 **0.983** on the protocol most headline numbers use, and we lead
-with the stricter all-evidence number (0.903) instead of quoting only the
+with the stricter all-evidence number (0.904) instead of quoting only the
 flattering one - the Korean-tuned e5 default improves both over the old MiniLM
 (0.972 / 0.857). LOCOMO LLM-judge 0.706 vs mem0's published 0.669 (and on
 the key-free retrieval axis, hybrid 0.771 evidence-recall@10 beats both its
