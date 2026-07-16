@@ -397,8 +397,15 @@ def hybrid_search(
     if mode == "hybrid" and q_tokens and cfg.title_boost > 0:
         for cid, meta in chunk_meta.items():
             t_tokens = _tokens(meta.title)
-            if t_tokens and _covers(t_tokens, q_tokens):
-                fused[cid] += cfg.title_boost * (len(t_tokens) / max(1, len(q_tokens)))
+            # date-stamped titles ("2023-09-12 Meeting with Steph" — the
+            # Obsidian daily-note pattern) should match on their WORDS: the
+            # numeric stamp tokens are never in a natural question, and
+            # requiring them silently exempted every dated note from the
+            # boost. Numeric tokens still help when the query has them.
+            word_tokens = {t for t in t_tokens if not t.isdigit()}
+            check = word_tokens or t_tokens
+            if check and _covers(check, q_tokens):
+                fused[cid] += cfg.title_boost * (len(check) / max(1, len(q_tokens)))
 
     # usage prior (opt-in, cfg.usage_prior=0 by default — see config.py for
     # why): multiplicative like recency, so it amplifies relevance only

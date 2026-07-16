@@ -330,7 +330,7 @@ class Indexer:
         all_wikilinks = self.store.doc_wikilinks()
         rebuild_ids = list(all_wikilinks.keys()) if full else changed_ids
 
-        targets = self._cached_mention_targets(title_to_id) if self.cfg.mention_links else []
+        targets = self._cached_mention_targets(title_to_id) if self.cfg.mention_links else None
         for doc_id in rebuild_ids:
             merged: dict[tuple[int, str], float] = {}
             for target in all_wikilinks.get(doc_id, []):
@@ -431,31 +431,19 @@ class Indexer:
             store.replace_enrichment_chunk(doc_id, title, text, vec)
         return misses
 
-    def _cached_mention_targets(self, title_to_id: dict[str, int]) -> list[tuple[re.Pattern, int]]:
-        """Compiled mention regexes, cached across syncs until titles change."""
+    def _cached_mention_targets(self, title_to_id: dict[str, int]) -> "_MentionAutomaton":
+        """Mention automaton, rebuilt only when the title set changes."""
         key = hash(tuple(sorted(title_to_id.items())))
         cached = getattr(self, "_mention_cache", None)
         if cached and cached[0] == key:
             return cached[1]
-        targets = self._mention_targets(title_to_id)
-        self._mention_cache = (key, targets)
-        return targets
+        automaton = _MentionAutomaton(title_to_id)
+        self._mention_cache = (key, automaton)
+        return automaton
 
-    @staticmethod
-    def _mention_targets(title_to_id: dict[str, int]) -> list[tuple[re.Pattern, int]]:
-        """Compile regexes for titles worth detecting as unlinked mentions."""
-        out = []
-        for title_lower, doc_id in title_to_id.items():
-            # short/generic single words create noise ("home", "index")
-            if len(title_lower) < 4:
-                continue
-            if " " not in title_lower and len(title_lower) < 6:
-                continue
-            pat = re.compile(r"(?<!\w)" + re.escape(title_lower) + r"(?!\w)", re.IGNORECASE)
-            out.append((pat, doc_id))
-        return out
-
-    def _find_mentions(self, doc_id: int, targets: list[tuple[re.Pattern, int]]) -> dict[int, float]:
+    def _find_mentions(self, doc_id: int, automaton: "_MentionAutomaton") -> dict[int, float]:
+        if automaton is None or automaton.empty:
+            return {}
         c = self.store.conn()
         # scan the note's OWN text only: enrichment pseudo-chunks quote
         # sentences from OTHER notes ("(A) ... mentions C"), and counting
@@ -463,12 +451,78 @@ class Indexer:
         rows = c.execute("SELECT text FROM chunks WHERE doc_id=? AND heading != ?",
                          (doc_id, self.store.ENRICH_HEADING)).fetchall()
         text = "\n".join(r["text"] for r in rows).lower()
-        found: dict[int, float] = {}
-        for pat, tid in targets:
-            if tid == doc_id:
+        return {tid: 0.85 for tid in automaton.find(text) if tid != doc_id}
+
+
+class _MentionAutomaton:
+    """Aho-Corasick over lowercased note titles: ONE linear pass per document
+    instead of one regex search per title. The old per-title loop was
+    O(text × titles) — at BEIR-fiqa scale (57k titles × 57k docs) that is
+    billions of regex scans and a first index appeared to hang for hours;
+    this is O(text) per doc with the same word-boundary semantics as the
+    old ``(?<!\\w)title(?!\\w)`` pattern (callers pass lowered text, matching
+    the old IGNORECASE)."""
+
+    def __init__(self, title_to_id: dict[str, int]):
+        goto: list[dict[str, int]] = [{}]
+        out: list[list[tuple[int, int]]] = [[]]  # node -> [(title_len, doc_id)]
+        for title, doc_id in title_to_id.items():
+            # short/generic single words create noise ("home", "index") —
+            # identical filters to the old regex builder
+            if len(title) < 4 or (" " not in title and len(title) < 6):
                 continue
-            if pat.search(text):
-                found[tid] = 0.85
+            node = 0
+            for ch in title:
+                nxt = goto[node].get(ch)
+                if nxt is None:
+                    goto.append({})
+                    out.append([])
+                    nxt = len(goto) - 1
+                    goto[node][ch] = nxt
+                node = nxt
+            out[node].append((len(title), doc_id))
+        # BFS failure links; outputs are merged down the fail chain so a title
+        # that is a suffix of another path is still reported
+        fail = [0] * len(goto)
+        from collections import deque
+
+        dq = deque(goto[0].values())
+        while dq:
+            node = dq.popleft()
+            for ch, nxt in goto[node].items():
+                dq.append(nxt)
+                f = fail[node]
+                while f and ch not in goto[f]:
+                    f = fail[f]
+                cand = goto[f].get(ch, 0)
+                fail[nxt] = cand if cand != nxt else 0
+                out[nxt].extend(out[fail[nxt]])
+        self._goto, self._fail, self._out = goto, fail, out
+        self.empty = len(goto) == 1
+
+    @staticmethod
+    def _is_word(ch: str) -> bool:
+        # mirrors Python re's \w for the characters that occur in note text
+        return ch.isalnum() or ch == "_"
+
+    def find(self, text: str) -> set[int]:
+        """doc_ids of all titles occurring in `text` with word boundaries."""
+        goto, fail, out = self._goto, self._fail, self._out
+        found: set[int] = set()
+        node = 0
+        n = len(text)
+        for i, ch in enumerate(text):
+            while node and ch not in goto[node]:
+                node = fail[node]
+            node = goto[node].get(ch, 0)
+            if out[node]:
+                for tlen, doc_id in out[node]:
+                    if doc_id in found:
+                        continue
+                    start = i - tlen + 1
+                    if ((start == 0 or not self._is_word(text[start - 1]))
+                            and (i + 1 == n or not self._is_word(text[i + 1]))):
+                        found.add(doc_id)
         return found
 
     # ------------------------------------------------- optional LLM enrichment

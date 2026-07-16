@@ -83,6 +83,22 @@ def test_all_tokens_common_gate(tmp_path):
     assert _all_tokens_common(store, "크툴루와의 약속") is False
 
 
+def test_title_boost_ignores_date_stamp_tokens(tmp_path):
+    """A dated daily-note title ('2023-09-12 Meeting with Steph') gets the
+    title boost when its WORDS are covered — the numeric stamp tokens are
+    never part of a natural question and must not veto the boost."""
+    eng = _mk_engine(tmp_path, {
+        "2023-09-12 Meeting with Steph": (
+            "We discussed the roadmap. Steph brought a book about emergence "
+            "published years ago."),
+        "Reading List": (
+            "Books on my shelf: a meeting-notes guide and other titles. "
+            "meeting steph meeting steph appears often here."),
+    })
+    hits = eng.search("meeting with steph roadmap", k=2)
+    assert hits and hits[0].title == "2023-09-12 Meeting with Steph"
+
+
 def test_update_style_query_end_to_end(tmp_path):
     """RoleMemQA update-type in miniature: old preference stated verbatim
     twice vs a newer correction phrased differently — '요즘' query must
