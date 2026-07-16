@@ -56,9 +56,15 @@ def evaluate(eng, questions: list[dict], mode: str, graph: bool) -> dict:
         ans_rank = next((i for i, h in enumerate(hits)
                          if h.title in golds and ans in normalize(h.text)),
                         None)
+        # ans_any: 정답 문자열이 top-k 어느 청크에든 존재 (출처 무관) — 증류
+        # 노트(기억요약/)가 골드 세션 대신 정답을 들고 오는 것도 성공으로 침.
+        # "골든앤서가 컨텍스트에 존재하는가"라는 이 벤치의 근본 질문 그 자체.
+        any_rank = next((i for i, h in enumerate(hits)
+                         if ans in normalize(h.text)), None)
         row = {
             "doc1": doc_rank == 0, "doc8": doc_rank is not None,
             "ans1": ans_rank == 0, "ans8": ans_rank is not None,
+            "ans_any1": any_rank == 0, "ans_any8": any_rank is not None,
         }
         if q["type"] == "twohop":
             row["full_support"] = set(golds) <= set(titles)
@@ -78,7 +84,7 @@ def evaluate(eng, questions: list[dict], mode: str, graph: bool) -> dict:
         if not n:
             continue
         summary[f"{label}_n"] = n
-        for m in ("doc1", "doc8", "ans1", "ans8"):
+        for m in ("doc1", "doc8", "ans1", "ans8", "ans_any1", "ans_any8"):
             summary[f"{label}_{m}"] = round(sum(r[m] for r in rows) / n, 4)
         if any("full_support" in r for r in rows):
             fs = [r for r in rows if "full_support" in r]
@@ -116,7 +122,8 @@ def main() -> None:
         s = evaluate(eng, questions, opts["mode"], opts["graph"])
         results[name] = s
         print(name, f"all_doc1={s['all_doc1']} all_doc8={s['all_doc8']} "
-                    f"ans8={s['all_ans8']} p50={s['p50_ms']}ms", flush=True)
+                    f"ans8={s['all_ans8']} ans_any1={s['all_ans_any1']} "
+                    f"ans_any8={s['all_ans_any8']} p50={s['p50_ms']}ms", flush=True)
         for t in ("short", "long", "episodic", "update", "retraction", "joke",
                   "temporal", "twohop"):
             if f"{t}_doc8" in s:

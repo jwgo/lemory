@@ -662,5 +662,31 @@ def enrich(
     console.print(f"[green]enriched[/green] {n} notes, links now: {eng.store.link_count()}")
 
 
+@app.command()
+def distill(
+    vault: Optional[Path] = typer.Option(None),
+    folder: str = typer.Option("", help="이 폴더의 세션 노트만 (기본: 전체 chat-import)"),
+    out: str = typer.Option("기억요약", help="증류 노트를 쓸 폴더"),
+):
+    """대화 세션 노트를 팩트시트 노트로 증류합니다 (옵트인, 사후 배치).
+
+    출력은 볼트 안의 평범한 마크다운 노트 — 다른 노트처럼 검색되고, 열어보고,
+    지울 수 있습니다. 원본 세션은 절대 수정하지 않으며 출처를 [[위키링크]]로
+    남깁니다. 키가 없으면 온디바이스 Gemma로 돕니다."""
+    from ..ingestion.distill import distill as _distill
+
+    eng = _engine(vault)
+    eng.index()
+    written = _distill(eng, folder=folder, out_folder=out)
+    if written:
+        console.print(f"[green]distilled[/green] {len(written)} digest note(s):")
+        for rel in written[:10]:
+            console.print(f"  {rel}")
+        if len(written) > 10:
+            console.print(f"  … +{len(written) - 10}")
+    else:
+        console.print("증류할 chat-import 세션 노트가 없습니다.")
+
+
 if __name__ == "__main__":
     app()
