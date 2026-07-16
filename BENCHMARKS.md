@@ -711,14 +711,14 @@ sampling, no LLM generator/judge, so the number is directly comparable and
 reproducible on a laptop (`benchmarks/run_longmemeval_full.py`). Embedder: the
 **e5-small-ko-v2** default. Re-measured on the new default, the Korean-tuned e5
 model actually *improves* this English benchmark over the old MiniLM — all@5
-0.857→**0.903**, any@5 0.972→**0.983** — consistent with e5-small ranking at or
+0.857→**0.904**, any@5 0.972→**0.983** — consistent with e5-small ranking at or
 above all-MiniLM-L6 on English MTEB. Metric is **session-level recall** over the
-462 evidence-bearing questions measured (of 470; the 30 abstention questions have
+full 470 evidence-bearing questions (the 30 abstention questions have
 none by construction and are excluded, per the LongMemEval retrieval protocol):
 
 | | Recall@5 (all evidence sessions) | Recall@5 (any) | Recall@10 (all) | Recall@10 (any) |
 |---|---|---|---|---|
-| **Lemory** (hybrid + graph) | **0.903** | **0.983** | **0.922** | **0.987** |
+| **Lemory** (hybrid + graph) | **0.904** | **0.983** | **0.923** | **0.987** |
 | Vector-only (naive RAG) | 0.853 | 0.978 | 0.855 | 0.981 |
 
 Two definitions are reported because they answer different questions.
@@ -727,7 +727,7 @@ claims in this space measure; Lemory is **0.983** on the full set, in the
 neighborhood of the marketed headlines, with a local embedder and no API.
 **"all"** — *every* evidence session retrieved, the precondition for actually
 answering a multi-session question — is the stricter number we lead with:
-0.903. We publish both rather than quoting only the flattering one.
+0.904. We publish both rather than quoting only the flattering one.
 
 By question type (strict all@5 / any@5, n): knowledge-update 0.986/1.000 (72),
 single-session-user 1.000/1.000 (64), single-session-assistant 0.979/0.979

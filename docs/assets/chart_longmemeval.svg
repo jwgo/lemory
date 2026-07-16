@@ -10,8 +10,8 @@
 <rect x="300" y="86" width="423" height="34" rx="6" fill="#f7d353"/>
 <text x="733" y="108.0" fill="#e6edf3" font-size="14" font-weight="600">0.983<tspan fill="#8b949e" font-weight="400">  </tspan></text>
 <text x="288" y="156.0" fill="#e6edf3" font-size="14" text-anchor="end">Lemory, strict all@5</text>
-<rect x="300" y="134" width="388" height="34" rx="6" fill="#f7d353"/>
-<text x="698" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.903<tspan fill="#8b949e" font-weight="400">  </tspan></text>
+<rect x="300" y="134" width="389" height="34" rx="6" fill="#f7d353"/>
+<text x="699" y="156.0" fill="#e6edf3" font-size="14" font-weight="600">0.904<tspan fill="#8b949e" font-weight="400">  </tspan></text>
 <text x="288" y="204.0" fill="#e6edf3" font-size="14" text-anchor="end">Vector-only, any@5</text>
 <rect x="300" y="182" width="421" height="34" rx="6" fill="#6e7681"/>
 <text x="731" y="204.0" fill="#e6edf3" font-size="14" font-weight="600">0.978<tspan fill="#8b949e" font-weight="400">  </tspan></text>
