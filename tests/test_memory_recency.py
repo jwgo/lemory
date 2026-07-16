@@ -123,3 +123,14 @@ def test_indexer_keeps_public_enrich_api():
     from lemory.ingestion.indexer import Indexer, _MentionAutomaton
     assert hasattr(Indexer, "enrich_entities")
     assert not hasattr(_MentionAutomaton, "enrich_entities")
+
+
+def test_decision_recall_words_trigger_recency():
+    """'최종적으로/결국' are recency markers in decision-recall Korean
+    ("최종적으로 뭐 쓰기로 했지?" = the LATEST decision) — AgentMemQA
+    decision-type failed 50% before these entered the lexicon."""
+    import time
+    from lemory.retrieval.temporal import parse_temporal
+    assert parse_temporal("캐시는 최종적으로 뭐 쓰기로 했지?", now=time.time()).recent
+    assert parse_temporal("결국 어디로 배포하기로 했어?", now=time.time()).recent
+    assert not parse_temporal("캐시 서버 설정 방법", now=time.time()).recent

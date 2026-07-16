@@ -37,3 +37,4 @@ benchmarks/package-lock.json
 .DS_Store
 benchmarks/data/rolememqa/vault/
 benchmarks/data/rolememqa/vault-messy/
+benchmarks/data/agentmemqa/vault/
