@@ -225,6 +225,19 @@ it is searchable on the next query. The features below are for the notes
   [mex](https://github.com/mex-memory/mex), which pioneered drift detection
   for coding-agent scaffolds; mex has no ranked retrieval to benchmark, so
   it lives here as an idea we adopted rather than a row in our tables.)
+- **`lemory conflicts`** answers "does my memory agree with itself?": pairs
+  of notes that say almost the same thing but disagree on a number, negate
+  each other, or are outright duplicates — found by cosine over the chunk
+  matrix the index already has, classified lexically. Zero LLM. (`drift` is
+  memory-vs-reality; `conflicts` is memory-vs-memory. Vestige made
+  contradiction detection its flagship — we ported the idea without the
+  571ms/query cognitive pipeline.)
+- **`lemory search --fast`** (`/search?mode=fast`): the instant path —
+  Hangul-bigram BM25 + typo repair + title/recency/usage boosts, no query
+  embedding. Measured 0.975 recall@1 @ 3.8ms on the KorQuAD harness (hybrid:
+  0.967 @ 21ms — hybrid stays the default because paraphrase, cross-lingual
+  and multi-hop questions need the vector leg). For as-you-type search boxes
+  and agent polling loops.
 - **Time awareness**: "요새 내가 하던 그거 뭐였지?" ranks the current fact
   above the superseded one that has more mentions; "3월에 읽던 책은?" still
   reaches history.

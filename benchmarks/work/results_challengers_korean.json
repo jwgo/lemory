@@ -8,6 +8,11 @@
       "p50_ms": 21.4
     },
     {
+      "system": "Lemory fast (lexical, no embed)",
+      "recall@1": 0.975,
+      "p50_ms": 3.8
+    },
+    {
       "system": "EchoVault v0.5 (offline FTS5)",
       "recall@1": 0.8667,
       "p50_ms": 0.5

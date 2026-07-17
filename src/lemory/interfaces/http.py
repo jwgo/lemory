@@ -485,6 +485,19 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             raise HTTPException(404, f"note not found: {path}")
         return d
 
+    @app.get("/api/conflicts")
+    def conflicts(threshold: float = 0.80, limit: int = 30):
+        """Cross-note disagreements (number/negation) + duplicate candidates."""
+        return [
+            {
+                "kind": c.kind, "similarity": round(c.similarity, 3),
+                "detail": c.detail,
+                "a": {"path": c.a.path, "title": c.a.title, "text": c.a.text[:240]},
+                "b": {"path": c.b.path, "title": c.b.title, "text": c.b.text[:240]},
+            }
+            for c in engine.conflicts(threshold=threshold, limit=limit)
+        ]
+
     @app.get("/api/related")
     def related(path: str, k: int = 8):
         """Related notes by content similarity (the note itself is the query —

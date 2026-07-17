@@ -61,8 +61,10 @@ def bench(name: str, fn, corpus, questions, gold) -> dict | None:
         return {"system": name, "error": f"{type(e).__name__}: {str(e)[:200]}"}
 
 
-def run_lemory(corpus, questions, gold, provider: str = "local"):
-    """Lemory baseline: keyless local (Korean e5) hybrid, one note per paragraph."""
+def run_lemory(corpus, questions, gold, provider: str = "local", mode: str = "hybrid"):
+    """Lemory baseline: keyless local (Korean e5) hybrid, one note per paragraph.
+    mode='fast' measures the lexical-only instant path (no query embedding;
+    indexing still embeds — fast is a QUERY-time mode)."""
     import tempfile
 
     from lemory.config import LemoryConfig
@@ -78,9 +80,13 @@ def run_lemory(corpus, questions, gold, provider: str = "local"):
     hit, lat = 0, []
     for q, g in zip(questions, gold):
         t = time.perf_counter()
-        hits = eng.search(q, k=1)
+        hits = eng.search(q, k=1, mode=mode)
         lat.append(time.perf_counter() - t)
         if hits and hits[0].path == f"p{g:04d}.md":
             hit += 1
     eng.close()
     return hit / len(questions), sorted(lat)[len(lat) // 2] * 1000
+
+
+def run_lemory_fast(corpus, questions, gold):
+    return run_lemory(corpus, questions, gold, mode="fast")

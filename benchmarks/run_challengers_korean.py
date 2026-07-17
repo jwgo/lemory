@@ -25,7 +25,7 @@ from pathlib import Path
 
 warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent))
-from harness_korean import bench, load_korquad, run_lemory  # noqa: E402
+from harness_korean import bench, load_korquad, run_lemory, run_lemory_fast  # noqa: E402
 
 
 def run_echovault_fts(corpus, questions, gold):
@@ -137,6 +137,7 @@ def main():
           f"· recall@1, both fully local\n")
     rows = []
     rows.append(bench("Lemory keyless (e5-ko, hybrid)", run_lemory, corpus, questions, gold))
+    rows.append(bench("Lemory fast (lexical, no embed)", run_lemory_fast, corpus, questions, gold))
     rows.append(bench("EchoVault v0.5 (offline FTS5)", run_echovault_fts, corpus, questions, gold))
     rows.append(bench("Vestige v2.2.1 (MCP, offline)", run_vestige, corpus, questions, gold))
     import json
