@@ -1,0 +1,21 @@
+{
+  "n": 120,
+  "corpus": 113,
+  "rows": [
+    {
+      "system": "Lemory keyless (e5-ko, hybrid)",
+      "recall@1": 0.9667,
+      "p50_ms": 21.4
+    },
+    {
+      "system": "EchoVault v0.5 (offline FTS5)",
+      "recall@1": 0.8667,
+      "p50_ms": 0.5
+    },
+    {
+      "system": "Vestige v2.2.1 (MCP, offline)",
+      "recall@1": 0.2167,
+      "p50_ms": 571.1
+    }
+  ]
+}
