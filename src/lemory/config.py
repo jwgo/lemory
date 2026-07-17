@@ -175,6 +175,12 @@ class LemoryConfig(BaseSettings):
     memory_related_sim: float = 0.60
     memory_dedup_sim: float = 0.80
     memory_dedup_overlap: float = 0.35
+    # SwarmVault-style approval gate (opt-in): AI writes land in the vault as
+    # PENDING notes — visible as files, but excluded from the index until a
+    # human approves. Default off: the standing contract (visible feed +
+    # one-click undo) is already stronger than silent ingestion, and an
+    # approval queue only helps users who want a review ritual.
+    memory_approval: bool = False
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
     context_style: str = "full"   # "full" chunks or "compact" fact-sheet context for ask()

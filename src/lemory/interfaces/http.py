@@ -45,6 +45,7 @@ TUNABLE_FIELDS: dict[str, type] = {
     "provider": str,             # auto | gemini | openai | local
     "local_embed_backend": str,  # auto | llamacpp | fastembed
     "event_log": bool,
+    "memory_approval": bool,
     "assistant_log_sessions": bool,
     "graph_expansion": bool,
     "mention_links": bool,
@@ -430,6 +431,25 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"trashed": body.path, "moved_to": dest}
+
+    @app.get("/api/pending")
+    def api_pending():
+        """AI writes awaiting approval (memory_approval mode)."""
+        from ..ingestion.memory import list_pending
+
+        return list_pending(engine)
+
+    @app.post("/memory/approve")
+    def memory_approve(request: Request, body: TrashBody):
+        """Approve a pending AI-written note so it enters the index.
+        (Reject = the existing /memory/trash undo.)"""
+        from ..ingestion.memory import approve_memory
+
+        try:
+            rel = approve_memory(engine, body.path, client=_client(request))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"approved": rel}
 
     @app.get("/api/events")
     def api_events(kinds: str = "", limit: int = 60):

@@ -148,9 +148,17 @@ def save_memory(
     # unambiguous machine marker a human would never type. `source:` is
     # human-facing metadata (and a common human field: web clippings, quotes),
     # so it must NOT gate deletion.
+    #
+    # approval mode (SwarmVault's wiki-approval idea, vault edition): the note
+    # is still written as a visible file, but `lemory: false` keeps it OUT of
+    # the index until a human approves (lemory approve / dashboard). The
+    # pending flag is what listings and the approve verb look for.
+    pending_line = ""
+    if engine.cfg.memory_approval:
+        pending_line = "lemory: false\nlemory_pending: true\n"
     body = (
         f"---\ndate: {today}\nsource: {source}\nlemory_generated: true\n"
-        f"{tag_line}{related_line}---\n\n"
+        f"{pending_line}{tag_line}{related_line}---\n\n"
         f"{content.strip()}\n"
     )
     # exclusive create in the collision loop: `open(..., "x")` fails if the
@@ -167,11 +175,13 @@ def save_memory(
             target = base / f"{name} {n}.md"
             n += 1
     rel = str(target.relative_to(vault))
-    engine.index(paths={rel})  # searchable immediately
+    engine.index(paths={rel})  # searchable immediately (no-op for pending notes)
     related_public = [{k: r[k] for k in ("path", "title", "sim", "near_duplicate")}
                       for r in related]
     if engine.cfg.event_log:
         detail = {"title": target.stem, "chars": len(content)}
+        if engine.cfg.memory_approval:
+            detail["pending"] = True
         if related_public:
             detail["related"] = related_public
         engine.store.log_event("memory", client=client, path=rel, detail=detail)
@@ -246,6 +256,53 @@ def trash_ai_note(engine, path: str, client: str = "") -> str:
     if engine.cfg.event_log:
         engine.store.log_event("trash", client=client, path=rel)
     return str(dest.relative_to(vault))
+
+
+_PENDING_RE = re.compile(r"(?m)^lemory_pending:\s*true\s*$")
+_EXCLUDE_RE = re.compile(r"(?m)^lemory:\s*false\s*\n")
+
+
+def list_pending(engine) -> list[dict]:
+    """AI-written notes waiting for approval (frontmatter `lemory_pending`).
+
+    Filesystem scan, head-only reads — pending notes are by definition NOT in
+    the index, so the index can't answer this."""
+    vault = engine.cfg.resolved_vault()
+    out = []
+    for p in sorted(vault.rglob("*.md")):
+        if ".trash" in p.parts or ".obsidian" in p.parts:
+            continue
+        head = p.read_text(encoding="utf-8", errors="replace")[:400]
+        if head.startswith("---") and _PENDING_RE.search(head.split("---", 2)[1]
+                                                         if head.count("---") >= 2 else ""):
+            out.append({
+                "path": str(p.relative_to(vault)),
+                "title": p.stem,
+                "mtime": p.stat().st_mtime,
+            })
+    return out
+
+
+def approve_memory(engine, path: str, client: str = "") -> str:
+    """Approve a pending AI-written note: drop the exclusion+pending flags so
+    the normal pipeline indexes it. Human notes / non-pending notes refused."""
+    vault = engine.cfg.resolved_vault()
+    target = _safe_target(vault, path)
+    if not target.is_file():
+        raise ValueError(f"no such note: {path}")
+    text = target.read_text(encoding="utf-8", errors="replace")
+    if not (text.startswith("---") and text.count("---") >= 2):
+        raise ValueError("not a pending note (no frontmatter)")
+    fm, rest = text.split("---", 2)[1], text.split("---", 2)[2]
+    if not _PENDING_RE.search(fm):
+        raise ValueError("not a pending note (no 'lemory_pending: true' marker)")
+    fm = _EXCLUDE_RE.sub("", _PENDING_RE.sub("", fm)).replace("\n\n", "\n")
+    target.write_text(f"---{fm}---{rest}", encoding="utf-8")
+    rel = str(target.relative_to(vault))
+    engine.index(paths={rel})  # now searchable
+    if engine.cfg.event_log:
+        engine.store.log_event("approve", client=client, path=rel)
+    return rel
 
 
 def context_block(engine, max_chars: int = 2400) -> str:

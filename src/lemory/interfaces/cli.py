@@ -340,6 +340,40 @@ def remember(
         console.print(f"  [dim]관련 기억:[/dim] [[{r['title']}]] sim={r['sim']}{flag}")
 
 
+@app.command("pending")
+def pending_cmd(vault: Optional[Path] = typer.Option(None)):
+    """승인 대기 중인 AI 메모리 목록 (memory_approval 모드).
+
+    승인: lemory approve <path> · 거절: 대시보드 undo 또는 파일 삭제."""
+    from ..ingestion.memory import list_pending
+
+    eng = _engine(vault)
+    rows = list_pending(eng)
+    if not rows:
+        console.print("[green]승인 대기 없음[/green]")
+        return
+    table = Table()
+    table.add_column("path")
+    table.add_column("title")
+    for r in rows:
+        table.add_row(r["path"], r["title"])
+    console.print(table)
+    console.print(f"[dim]{len(rows)}건 대기 — lemory approve <path> 로 승인[/dim]")
+
+
+@app.command("approve")
+def approve_cmd(
+    path: str = typer.Argument(..., help="Vault-relative path of the pending note"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """대기 중인 AI 메모리를 승인해 인덱스에 편입."""
+    from ..ingestion.memory import approve_memory
+
+    eng = _engine(vault)
+    rel = approve_memory(eng, path, client="cli")
+    console.print(f"[green]approved[/green] {rel} — 검색 가능해졌습니다")
+
+
 @app.command("suggest-links")
 def suggest_links_cmd(
     note: Optional[str] = typer.Argument(None, help="Vault-relative note path (omit for vault-wide top suggestions)"),

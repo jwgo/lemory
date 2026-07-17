@@ -38,3 +38,5 @@ benchmarks/package-lock.json
 benchmarks/data/rolememqa/vault/
 benchmarks/data/rolememqa/vault-messy/
 benchmarks/data/agentmemqa/vault/
+# KorQuAD train (38MB) — downloaded by benchmarks/run_korquad_full.py docs
+benchmarks/data/korquad/KorQuAD_v1.0_train.json

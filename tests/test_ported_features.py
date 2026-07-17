@@ -103,3 +103,53 @@ def test_find_conflicts_clean_vault(engine):
     engine.index()
     # the fixture vault has no near-duplicate cross-note pairs at high cosine
     assert find_conflicts(engine, threshold=0.97) == []
+
+
+# ------------------------------------------------- approval workflow (SwarmVault)
+def test_approval_mode_keeps_pending_out_of_index(engine):
+    from lemory.ingestion.memory import approve_memory, list_pending, save_memory
+
+    engine.index()
+    engine.cfg.memory_approval = True
+    path = save_memory(engine, "승인 대기 테스트: 판다는 대나무를 먹는다", title="판다 메모")
+    # written as a file, but NOT searchable yet
+    assert (engine.cfg.vault / path).exists()
+    assert all("판다" not in h.title for h in engine.search("판다 대나무", k=5))
+    pend = list_pending(engine)
+    assert [p["path"] for p in pend] == [str(path)]
+    # approve -> indexed
+    approve_memory(engine, str(path))
+    assert list_pending(engine) == []
+    hits = engine.search("판다 대나무", k=5)
+    assert hits and hits[0].path == str(path)
+
+
+def test_approval_off_is_immediate(engine):
+    from lemory.ingestion.memory import list_pending, save_memory
+
+    engine.index()
+    path = save_memory(engine, "즉시 인덱스: 코알라는 유칼립투스를 먹는다", title="코알라 메모")
+    assert list_pending(engine) == []
+    hits = engine.search("코알라 유칼립투스", k=5)
+    assert hits and hits[0].path == str(path)
+
+
+def test_approve_refuses_non_pending(engine):
+    import pytest
+
+    from lemory.ingestion.memory import approve_memory
+
+    engine.index()
+    with pytest.raises(ValueError):
+        approve_memory(engine, "Dana Petrov.md")  # human note, no pending marker
+
+
+def test_pending_note_can_be_rejected_via_trash(engine):
+    from lemory.ingestion.memory import list_pending, save_memory, trash_ai_note
+
+    engine.index()
+    engine.cfg.memory_approval = True
+    path = save_memory(engine, "거절 테스트 메모", title="거절될 메모")
+    trash_ai_note(engine, str(path))
+    assert list_pending(engine) == []
+    assert not (engine.cfg.vault / path).exists()

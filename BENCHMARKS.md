@@ -10,6 +10,37 @@ code, prose leakage scrubbed and verified — see `gen_multihop.py`).
 Environment note: run on a Gemini free-tier key; retrieval latency numbers
 exclude the query-embedding API call (identical for every system).
 
+## 0. Market position — every head-to-head, one table
+
+Every row below is **measured by us, on the same harness as Lemory** (same
+corpus, same models where applicable, code in `benchmarks/`). Nobody else in
+this market publishes cross-tool same-harness numbers; these regenerate from
+committed scripts. Ticks mark where the competitor genuinely leads.
+
+| System (★ at time of test) | Shared axis | Them | **Lemory** | Where they win |
+|---|---|---|---|---|
+| mem0 (~40k★) | multi-hop answer-in-context@8, same Gemini | 0.579 | **1.000** | SDK breadth, hosted option |
+| cognee v1.3 (~10k★) | same, keyless local | 0.632 @ 5.7 s | **1.000 @ 3.5 ms** | pipeline framework flexibility |
+| LlamaIndex | same, same embeddings | 0.649 | **1.000** | ecosystem size |
+| LightRAG (37.6k★, EMNLP'25) | same, same Gemini | 0.807 | **1.000** | best external 2-hop (0.738) — real LLM graph |
+| MemPalace (57.2k★) | same + Korean axis | 0.596 · ko 0.350 | **1.000 · ko 0.950** | 1-hop verbatim lookups (1.000) |
+| qmd (tobi/qmd) | full-support@8, 329 q | 0.769 @ 59.5 s | **0.887 @ 0.11 s** | zero-config single binary |
+| memvid v1 (16k★) | Korean paragraph recall@1 | 0.050 (EN control: 0.933) | **0.958** | multimodal (clip/whisper), Rust/Node SDK |
+| EchoVault v0.5 | Korean recall@1, offline | 0.867 @ 0.5 ms | **0.975 @ 3.8 ms** (fast) | raw FTS latency |
+| Vestige v2.2.1 | Korean recall@1, embedder ON | 0.217 @ 571 ms | **0.967 @ 21 ms** | FSRS/contradiction cognitive features |
+| Omnisearch / Smart Connections | Obsidian-native search (§4g) | below | **leads** | in-app UX, zero install friction |
+
+Against **published** headline numbers (different setups — not same-harness,
+so labeled, not claimed as wins): mem0's own LOCOMO judge score is 0.669 where
+our same-condition all-Gemini run scores Lemory 0.706 (§7); Zep's DMR 94.8
+uses a GPT-4-class generator+judge we don't reproduce — in our controlled
+ablation Lemory leads its own baseline +2.6pt (§7b); MemPalace markets
+"96.6% R@5 (any) LongMemEval, zero API" — our full-500 zero-API run: **0.983
+any@5 / 0.904 all@5** (§7d), and we publish the stricter "all" number too.
+
+Scale is validated separately: 1M-chunk ANN at 5.9 ms recall@10 1.000 (§12b)
+and the full-KorQuAD stress run (§6c).
+
 ## 1. Multi-hop retrieval (LemoryBench, 57 questions / 54-note vault)
 
 Full-support@8 = both gold notes for a 2-hop question retrieved in the top 8 — 
