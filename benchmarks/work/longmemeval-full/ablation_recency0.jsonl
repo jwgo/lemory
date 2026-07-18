@@ -60,3 +60,16 @@
 {"qid": "gpt4_f420262d", "n_gold": 5, "all@5": true, "any@5": true}
 {"qid": "gpt4_59149c78", "n_gold": 2, "all@5": false, "any@5": true}
 {"qid": "gpt4_e414231f", "n_gold": 2, "all@5": true, "any@5": true}
+{"qid": "gpt4_4929293b", "n_gold": 2, "all@5": false, "any@5": false}
+{"qid": "gpt4_468eb064", "n_gold": 1, "all@5": true, "any@5": true}
+{"qid": "gpt4_fa19884d", "n_gold": 2, "all@5": true, "any@5": true}
+{"qid": "9a707b82", "n_gold": 2, "all@5": false, "any@5": true}
+{"qid": "eac54add", "n_gold": 2, "all@5": false, "any@5": false}
+{"qid": "4dfccbf8", "n_gold": 2, "all@5": false, "any@5": true}
+{"qid": "0bc8ad93", "n_gold": 3, "all@5": true, "any@5": true}
+{"qid": "6e984302", "n_gold": 2, "all@5": true, "any@5": true}
+{"qid": "gpt4_8279ba03", "n_gold": 1, "all@5": false, "any@5": false}
+{"qid": "gpt4_b5700ca0", "n_gold": 1, "all@5": true, "any@5": true}
+{"qid": "gpt4_68e94288", "n_gold": 2, "all@5": false, "any@5": true}
+{"qid": "gpt4_2655b836", "n_gold": 3, "all@5": true, "any@5": true}
+{"qid": "gpt4_2487a7cb", "n_gold": 2, "all@5": true, "any@5": true}
