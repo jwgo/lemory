@@ -1,0 +1,22 @@
+{
+  "corpus": 9663,
+  "questions": 60407,
+  "chunks": 9747,
+  "index_seconds": 602.4,
+  "modes": {
+    "hybrid": {
+      "recall@1": 0.8584,
+      "recall@5": 0.9613,
+      "p50_ms": 90.5,
+      "p95_ms": 147.3,
+      "total_seconds": 5550.3
+    },
+    "fast": {
+      "recall@1": 0.8309,
+      "recall@5": 0.9395,
+      "p50_ms": 29.9,
+      "p95_ms": 71.5,
+      "total_seconds": 2008.3
+    }
+  }
+}
