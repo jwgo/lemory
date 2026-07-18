@@ -123,3 +123,5 @@
 {"qid": "gpt4_213fd887", "n_gold": 2, "all@5": true, "any@5": true}
 {"qid": "gpt4_5438fa52", "n_gold": 2, "all@5": false, "any@5": true}
 {"qid": "gpt4_c27434e8", "n_gold": 2, "all@5": true, "any@5": true}
+{"qid": "gpt4_fe651585", "n_gold": 2, "all@5": true, "any@5": true}
+{"qid": "8c18457d", "n_gold": 2, "all@5": true, "any@5": true}

@@ -114,6 +114,10 @@ def main(limit: int | None = None) -> None:
     summary["lemory_recall@5_by_type"] = {t: sum(v) / len(v) for t, v in by_type.items()}
     print(json.dumps(summary, indent=2))
     save_json(OUT / "summary.json", summary)
+    # ALSO the canonical committed filename: a stale copy of this file once
+    # produced a false regression report (the run only wrote summary.json) —
+    # keep both in sync so readers and scripts can't diverge again
+    save_json(WORK / "results_longmemeval_full.json", summary)
 
 
 if __name__ == "__main__":

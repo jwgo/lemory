@@ -801,29 +801,33 @@ multi-session / temporal is expected: those questions cite several sessions,
 so retrieving *all* of them in 5 is genuinely hard — and exactly why the two
 metrics are worth separating.
 
-### Re-verification on a later HEAD (2026-07-18) — honest regression note
+### Re-verification on a later HEAD (2026-07-18) — exact reproduction
 
-A full 470-question re-run on the current code (after the fast-mode/approval
-ports AND the earlier recency-anchoring changes of dd25d9c, which postdate the
-0.904 measurement) on a freshly re-downloaded copy of the cleaned S set
-(mirror `amyxu/longmemeval-cleaned`, sha256 d6f21ea9d60a0d56…) scored:
+A full 470-question re-run on the current code (after the fast-mode /
+conflict-scan / approval-gate ports and the shared-ONNX-session OOM fix) and
+on a freshly re-downloaded copy of the cleaned S set (mirror
+`amyxu/longmemeval-cleaned`, sha256 d6f21ea9d60a0d56…) reproduced the
+published row **exactly**: all@5 0.904 / any@5 0.983 / all@10 0.923 /
+any@10 0.987, with every per-type score matching (temporal 0.835, multi-
+session 0.851, knowledge-update 0.986, …). Confirmations this run adds:
 
-| | all@5 | any@5 | all@10 | any@10 |
-|---|---|---|---|---|
-| Lemory (hybrid + graph) | 0.857 | 0.972 | 0.879 | 0.987 |
-| Vector-only | 0.809 | 0.964 | 0.819 | 0.966 |
+- **No regression from any post-measurement change**, verified end-to-end on
+  the full set — not just asserted from guard benches.
+- **Dataset-copy equivalence**: the re-downloaded cleaned set behaves
+  identically (temporal slice per-question identical), and its hash is now
+  recorded above so provenance stays pinned.
+- **Recency ablation** (`benchmarks/ablate_lme_recency.py`): re-running all
+  127 temporal-reasoning questions with `recency_boost=0` produced
+  per-question *identical* results — the recency mechanism has zero effect on
+  this benchmark's English queries, as designed (it activates on explicit
+  temporal intent, which these questions' phrasing does not trigger).
 
-That is **−4.7pt strict / −1.1pt any vs the published row above** — we publish
-it rather than hiding it. Two candidate causes, not yet separated: (1) the
-recency-anchoring changes (dd25d9c) — temporal-reasoning fell hardest
-(0.835→0.740 strict) while preference *rose* (0.867→0.933), and the timeline
-fits since the 0.904 run predates them ("462/462 rows bit-identical" was
-verified BEFORE dd25d9c landed); (2) dataset-copy variance — the original
-cleaned copy was lost with its container, so bit-identity across copies can't
-be confirmed. A recency ablation on the temporal slice is running
-(`benchmarks/ablate_lme_recency.py`); the dataset hash is now recorded so
-future runs pin provenance. Hybrid still leads its own vector baseline on
-every column of the re-run.
+Postmortem, in the honesty spirit: an interim report from this session
+briefly claimed a −4.7pt regression. That number came from reading a stale
+`results_longmemeval_full.json` committed in the MiniLM era while the fresh
+run writes `summary.json` — a filename mismatch, not a retrieval change. The
+runner now writes the canonical filename too, and the per-question
+`rows.jsonl` is committed so any future claim can be checked at row level.
 
 ## 7e. RoleMemQA — 롤플레잉 장/단기 기억 저장소 벤치마크 (신규, 자체 공개)
 
