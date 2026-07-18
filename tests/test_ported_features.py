@@ -333,3 +333,18 @@ def test_llamaindex_retriever_adapter(engine):
 def test_integrations_module_importable():
     import lemory.integrations  # the package itself never needs the frameworks
     assert lemory.integrations.__doc__
+
+
+def test_health_view_apis(engine):
+    from starlette.testclient import TestClient
+
+    from lemory.interfaces.http import build_app
+
+    (engine.cfg.vault / "깨진.md").write_text("[[없는노트]] 참고", encoding="utf-8")
+    app = build_app(engine, watch=False)
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        d = c.get("/api/drift").json()
+        assert any(r["target"] == "없는노트" for r in d["broken_wikilinks"])
+        assert c.get("/api/suggest_links?k=5").status_code == 200
+        assert c.get("/api/conflicts?threshold=0.9").status_code == 200
+        assert c.get("/api/pending").json() == []

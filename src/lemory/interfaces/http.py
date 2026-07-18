@@ -46,6 +46,8 @@ TUNABLE_FIELDS: dict[str, type] = {
     "local_embed_backend": str,  # auto | llamacpp | fastembed
     "event_log": bool,
     "memory_approval": bool,
+    "semantic_links": bool,
+    "usage_prior": float,
     "assistant_log_sessions": bool,
     "graph_expansion": bool,
     "mention_links": bool,
@@ -463,6 +465,21 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         from ..ingestion.memory import list_pending
 
         return list_pending(engine)
+
+    @app.get("/api/drift")
+    def api_drift():
+        """Memory-vs-reality scan: broken wikilinks, dead file links,
+        unresolved duplicate flags (same engine as `lemory drift`)."""
+        from ..retrieval.drift import detect_drift
+
+        return detect_drift(engine)
+
+    @app.get("/api/suggest_links")
+    def api_suggest_links(path: str = "", k: int = 12):
+        """Unlinked mentions as [[link]] proposals with sentence evidence."""
+        from ..retrieval.links import suggest_links
+
+        return suggest_links(engine, path=path or None, k=k)
 
     @app.post("/memory/approve")
     def memory_approve(request: Request, body: TrashBody):

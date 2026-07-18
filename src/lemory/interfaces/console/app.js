@@ -62,6 +62,7 @@ async function loadNotes(force = false) {
 const routes = {
   overview: renderOverview,
   knowledge: renderKnowledge,
+  health: renderHealth,
   search: renderSearch,
   assistant: renderAssistant,
   settings: renderSettings,
@@ -470,6 +471,88 @@ async function drawNoteDetail(path) {
   });
 }
 
+/* ----------------------------------------------------------------- health */
+async function renderHealth() {
+  const m = $("#main");
+  m.innerHTML = `<div class="view">
+    <div class="view-head"><div class="view-title">건강</div>
+      <div class="view-sub">기억 vs 기억(모순) · 기억 vs 현실(드리프트) · AI 쓰기 승인 · 링크 제안 — 전부 로컬, LLM 0회</div></div>
+    <div class="card"><div class="card-head">승인 대기 <span class="spacer"></span><span class="chip" id="pendCount"></span></div>
+      <div id="pendBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
+    <div class="card"><div class="card-head">모순 (기억 vs 기억) <span class="spacer"></span><span class="chip" id="confCount"></span></div>
+      <div id="confBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
+    <div class="card"><div class="card-head">드리프트 (기억 vs 현실) <span class="spacer"></span><span class="chip" id="driftCount"></span></div>
+      <div id="driftBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
+    <div class="card"><div class="card-head">링크 제안 <span class="spacer"></span><span class="chip" id="sugCount"></span></div>
+      <div id="sugBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
+  </div>`;
+
+  const empty = (t) => `<div class="empty">${t}</div>`;
+
+  // 승인 대기 (memory_approval mode)
+  const drawPending = async () => {
+    try {
+      const rows = await api("/api/pending");
+      $("#pendCount").textContent = rows.length ? `${rows.length}건` : "";
+      $("#pendBody").innerHTML = rows.length ? rows.map(r => `
+        <div class="hl-row">
+          <div class="hl-main"><b>${esc(r.title)}</b><span class="hl-dim">${esc(r.path)}</span></div>
+          <button class="btn sm primary" data-approve="${esc(r.path)}">승인</button>
+          <button class="btn sm" data-reject="${esc(r.path)}">거절</button>
+        </div>`).join("") : empty("승인 대기 없음 — memory_approval을 켜면 AI 쓰기가 여기서 대기합니다");
+      $$("#pendBody [data-approve]").forEach(b => b.onclick = async () => {
+        await jpost("/memory/approve", { path: b.dataset.approve }); drawPending();
+      });
+      $$("#pendBody [data-reject]").forEach(b => b.onclick = async () => {
+        await jpost("/memory/trash", { path: b.dataset.reject }); drawPending();
+      });
+    } catch (e) { $("#pendBody").innerHTML = empty(esc(e.message)); }
+  };
+
+  const drawConflicts = async () => {
+    try {
+      const rows = await api("/api/conflicts?threshold=0.75&limit=20");
+      const label = { number: "숫자 불일치", negation: "부정 충돌", duplicate: "중복 후보" };
+      $("#confCount").textContent = rows.length ? `${rows.length}건` : "";
+      $("#confBody").innerHTML = rows.length ? rows.map(c => `
+        <div class="hl-row col">
+          <div><span class="chip ${c.kind === "duplicate" ? "" : "warn"}">${label[c.kind]}</span>
+            <span class="hl-dim">sim ${c.similarity}</span>
+            ${c.detail ? `<span class="hl-dim">· ${esc(c.detail)}</span>` : ""}</div>
+          <div class="hl-pair"><b>${esc(c.a.title)}</b> ↔ <b>${esc(c.b.title)}</b></div>
+        </div>`).join("") : empty("모순 없음 — 노트들이 서로 일치합니다");
+    } catch (e) { $("#confBody").innerHTML = empty(esc(e.message)); }
+  };
+
+  const drawDrift = async () => {
+    try {
+      const d = await api("/api/drift");
+      const kinds = [["broken_wikilinks", "깨진 위키링크"], ["missing_file_links", "없는 파일 링크"],
+                     ["unresolved_duplicates", "미해소 중복 플래그"]];
+      const total = kinds.reduce((s, [k]) => s + (d[k] || []).length, 0);
+      $("#driftCount").textContent = total ? `${total}건` : "";
+      $("#driftBody").innerHTML = total ? kinds.filter(([k]) => (d[k] || []).length).map(([k, lab]) => `
+        <div class="hl-row col"><div><span class="chip warn">${lab}</span></div>
+          ${(d[k]).slice(0, 8).map(r => `<div class="hl-dim">${esc(r.note)} → ${esc(r.target || r.duplicate_of || "")}</div>`).join("")}
+        </div>`).join("") : empty(`드리프트 없음 — 노트 ${d.notes_scanned ?? "?"}개 검사`);
+    } catch (e) { $("#driftBody").innerHTML = empty(esc(e.message)); }
+  };
+
+  const drawSuggest = async () => {
+    try {
+      const rows = await api("/api/suggest_links?k=10");
+      $("#sugCount").textContent = rows.length ? `${rows.length}건` : "";
+      $("#sugBody").innerHTML = rows.length ? rows.map(s => `
+        <div class="hl-row col">
+          <div><b>${esc(s.from_title)}</b> → ${esc(s.suggestion)}</div>
+          ${s.snippet ? `<div class="hl-dim">"${esc(s.snippet)}"</div>` : ""}
+        </div>`).join("") : empty("연결 안 된 언급 없음");
+    } catch (e) { $("#sugBody").innerHTML = empty(esc(e.message)); }
+  };
+
+  drawPending(); drawConflicts(); drawDrift(); drawSuggest();
+}
+
 /* ----------------------------------------------------------------- search */
 // what people actually ask their vault — rotated so the empty state teaches range
 const EXAMPLE_QUERIES = [
@@ -501,7 +584,7 @@ async function renderSearch() {
     </div>
     <div class="search-ctl">
       <div class="grp"><span>모드</span><div class="seg" id="segMode">
-        <button data-v="hybrid">하이브리드</button><button data-v="vector">벡터</button><button data-v="bm25">BM25</button></div></div>
+        <button data-v="hybrid">하이브리드</button><button data-v="fast">즉답</button><button data-v="vector">벡터</button><button data-v="bm25">BM25</button></div></div>
       <div class="grp"><span>그래프 확장</span><span class="switch ${Q.graph ? "on" : ""}" id="swGraph"></span></div>
       <div class="grp"><span>결과 수</span><div class="seg" id="segK">
         <button data-v="4">4</button><button data-v="8">8</button><button data-v="16">16</button></div></div>
@@ -942,6 +1025,9 @@ const SETTINGS_META = [
   ]],
   ["검색 품질", [
     ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
+    ["memory_approval", "AI 쓰기 승인제", "AI가 쓴 기억을 사람이 승인해야 검색에 편입됩니다 (건강 탭에서 승인)", "bool"],
+    ["semantic_links", "시맨틱 폴백 링크", "링크 없는 노트에 유사도 엣지 부여 — 실측에서 이득 없음이 확인돼 기본 꺼짐 (BENCHMARKS §12c)", "bool"],
+    ["usage_prior", "사용 이력 부스트", "자주 인용/열람한 노트가 동점을 이깁니다 (0=끔, 0.05-0.15 권장)", "float"],
     ["event_log", "미들웨어 타임라인", "질의·AI 쓰기 기록 (이 기기 SQLite에만 저장, 외부 전송 없음)", "bool"],
     ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 — 높을수록 연결 노트가 잘 올라옵니다", "float"],
     ["graph_sim_floor", "그래프 유사도 하한", "질의와 이 유사도 미만인 이웃은 무시 (노이즈 차단)", "float"],
