@@ -718,6 +718,27 @@ No memory/RAG competitor publishes a full-corpus KorQuAD number to compare
 against; the row exists so OUR claims are anchored at real scale, not at a
 cherry-picked sample size.
 
+## 6d. JSQuAD — Japanese, measured (the CJK claim is not Korean-only)
+
+Nobody in this market measures Japanese either. The ENTIRE JSQuAD (JGLUE)
+validation set — 4,442 human-written Japanese questions over 1,145 unique
+Japanese Wikipedia paragraphs, all indexed as one vault — keyless local,
+paragraph recall, `benchmarks/run_jsquad.py`:
+
+| Arm | recall@1 | recall@5 | p50 |
+|---|---|---|---|
+| **hybrid (default)** | **0.864** | **0.950** | 11.1 ms |
+| fast (lexical) | 0.848 | 0.932 | 3.4 ms |
+| vector only | 0.837 | 0.946 | 1.2 ms |
+| bm25 only | 0.848 | 0.932 | 3.3 ms |
+
+Honest read: hybrid leads every own-leg baseline out of the box — the
+kana/kanji bigram FTS (built for Korean's mixed-script tables) plus the
+multilingual e5 carry Japanese with zero Japanese-specific tuning. The
+hybrid-over-legs margin (+1.6pt) is smaller than on Korean, exactly what
+"tuned for Korean, works for CJK" should look like — we claim measured
+competence, not Japanese leadership.
+
 ## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
 The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for every system; adversarial category excluded (mem0 protocol). mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini).
