@@ -801,6 +801,30 @@ multi-session / temporal is expected: those questions cite several sessions,
 so retrieving *all* of them in 5 is genuinely hard — and exactly why the two
 metrics are worth separating.
 
+### Re-verification on a later HEAD (2026-07-18) — honest regression note
+
+A full 470-question re-run on the current code (after the fast-mode/approval
+ports AND the earlier recency-anchoring changes of dd25d9c, which postdate the
+0.904 measurement) on a freshly re-downloaded copy of the cleaned S set
+(mirror `amyxu/longmemeval-cleaned`, sha256 d6f21ea9d60a0d56…) scored:
+
+| | all@5 | any@5 | all@10 | any@10 |
+|---|---|---|---|---|
+| Lemory (hybrid + graph) | 0.857 | 0.972 | 0.879 | 0.987 |
+| Vector-only | 0.809 | 0.964 | 0.819 | 0.966 |
+
+That is **−4.7pt strict / −1.1pt any vs the published row above** — we publish
+it rather than hiding it. Two candidate causes, not yet separated: (1) the
+recency-anchoring changes (dd25d9c) — temporal-reasoning fell hardest
+(0.835→0.740 strict) while preference *rose* (0.867→0.933), and the timeline
+fits since the 0.904 run predates them ("462/462 rows bit-identical" was
+verified BEFORE dd25d9c landed); (2) dataset-copy variance — the original
+cleaned copy was lost with its container, so bit-identity across copies can't
+be confirmed. A recency ablation on the temporal slice is running
+(`benchmarks/ablate_lme_recency.py`); the dataset hash is now recorded so
+future runs pin provenance. Hybrid still leads its own vector baseline on
+every column of the re-run.
+
 ## 7e. RoleMemQA — 롤플레잉 장/단기 기억 저장소 벤치마크 (신규, 자체 공개)
 
 지금까지의 벤치는 지식베이스 QA였다 — 하지만 Lemory의 또 다른 실사용은
