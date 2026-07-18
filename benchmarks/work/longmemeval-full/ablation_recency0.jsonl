@@ -84,3 +84,4 @@
 {"qid": "gpt4_5dcc0aab", "n_gold": 5, "all@5": true, "any@5": true}
 {"qid": "gpt4_0b2f1d21", "n_gold": 2, "all@5": true, "any@5": true}
 {"qid": "f0853d11", "n_gold": 2, "all@5": true, "any@5": true}
+{"qid": "gpt4_6ed717ea", "n_gold": 2, "all@5": true, "any@5": true}
