@@ -1,0 +1,26 @@
+{
+  "corpus": "KorQuAD v1.0 dev, 113 real Korean Wikipedia paragraphs, 450-char cap applied to BOTH systems",
+  "questions": 120,
+  "metric": "paragraph recall@1, both fully local (no API)",
+  "memvid_v1_korean": {
+    "recall@1": 0.05,
+    "p50_ms": 45.5,
+    "embedder": "all-MiniLM-L6-v2 (English)"
+  },
+  "memvid_v1_english_control": {
+    "recall@1": 0.933,
+    "n": 15,
+    "note": "same system works in English — isolates language as the variable"
+  },
+  "lemory_keyless_korean": {
+    "recall@1": 0.958,
+    "p50_ms": 17.0,
+    "embedder": "e5-small-ko-v2 (Korean-tuned), latest main"
+  },
+  "caveats": [
+    "memvid tested = pip `memvid` v1 (video layer deprecated in v2). v2 is Rust; not run here.",
+    "v2's advertised default embedders (BGE-small/base, GTE-large) are also English-centric per its README, so the Korean gap is architectural, not v1-specific.",
+    "measures ONE axis (Korean retrieval quality). memvid's real strengths (multimodal clip/whisper, Rust/Node/Python SDKs) are not tested and are conceded.",
+    "latency is end-to-end incl. query embedding — the metric memvid's marketed 0.025ms P50 excludes (their own author cites ~5-17ms end-to-end)."
+  ]
+}

@@ -41,6 +41,15 @@ _TASK_PREFIX = {"RETRIEVAL_DOCUMENT": "passage: ", "RETRIEVAL_QUERY": "query: "}
 
 _REGISTERED: set = set()
 
+# ONE ONNX session per model per process, shared by every provider instance.
+# An Engine is cheap to create and callers (server per-request engines, batch
+# benchmarks over many vaults) legitimately create many; without this cache
+# each one instantiated its own onnxruntime session (~hundreds of MB of
+# arena), which is both slow and — across hundreds of engines — an OOM.
+# Never freed on close(): the session is process-wide by design.
+_SHARED_MODELS: dict = {}
+_SHARED_MODELS_LOCK = threading.Lock()
+
 
 def _register_custom(model: str) -> None:
     """Register models fastembed doesn't ship in its built-in registry (our
@@ -90,6 +99,11 @@ class LocalClient:
     def _embedder(self):
         with self._lock:
             if self._model is None:
+                with _SHARED_MODELS_LOCK:
+                    shared = _SHARED_MODELS.get(self.embed_model)
+                if shared is not None:
+                    self._model = shared
+                    return self._model
                 import warnings
 
                 _register_custom(self.embed_model)
@@ -116,6 +130,8 @@ class LocalClient:
                             f'"{_FALLBACK_EMBED_MODEL}" (bundled, 384d) in lemory.toml '
                             f"and run `lemory index --full`."
                         ) from exc
+                with _SHARED_MODELS_LOCK:
+                    _SHARED_MODELS[self.embed_model] = self._model
             return self._model
 
     def embed(self, texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> np.ndarray:

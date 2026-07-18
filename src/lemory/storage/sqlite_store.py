@@ -829,6 +829,36 @@ class Store:
         top = top[np.argsort(-sims[top])]
         return [(int(ids[i]), float(sims[i])) for i in top]
 
+    def similar_cross_doc_pairs(
+        self, threshold: float, cap: int = 2000, block: int = 512
+    ) -> list[tuple[int, int, float]]:
+        """Chunk pairs from DIFFERENT notes with cosine >= threshold, sorted by
+        similarity desc. Feeds the conflict/duplicate scan. Blockwise matmul
+        over the existing in-memory matrix — no extra storage, no API."""
+        matrix, ids, _pos = self._ensure_matrix()
+        n = matrix.shape[0]
+        if n == 0:
+            return []
+        doc_of = {
+            r["id"]: r["doc_id"] for r in self.conn().execute("SELECT id, doc_id FROM chunks")
+        }
+        docs = np.array([doc_of.get(int(c), -1) for c in ids])
+        pairs: list[tuple[int, int, float]] = []
+        for s in range(0, n, block):
+            e = min(s + block, n)
+            sims = matrix[s:e] @ matrix.T  # (block, n)
+            bi_idx, j_idx = np.where(sims >= threshold)
+            for bi, j in zip(bi_idx, j_idx):
+                i = s + int(bi)
+                j = int(j)
+                if j <= i or docs[j] == docs[i]:
+                    continue
+                pairs.append((int(ids[i]), int(ids[j]), float(sims[bi, j])))
+            if len(pairs) >= cap * 4:  # plenty for downstream filtering
+                break
+        pairs.sort(key=lambda p: -p[2])
+        return pairs[:cap]
+
     ENRICH_HEADING = "↩ context"  # marker for index-time enrichment pseudo-chunks
 
     def replace_enrichment_chunk(self, doc_id: int, title: str, text: str,

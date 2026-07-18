@@ -340,6 +340,40 @@ def remember(
         console.print(f"  [dim]관련 기억:[/dim] [[{r['title']}]] sim={r['sim']}{flag}")
 
 
+@app.command("pending")
+def pending_cmd(vault: Optional[Path] = typer.Option(None)):
+    """승인 대기 중인 AI 메모리 목록 (memory_approval 모드).
+
+    승인: lemory approve <path> · 거절: 대시보드 undo 또는 파일 삭제."""
+    from ..ingestion.memory import list_pending
+
+    eng = _engine(vault)
+    rows = list_pending(eng)
+    if not rows:
+        console.print("[green]승인 대기 없음[/green]")
+        return
+    table = Table()
+    table.add_column("path")
+    table.add_column("title")
+    for r in rows:
+        table.add_row(r["path"], r["title"])
+    console.print(table)
+    console.print(f"[dim]{len(rows)}건 대기 — lemory approve <path> 로 승인[/dim]")
+
+
+@app.command("approve")
+def approve_cmd(
+    path: str = typer.Argument(..., help="Vault-relative path of the pending note"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """대기 중인 AI 메모리를 승인해 인덱스에 편입."""
+    from ..ingestion.memory import approve_memory
+
+    eng = _engine(vault)
+    rel = approve_memory(eng, path, client="cli")
+    console.print(f"[green]approved[/green] {rel} — 검색 가능해졌습니다")
+
+
 @app.command("suggest-links")
 def suggest_links_cmd(
     note: Optional[str] = typer.Argument(None, help="Vault-relative note path (omit for vault-wide top suggestions)"),
@@ -462,6 +496,39 @@ def drift_cmd(
     console.print("[dim]고치려면: lemory drift --prompt | (에이전트에 전달)[/dim]")
 
 
+@app.command("conflicts")
+def conflicts_cmd(
+    vault: Optional[Path] = typer.Option(None),
+    threshold: float = typer.Option(0.80, help="후보 쌍의 코사인 하한"),
+    limit: int = typer.Option(30, help="최대 발견 수"),
+):
+    """볼트가 스스로와 모순되는 곳을 찾는다 (모순 감지, LLM 0회).
+
+    서로 다른 노트가 거의 같은 말을 하는데 숫자가 다르거나, 한쪽이
+    부정하거나, 아예 중복인 쌍. 드리프트가 '기억 vs 현실'이라면
+    이것은 '기억 vs 기억'이다."""
+    eng = _engine(vault)
+    eng.index()
+    found = eng.conflicts(threshold=threshold, limit=limit)
+    if not found:
+        console.print("[green]✔ 모순 없음[/green] — 충돌하는 노트 쌍이 없습니다")
+        return
+    labels = {"number": "숫자 불일치", "negation": "부정 충돌", "duplicate": "중복 후보"}
+    table = Table(show_lines=True)
+    table.add_column("종류", width=10)
+    table.add_column("sim", width=5)
+    table.add_column("노트 A / 노트 B")
+    table.add_column("내용")
+    for c in found:
+        table.add_row(
+            labels[c.kind],
+            f"{c.similarity:.2f}",
+            f"{c.a.title}\n{c.b.title}",
+            f"{c.detail}\n[dim]{c.a.text[:80]}…[/dim]\n[dim]{c.b.text[:80]}…[/dim]",
+        )
+    console.print(table)
+
+
 @app.command("import-chats")
 def import_chats(
     file: Path = typer.Argument(..., help="ChatGPT/Claude export conversations.json"),
@@ -564,12 +631,15 @@ def search(
     query: str,
     k: int = typer.Option(8, help="Number of results"),
     vault: Optional[Path] = typer.Option(None),
-    mode: str = typer.Option("hybrid", help="hybrid | vector | bm25 (ablation)"),
+    mode: str = typer.Option("hybrid", help="hybrid | fast | vector | bm25"),
+    fast: bool = typer.Option(False, "--fast", help="즉답 검색: 임베딩 없이 어휘 신호만 (sub-ms)"),
     expand: bool = typer.Option(False, help="LLM query expansion (qmd-style, 1 extra call)"),
     rerank: bool = typer.Option(False, help="LLM rerank of top candidates (1 extra call)"),
 ):
     """Hybrid search over the indexed vault."""
     eng = _engine(vault)
+    if fast:
+        mode = "fast"
     hits = eng.search(query, k=k, mode=mode, expand=expand or None, rerank=rerank or None, record=True, client="cli")
     table = Table(show_lines=True)
     table.add_column("#", width=3)

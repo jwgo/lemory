@@ -10,6 +10,38 @@ code, prose leakage scrubbed and verified — see `gen_multihop.py`).
 Environment note: run on a Gemini free-tier key; retrieval latency numbers
 exclude the query-embedding API call (identical for every system).
 
+## 0. Market position — every head-to-head, one table
+
+Every row below is **measured by us, on the same harness as Lemory** (same
+corpus, same models where applicable, code in `benchmarks/`). Nobody else in
+this market publishes cross-tool same-harness numbers; these regenerate from
+committed scripts. Ticks mark where the competitor genuinely leads.
+
+| System (★ at time of test) | Shared axis | Them | **Lemory** | Where they win |
+|---|---|---|---|---|
+| mem0 (~40k★) | multi-hop answer-in-context@8, same Gemini | 0.579 | **1.000** | SDK breadth, hosted option |
+| cognee v1.3 (~10k★) | same, keyless local | 0.632 @ 5.7 s | **1.000 @ 3.5 ms** | pipeline framework flexibility |
+| LlamaIndex | same, same embeddings | 0.649 | **1.000** | ecosystem size |
+| LightRAG (37.6k★, EMNLP'25) | same, same Gemini | 0.807 | **1.000** | best external 2-hop (0.738) — real LLM graph |
+| MemPalace (57.2k★) | same + Korean axis | 0.596 · ko 0.350 | **1.000 · ko 0.950** | 1-hop verbatim lookups (1.000) |
+| qmd (tobi/qmd) | full-support@8, 329 q | 0.769 @ 59.5 s | **0.887 @ 0.11 s** | zero-config single binary |
+| memvid v1 (16k★) | Korean paragraph recall@1 | 0.050 (EN control: 0.933) | **0.958** | multimodal (clip/whisper), Rust/Node SDK |
+| EchoVault v0.5 | Korean recall@1, offline | 0.867 @ 0.5 ms | **0.975 @ 3.8 ms** (fast) | raw FTS latency |
+| Vestige v2.2.1 | Korean recall@1, embedder ON | 0.217 @ 571 ms | **0.967 @ 21 ms** | FSRS/contradiction cognitive features |
+| Omnisearch / Smart Connections | Obsidian-native search (§4g) | below | **leads** | in-app UX, zero install friction |
+
+Against **published** headline numbers (different setups — not same-harness,
+so labeled, not claimed as wins): mem0's own LOCOMO judge score is 0.669 where
+our same-condition all-Gemini run scores Lemory 0.706 (§7); Zep's DMR 94.8
+uses a GPT-4-class generator+judge we don't reproduce — in our controlled
+ablation Lemory leads its own baseline +2.6pt (§7b); MemPalace markets
+"96.6% R@5 (any) LongMemEval, zero API" — our full-500 zero-API run: **0.983
+any@5 / 0.904 all@5** (§7d), and we publish the stricter "all" number too.
+
+Scale is validated separately: 1M-chunk ANN at 5.9 ms recall@10 1.000 (§12b)
+and the full-KorQuAD stress run — ALL 9,663 paragraphs × ALL 60,407 human
+questions, keyless: **r@1 0.858 / r@5 0.961** (§6c).
+
 ## 1. Multi-hop retrieval (LemoryBench, 57 questions / 54-note vault)
 
 Full-support@8 = both gold notes for a 2-hop question retrieved in the top 8 — 
@@ -654,6 +686,38 @@ nothing: shrinking the budget lost fs without recovering doc@8. We keep the
 graph on because full-support is what answers multi-hop questions; single-hop
 purists can set `graph_expansion = false`.</sub>
 
+## 6c. KorQuAD at FULL scale — all 9,663 paragraphs, all 60,407 questions
+
+The stress test for "엄청 큰 데이터로 검증": the **entire KorQuAD v1.0 train
+set** as one vault — every unique paragraph (9,663 → 9,747 chunks) competing
+as a distractor for every question — and **every human-written question**
+(60,407, no sampling). Keyless local (e5-small-ko-v2), zero API calls,
+`benchmarks/run_korquad_full.py` (data download command in its header).
+Indexing: 602 s for the whole corpus, 0 LLM calls.
+
+| Mode | recall@1 | recall@5 | p50 | p95 |
+|---|---|---|---|---|
+| hybrid (default) | **0.858** | **0.961** | 90.5 ms | 147.3 ms |
+| fast (lexical-only) | 0.831 | 0.939 | 29.9 ms | 71.5 ms |
+
+Two honest observations:
+
+1. **The small-corpus fast-mode win inverts at scale.** On the 113-paragraph
+   harness fast beat hybrid (0.975 vs 0.967); with 85× more distractors
+   hybrid leads by +2.8pt r@1. More competing paragraphs = more near-miss
+   lexical collisions, and the vector leg's paraphrase matching is what
+   breaks them. This is exactly why hybrid stays the default and fast is the
+   as-you-type/polling mode.
+2. **Latency grows with corpus size and we print it anyway.** p50 90.5 ms at
+   9.7k chunks (vs ~14-21 ms at 113 chunks) — query embedding on CPU plus a
+   bigger FTS/matrix. Still interactive, and `fast` stays at 30 ms p50 for
+   surfaces that need instant feedback. Numbers from a shared cloud CPU;
+   a desktop CPU runs lower.
+
+No memory/RAG competitor publishes a full-corpus KorQuAD number to compare
+against; the row exists so OUR claims are anchored at real scale, not at a
+cherry-picked sample size.
+
 ## 7. Memory benchmark: LOCOMO (long-term conversational memory, 160-question stratified sample)
 
 The benchmark mem0/zep report on. Same Gemini flash generator + LLM judge for every system; adversarial category excluded (mem0 protocol). mem0's published overall judge score is 0.669 (their own eval, gpt-4o-mini).
@@ -674,9 +738,9 @@ turns present in the retrieved context; no LLM anywhere,
 
 | System | ev-recall@10 | multi-hop | temporal | open-domain | single-hop | p50 |
 |---|---|---|---|---|---|---|
-| **Lemory** (hybrid) | **0.771** | 0.649 | **0.844** | **0.561** | 0.870 | 11.4ms |
-| Vector-only | 0.767 | 0.691 | 0.778 | 0.522 | 0.889 | 0.1ms |
-| BM25 | 0.743 | 0.602 | 0.778 | 0.467 | 0.907 | 0.6ms |
+| **Lemory** (hybrid) | **0.774** | 0.660 | **0.844** | **0.561** | 0.870 | 2.7ms |
+| Vector-only | 0.767 | 0.691 | 0.778 | 0.522 | 0.889 | 0.4ms |
+| BM25 | 0.743 | 0.602 | 0.778 | 0.467 | 0.907 | 1.1ms |
 
 Hybrid wins the aggregate (temporal/open-domain carry it); dense leads on
 multi-hop — long paraphrased questions where a weak lexical leg drags fusion,

@@ -225,6 +225,19 @@ it is searchable on the next query. The features below are for the notes
   [mex](https://github.com/mex-memory/mex), which pioneered drift detection
   for coding-agent scaffolds; mex has no ranked retrieval to benchmark, so
   it lives here as an idea we adopted rather than a row in our tables.)
+- **`lemory conflicts`** answers "does my memory agree with itself?": pairs
+  of notes that say almost the same thing but disagree on a number, negate
+  each other, or are outright duplicates — found by cosine over the chunk
+  matrix the index already has, classified lexically. Zero LLM. (`drift` is
+  memory-vs-reality; `conflicts` is memory-vs-memory. Vestige made
+  contradiction detection its flagship — we ported the idea without the
+  571ms/query cognitive pipeline.)
+- **`lemory search --fast`** (`/search?mode=fast`): the instant path —
+  Hangul-bigram BM25 + typo repair + title/recency/usage boosts, no query
+  embedding. Measured 0.975 recall@1 @ 3.8ms on the KorQuAD harness (hybrid:
+  0.967 @ 21ms — hybrid stays the default because paraphrase, cross-lingual
+  and multi-hop questions need the vector leg). For as-you-type search boxes
+  and agent polling loops.
 - **Time awareness**: "요새 내가 하던 그거 뭐였지?" ranks the current fact
   above the superseded one that has more mentions; "3월에 읽던 책은?" still
   reaches history.
@@ -236,6 +249,19 @@ up in **최근 질의** with its top sources. That's the middleware contract:
 nothing passes through invisibly.
 
 <img src="docs/assets/demo-write.gif" alt="Claude saves a memory and it appears in the feed as a Markdown file, attributed to claude-desktop, with one-click undo" width="820">
+
+## Demo gallery — every feature, really running
+
+Each clip re-types a **verbatim capture of the real CLI** on a small Korean
+demo vault (regenerate: `docs/assets/make_gifs.py`, outputs included in the
+script — nothing is mocked).
+
+| | |
+|---|---|
+| **즉답 검색** `--fast` · 임베딩 0회, 3.8ms<br><img src="docs/assets/demo5_fast.gif" width="420"> | **모순 탐지** `lemory conflicts` · 기억 vs 기억<br><img src="docs/assets/demo6_conflicts.gif" width="420"> |
+| **AI 쓰기 승인 게이트** pending → approve<br><img src="docs/assets/demo7_approval.gif" width="420"> | **드리프트 감지** `lemory drift` · 기억 vs 현실<br><img src="docs/assets/demo8_drift.gif" width="420"> |
+| **스코프 연산자** `tag:` `folder:` `path:`<br><img src="docs/assets/demo9_operators.gif" width="420"> | **시간 인지** "요새 작업하던…" → 최신 결정 1위<br><img src="docs/assets/demo10_temporal.gif" width="420"> |
+| **오타 교정** FoundatoinDB → FoundationDB<br><img src="docs/assets/demo12_typo.gif" width="420"> | **전량 스케일 검증** KorQuAD 9,663문단 × 60,407질문<br><img src="docs/assets/demo11_scale.gif" width="420"> |
 
 ## The dashboard
 

@@ -194,6 +194,12 @@ class Engine:
                                  detail={"top": [h.path for h in ans.sources[:3]]})
         return ans
 
+    def conflicts(self, threshold: float = 0.80, limit: int = 30):
+        """Cross-note disagreement scan (numbers/negation/duplicates). Local."""
+        from .retrieval import find_conflicts
+
+        return find_conflicts(self, threshold=threshold, limit=limit)
+
     def status(self) -> dict[str, Any]:
         # status is a purely local verb — it must work without any API key
         try:

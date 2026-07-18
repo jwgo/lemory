@@ -1,21 +1,21 @@
 {
   "lemory": {
     "n": 159,
-    "evidence_recall@10": 0.7712,
-    "cat1_recall": 0.6489,
+    "evidence_recall@10": 0.7743,
+    "cat1_recall": 0.66,
     "cat2_recall": 0.8444,
     "cat3_recall": 0.5611,
     "cat4_recall": 0.8704,
-    "p50_ms": 1.2
+    "p50_ms": 2.7
   },
   "lemory-nograph": {
     "n": 159,
-    "evidence_recall@10": 0.7712,
-    "cat1_recall": 0.6489,
+    "evidence_recall@10": 0.7743,
+    "cat1_recall": 0.66,
     "cat2_recall": 0.8444,
     "cat3_recall": 0.5611,
     "cat4_recall": 0.8704,
-    "p50_ms": 1.1
+    "p50_ms": 2.4
   },
   "vector": {
     "n": 159,
@@ -24,7 +24,7 @@
     "cat2_recall": 0.7778,
     "cat3_recall": 0.5222,
     "cat4_recall": 0.8889,
-    "p50_ms": 0.1
+    "p50_ms": 0.4
   },
   "bm25": {
     "n": 159,
@@ -33,6 +33,6 @@
     "cat2_recall": 0.7778,
     "cat3_recall": 0.4667,
     "cat4_recall": 0.9074,
-    "p50_ms": 0.6
+    "p50_ms": 1.1
   }
 }

@@ -1,0 +1,7 @@
+NanumGothicCoding — Copyright (c) 2010, NAVER Corporation (https://www.navercorp.com/)
+with Reserved Font Name Nanum, Naver Nanum, NanumGothicCoding.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The full license text is available with FAQ at: https://scripts.sil.org/OFL
+It is bundled here solely so docs/assets/make_gifs.py can regenerate the
+README demo GIFs deterministically.

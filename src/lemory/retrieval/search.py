@@ -220,10 +220,15 @@ def hybrid_search(
     query: str,
     k: int = 8,
     graph: bool | None = None,
-    mode: str = "hybrid",  # 'hybrid' | 'vector' | 'bm25'  (modes exist for eval/ablation)
+    mode: str = "hybrid",  # 'hybrid' | 'fast' | 'vector' | 'bm25'
     expand: bool | None = None,
     rerank: bool | None = None,
 ) -> SearchResult:
+    """mode='fast' is the production lexical path (EchoVault-class latency):
+    every zero-cost ranking signal — operators, typo repair, Hangul-bigram
+    BM25, recency, title boost, usage prior, per-doc diversity — but no query
+    embedding, no graph walk, no reranker. Sub-millisecond, for as-you-type
+    search surfaces. 'vector'/'bm25' remain pure single-leg ablations."""
     cfg: "LemoryConfig" = engine.cfg
     store: Store = engine.store
     use_graph = cfg.graph_expansion if graph is None else graph
@@ -248,7 +253,7 @@ def hybrid_search(
     # embedding leg shrugs off; correcting only unknown words is safe because
     # a word that matches the index is never touched
     lex_query = query
-    if mode == "hybrid" and cfg.typo_correction:
+    if mode in ("hybrid", "fast") and cfg.typo_correction:
         lex_query = correct_typos(store, query)
 
     # qmd-style query expansion: search each LLM-generated variant too, and
@@ -284,7 +289,7 @@ def hybrid_search(
                 if q_text == query:
                     qv = v
                 v_hits = store.vector_search(v, cfg.k_vector * depth)
-        if mode in ("hybrid", "bm25"):
+        if mode in ("hybrid", "fast", "bm25"):
             b_hits = store.bm25_search(q_text, cfg.k_bm25 * depth)
         if q_text == query:
             vec_hits, bm25_hits = v_hits, b_hits
@@ -299,7 +304,7 @@ def hybrid_search(
     rec_ctx = None
     now_ts = 0.0
     intent = None
-    if mode == "hybrid" and cfg.recency_boost > 0:
+    if mode in ("hybrid", "fast") and cfg.recency_boost > 0:
         now_ts = getattr(engine, "now", time.time)()
         intent = parse_temporal(query, now=now_ts)
         if intent.active and intent.range_start is None:
@@ -315,6 +320,11 @@ def hybrid_search(
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(vec_hits)}
     elif mode == "bm25":
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(bm25_hits)}
+    elif mode == "fast":
+        # lexical legs only (original + typo-corrected variant), pre-weighted
+        fused = rrf_fuse(
+            [(hits, w) for kind, hits, w in tagged_lists if kind == "bm25"], cfg.rrf_k
+        )
     else:
         # adaptive fusion: short keyword-ish queries (a name, a code, a couple
         # of nouns — no question words) are exact-match lookups where the
@@ -375,7 +385,7 @@ def hybrid_search(
     # newest note keeps the timeline's internal order; a live vault (newest
     # note ≈ today) is unchanged. Explicit windows ("지난주", "5월에") stay
     # wall-clock — they name absolute time. Measured on RoleMemQA update-type.
-    if mode == "hybrid" and intent is not None and intent.active:
+    if mode in ("hybrid", "fast") and intent is not None and intent.active:
         dates = rec_ctx[0] if rec_ctx else store.doc_dates()
         anchor = rec_ctx[1] if rec_ctx else now_ts
         doc_of = {cid: m.doc_id for cid, m in chunk_meta.items()}
@@ -403,7 +413,7 @@ def hybrid_search(
     # more likely the canonical source (Obsidian notes are entity-titled).
     # uses the typo-corrected text so a misspelled title still gets its boost
     q_tokens = _tokens(lex_query)
-    if mode == "hybrid" and q_tokens and cfg.title_boost > 0:
+    if mode in ("hybrid", "fast") and q_tokens and cfg.title_boost > 0:
         for cid, meta in chunk_meta.items():
             t_tokens = _tokens(meta.title)
             # date-stamped titles ("2023-09-12 Meeting with Steph" — the
@@ -418,7 +428,7 @@ def hybrid_search(
 
     # usage prior (opt-in, cfg.usage_prior=0 by default — see config.py for
     # why): multiplicative like recency, so it amplifies relevance only
-    if mode == "hybrid" and cfg.usage_prior > 0:
+    if mode in ("hybrid", "fast") and cfg.usage_prior > 0:
         stats = store.hit_stats()
         if stats:
             import math
@@ -462,7 +472,7 @@ def hybrid_search(
 
     # per-doc cap keeps the context diverse (supermemory-style); baselines
     # ('vector'/'bm25' modes) stay pure rankings for honest comparison
-    cap = cfg.per_doc_cap if mode == "hybrid" else 10**9
+    cap = cfg.per_doc_cap if mode in ("hybrid", "fast") else 10**9
     hits: list[ChunkHit] = []
     per_doc: dict[int, int] = {}
     for cid, score in ranked:

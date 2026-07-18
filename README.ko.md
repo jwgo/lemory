@@ -246,6 +246,18 @@ $ lemory context                            # 에이전트용 볼트 요약 한 
 - 완전 오프라인 모드 2종: 외부로 나가는 바이트 0. 망분리, 폐쇄망에서
   그대로 돌아갑니다. PDF 색인은 opt-in.
 
+## 데모 갤러리 — 전부 실제로 도는 화면입니다
+
+각 클립은 실제 CLI 출력을 **글자 그대로**(verbatim) 다시 타이핑한 것입니다.
+목업 없음 — 재생성: `docs/assets/make_gifs.py` (캡처 원문이 스크립트에 포함).
+
+| | |
+|---|---|
+| **즉답 검색** `--fast` · 임베딩 0회, 3.8ms<br><img src="docs/assets/demo5_fast.gif" width="420"> | **모순 탐지** `lemory conflicts` · 기억 vs 기억<br><img src="docs/assets/demo6_conflicts.gif" width="420"> |
+| **AI 쓰기 승인 게이트** pending → approve<br><img src="docs/assets/demo7_approval.gif" width="420"> | **드리프트 감지** `lemory drift` · 기억 vs 현실<br><img src="docs/assets/demo8_drift.gif" width="420"> |
+| **스코프 연산자** `tag:` `folder:` `path:`<br><img src="docs/assets/demo9_operators.gif" width="420"> | **시간 인지** "요새 작업하던…" → 최신 결정 1위<br><img src="docs/assets/demo10_temporal.gif" width="420"> |
+| **오타 교정** FoundatoinDB → FoundationDB<br><img src="docs/assets/demo12_typo.gif" width="420"> | **전량 스케일 검증** KorQuAD 9,663문단 × 60,407질문<br><img src="docs/assets/demo11_scale.gif" width="420"> |
+
 ## 대시보드
 
 `lemory serve` → `127.0.0.1:8377`. 옵시디언을 복제한 화면이 아니라
