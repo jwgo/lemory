@@ -1093,6 +1093,38 @@ robustness 0.964/0.975/1.000) — even on a 116-chunk corpus where IVF is
 pathologically mis-sized. Halving the probe depth to 16 there costs ~7 pt of
 paraphrase robustness, which is why 48 is the default, not 16.
 
+## 12c. Linkless vaults — mention links carry it; semantic edges refuted (negative result)
+
+The standing critique of wikilink-graph multihop: "what about users who never
+link?" Measured (`benchmarks/run_linkless.py`): the multihop vault with every
+[[wikilink]] stripped, keyless local, full-support@8:
+
+| Config (delinked vault) | full-support@8 | support-recall@8 | edges |
+|---|---|---|---|
+| no graph signals at all | 0.491 | 0.746 | 0 |
+| **mention links only (default)** | **1.000** | **1.000** | 59 |
+| semantic k-NN edges only | 0.474 | 0.737 | 162 |
+| mentions + sem | 1.000 | 1.000 | 107 |
+| titles obfuscated, no signals | 0.544 | 0.772 | 0 |
+| titles obfuscated, sem only | 0.491 | 0.746 | 162 |
+
+Two findings, one positive and one negative — both published:
+
+1. **The linkless-vault critique mostly dissolves**: unlinked title mentions
+   (shipped default since early on) fully recover multihop on a delinked
+   vault. A user who never types `[[ ]]` but naturally names their notes'
+   subjects gets the full graph.
+2. **Semantic fallback edges are refuted.** We built cosine-kNN 'sem' edges
+   for zero-outlink notes expecting them to cover the remaining regime — they
+   score *below no-graph* even when title mentions are impossible (0.491 vs
+   0.544).
+   Similarity neighbors are not relational bridges, and the vector leg
+   already carries similarity — graph-injecting it double-counts and
+   displaces direct hits. Shipped **default-off** (`semantic_links`), same
+   standard as usage_prior: no signal ships on without a measured win. This
+   is also why LightRAG spends LLM calls extracting *relations*: relation ≠
+   similarity, and our own experiment just paid for that lesson honestly.
+
 ## 13. Context ordering — CDS-inspired curriculum (negative result)
 
 "Many-Shot CoT-ICL" (Chung et al., ICML 2026, arXiv:2605.13511) shows that

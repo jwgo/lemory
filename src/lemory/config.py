@@ -233,14 +233,18 @@ class LemoryConfig(BaseSettings):
     api_token: str = ""
     allowed_hosts: list[str] = Field(default_factory=list)
 
-    # --- semantic fallback links (the linkless-vault answer) ---
-    # Multi-hop strength comes from reading the user's [[wikilinks]] (plus
-    # verbatim title mentions) — which a vault with NO links can't provide.
-    # Fallback: a note with ZERO outgoing edges gets up to k cosine-nearest
-    # neighbor edges (kind='sem', weight=sim*semantic_links_weight). Notes
-    # that have any real link are untouched, so linked vaults — and every
-    # published benchmark — are byte-identical with this on or off.
-    semantic_links: bool = True
+    # --- semantic fallback links (measured: DON'T turn on blindly) ---
+    # Hypothesis was: a vault with no [[wikilinks]] could recover multi-hop
+    # via cosine-nearest 'sem' edges on linkless notes. The ablation
+    # (benchmarks/run_linkless.py) REFUTED it on the multihop corpus: verbatim
+    # title mentions alone fully recover (1.000), while sem edges alone score
+    # BELOW no-graph (0.474/0.491 vs 0.491/0.544) — similarity neighbors are
+    # not relational bridges, and the vector leg already carries similarity,
+    # so sem edges only displace direct hits. Default OFF per the same
+    # standard as usage_prior: a signal ships on only after it measurably
+    # helps. Kept as opt-in for corpora where mentions can't fire AND
+    # semantic neighborhoods happen to align with relations.
+    semantic_links: bool = False
     semantic_links_k: int = 3
     semantic_links_floor: float = 0.55
     semantic_links_weight: float = 0.6

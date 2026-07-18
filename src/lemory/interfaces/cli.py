@@ -682,6 +682,80 @@ def ask(
     console.print("\n[dim]" + ans.render_sources() + "[/dim]")
 
 
+@app.command("doctor")
+def doctor_cmd(vault: Optional[Path] = typer.Option(None)):
+    """설치 진단: 뭔가 이상할 때 제일 먼저 돌려볼 명령.
+
+    볼트/인덱스/임베더/생성기/FTS5를 점검하고 각 항목을 ✔/✘로 보고합니다.
+    이슈를 열 때 이 출력이 있으면 재현 문답이 절반으로 줄어듭니다."""
+    import sqlite3
+    import time as _time
+
+    rows: list[tuple[bool, str]] = []
+
+    def check(ok: bool, label: str):
+        rows.append((ok, label))
+
+    from ..config import load_config
+
+    cfg = load_config(vault=vault)
+    try:
+        v = cfg.resolved_vault()
+        n_md = sum(1 for _ in v.rglob("*.md"))
+        check(v.is_dir(), f"vault: {v} ({n_md} .md)")
+    except Exception as e:
+        check(False, f"vault: {e}")
+        v = None
+
+    try:
+        db = cfg.resolved_data_dir() / "lemory.db"
+        if db.exists():
+            c = sqlite3.connect(db)
+            integrity = c.execute("PRAGMA integrity_check").fetchone()[0]
+            n_docs = c.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+            c.close()
+            check(integrity == "ok",
+                  f"index: {db} ({n_docs} docs, integrity={integrity}, "
+                  f"{db.stat().st_size // 1024 // 1024}MB)")
+        else:
+            check(True, f"index: not built yet ({db}) — run `lemory index`")
+    except Exception as e:
+        check(False, f"index: {e}")
+
+    try:
+        c = sqlite3.connect(":memory:")
+        c.execute("CREATE VIRTUAL TABLE t USING fts5(x)")
+        c.close()
+        check(True, "sqlite FTS5 available")
+    except Exception as e:
+        check(False, f"sqlite FTS5 missing: {e}")
+
+    try:
+        from ..providers import create_client
+
+        client = create_client(cfg)
+        t0 = _time.monotonic()
+        vec = client.embed(["doctor smoke test"])
+        ms = (_time.monotonic() - t0) * 1000
+        check(vec.shape[-1] == cfg.active_embed_dim(),
+              f"embedder: {cfg.active_embed_model()} ({vec.shape[-1]}d, first embed {ms:.0f}ms)")
+        try:
+            client.generate("ping", max_output_tokens=1)
+            check(True, f"generator: {cfg.active_llm_model()}")
+        except Exception as e:
+            check(True, f"generator: 없음 (검색은 됨, ask는 불가) — {str(e)[:60]}")
+        client.close()
+    except Exception as e:
+        check(False, f"embedder: {e}")
+
+    ok_all = True
+    for ok, label in rows:
+        console.print(("[green]✔[/green] " if ok else "[red]✘[/red] ") + label)
+        ok_all = ok_all and ok
+    if not ok_all:
+        raise typer.Exit(1)
+
+
 @app.command("backup")
 def backup_cmd(
     out: Optional[Path] = typer.Argument(None, help="Output .tar.gz (default: lemory-backup-<date>.tar.gz)"),

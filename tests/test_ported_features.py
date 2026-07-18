@@ -227,6 +227,8 @@ def test_backup_restore_roundtrip(engine, tmp_path, monkeypatch):
 # ------------------------------------------- semantic fallback links (linkless)
 def test_semantic_links_only_for_linkless_notes(engine):
     v = engine.cfg.vault
+    # opt-in (default off after the run_linkless.py ablation refuted it)
+    engine.cfg.semantic_links = True
     # the fake bag-of-words embedder yields low cosines; the floor is
     # calibrated for real embedders, so lower it for the mechanism test
     engine.cfg.semantic_links_floor = 0.2
@@ -249,6 +251,8 @@ def test_semantic_links_only_for_linkless_notes(engine):
 
 def test_semantic_links_replaced_when_real_link_appears(engine):
     v = engine.cfg.vault
+    engine.cfg.semantic_links = True
+    engine.cfg.semantic_links_floor = 0.2
     (v / "혼자노트.md").write_text("고양이 사료 비교: 츄르가 최고다.", encoding="utf-8")
     (v / "고양이.md").write_text("고양이는 츄르와 사료를 먹는다.", encoding="utf-8")
     engine.index()
@@ -301,3 +305,31 @@ def test_deep_ask_merges_subquery_evidence(engine):
     ids_normal = {h.chunk_id for h in normal.sources}
     ids_deep = {h.chunk_id for h in deep.sources}
     assert ids_normal <= ids_deep, "deep mode must only ADD evidence, never drop"
+
+
+# ------------------------------------------------------ framework integrations
+def test_langchain_retriever_adapter(engine):
+    pytest = __import__("pytest")
+    try:
+        from lemory.integrations.langchain import LemoryRetriever
+    except ImportError:
+        pytest.skip("langchain-core not installed")
+    engine.index()
+    docs = LemoryRetriever(engine=engine, k=3).invoke("Dana Petrov FoundationDB")
+    assert docs and docs[0].metadata["title"] == "Dana Petrov"
+
+
+def test_llamaindex_retriever_adapter(engine):
+    pytest = __import__("pytest")
+    try:
+        from lemory.integrations.llamaindex import LemoryLlamaRetriever
+    except ImportError:
+        pytest.skip("llama-index-core not installed")
+    engine.index()
+    nodes = LemoryLlamaRetriever(engine, k=3).retrieve("Dana Petrov FoundationDB")
+    assert nodes and nodes[0].node.metadata["title"] == "Dana Petrov"
+
+
+def test_integrations_module_importable():
+    import lemory.integrations  # the package itself never needs the frameworks
+    assert lemory.integrations.__doc__

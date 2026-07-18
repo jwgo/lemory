@@ -478,16 +478,34 @@ print(lemory.ask("what did I decide about pricing?").text)
 TypeScript/Node (Vercel AI SDK, LangChain.js, plain agents) — zero-dep client
 in [`clients/js`](clients/js): `new Lemory({client: "my-agent"}).search(...)`.
 
+Python frameworks — drop the vault into an existing pipeline
+(`lemory.integrations`, soft deps, tested against both):
+
+```python
+from lemory.integrations.langchain import LemoryRetriever     # langchain-core
+from lemory.integrations.llamaindex import LemoryLlamaRetriever  # llama-index-core
+```
+
+Self-hosting: `docker build -t lemory . && docker run -p 127.0.0.1:8377:8377
+-v ~/vault:/vault lemory`. Something broken? `lemory doctor` checks vault,
+index integrity, FTS5, embedder and generator in one shot — paste its output
+into your issue.
+
 Recent additions the gap analysis asked for: `lemory ask --deep` (LLM
 decomposes a hard question into sub-queries, retrieves each, merges the
 evidence — opt-in, one extra call); `lemory backup` / `restore` (index +
-usage state; your notes are already your files); **semantic fallback links**
-(a note with zero outgoing links gets cosine-nearest `sem` edges so graph
-expansion works in linkless vaults — linked vaults byte-identical);
-`index_docx = true` (stdlib Word text extraction); and the **mobile story**:
-`lemory serve --host 0.0.0.0` + `api_token` in lemory.toml → phone/tailnet
-clients authenticate with `Authorization: Bearer <token>` while localhost
-stays zero-setup.
+usage state; your notes are already your files); `index_docx = true` (stdlib
+Word text extraction); and the **mobile story**: `lemory serve --host 0.0.0.0`
++ `api_token` in lemory.toml → phone/tailnet clients authenticate with
+`Authorization: Bearer <token>` while localhost stays zero-setup.
+
+A negative result, published per policy: **semantic fallback links**
+(cosine-nearest edges for linkless notes) were built, measured on a delinked
+multihop corpus, and REFUTED — verbatim title mentions alone fully recover
+(1.000) while sem edges score below no-graph even when mentions can't fire
+(`benchmarks/run_linkless.py`). Shipped default-off as an opt-in; the honest
+takeaway is that Lemory's multihop already survives linkless vaults through
+mention links, and similarity edges are not relational bridges.
 
 REST on `lemory serve`: `GET /search` · `POST /ask` · `GET /context` ·
 `POST /memory` · `POST /append` · `POST /memory/trash` · `POST /index` ·

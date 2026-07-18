@@ -1,0 +1,32 @@
+{
+  "bare": {
+    "full_support@8": 0.4912,
+    "support_recall@8": 0.7456,
+    "edges": 0
+  },
+  "mentions": {
+    "full_support@8": 1.0,
+    "support_recall@8": 1.0,
+    "edges": 59
+  },
+  "sem": {
+    "full_support@8": 0.4737,
+    "support_recall@8": 0.7368,
+    "edges": 162
+  },
+  "default": {
+    "full_support@8": 1.0,
+    "support_recall@8": 1.0,
+    "edges": 107
+  },
+  "obfusc-bare": {
+    "full_support@8": 0.5439,
+    "support_recall@8": 0.7719,
+    "edges": 0
+  },
+  "obfusc-sem": {
+    "full_support@8": 0.4912,
+    "support_recall@8": 0.7456,
+    "edges": 162
+  }
+}
