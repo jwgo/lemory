@@ -528,6 +528,30 @@ async function renderSearch() {
   $("#btnAsk").onclick = doAsk;
   $("#btnSearch").onclick = doSearch;
 
+  // as-you-type instant results: every keystroke fires a mode=fast query
+  // (lexical-only, no embedding — a few ms server-side), debounced just
+  // enough to skip intermediate frames. Enter/버튼 still run the full
+  // hybrid/ask paths; typing never does.
+  let instantTimer = 0, instantSeq = 0;
+  input.addEventListener("input", () => {
+    clearTimeout(instantTimer);
+    const q = input.value.trim();
+    if (q.length < 2) return;
+    instantTimer = setTimeout(async () => {
+      const seq = ++instantSeq;
+      const t0 = performance.now();
+      try {
+        const hits = await api(`/search?q=${encodeURIComponent(q)}&k=${Q.k}&mode=fast`);
+        if (seq !== instantSeq || input.value.trim() !== q) return; // stale
+        const ms = performance.now() - t0;
+        $("#answerBox").innerHTML = "";
+        $("#lat").hidden = false;
+        $("#lat").textContent = `${hits.length}건 · ${ms.toFixed(0)}ms · 즉답(fast) — Enter로 정밀 검색`;
+        drawHits(hits);
+      } catch (_) { /* instant path is best-effort; Enter still works */ }
+    }, 140);
+  });
+
   async function doSearch() {
     Q.q = input.value.trim(); if (!Q.q) return;
     $("#answerBox").innerHTML = "";

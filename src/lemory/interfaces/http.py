@@ -101,6 +101,24 @@ class TrashBody(BaseModel):
     path: str
 
 
+def remote_auth_error(client_host: str, auth_header: str,
+                      api_token: str) -> tuple[str, int] | None:
+    """Remote access (the mobile story): non-localhost CLIENTS must present
+    the configured Bearer token. Localhost stays tokenless so the desktop
+    dashboard/plugin work with zero setup; with no token configured,
+    non-localhost requests are refused outright (never silently open).
+    ('testclient' is starlette's TestClient pseudo-host — local by
+    definition, never seen by a real socket.)"""
+    if client_host in ("127.0.0.1", "::1", "localhost", "testclient", ""):
+        return None
+    if not api_token:
+        return ("remote access disabled: set api_token in lemory.toml "
+                "and send 'Authorization: Bearer <token>'", 403)
+    if auth_header != f"Bearer {api_token}":
+        return ("invalid token", 401)
+    return None
+
+
 def _client(request: "Request") -> str:
     """Client attribution for the middleware timeline. Callers self-identify
     with the X-Lemory-Client header (the Obsidian plugin, scripts, agents);
@@ -167,7 +185,9 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     # while letting real localhost clients (browser console, Obsidian) through.
     from starlette.responses import PlainTextResponse
 
-    _ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
+    _ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1", ""} | {
+        h.strip().lower() for h in engine.cfg.allowed_hosts if h.strip()
+    }
 
     @app.middleware("http")
     async def _host_guard(request, call_next):
@@ -175,10 +195,15 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         # strip port: "127.0.0.1:8377" -> "127.0.0.1", "[::1]:8377" -> "::1"
         hostname = host.rsplit(":", 1)[0] if ":" in host and not host.endswith("]") \
             else host
-        hostname = hostname.strip("[]")
+        hostname = hostname.strip("[]").lower()
         if hostname not in _ALLOWED_HOSTS:
             return PlainTextResponse(
                 "host not allowed (DNS-rebinding guard)", status_code=421)
+        client_host = request.client.host if request.client else ""
+        err = remote_auth_error(client_host, request.headers.get("authorization", ""),
+                                engine.cfg.api_token)
+        if err:
+            return PlainTextResponse(err[0], status_code=err[1])
         return await call_next(request)
 
     # allow the Obsidian app (and local tools) to call this API directly

@@ -153,3 +153,151 @@ def test_pending_note_can_be_rejected_via_trash(engine):
     trash_ai_note(engine, str(path))
     assert list_pending(engine) == []
     assert not (engine.cfg.vault / path).exists()
+
+
+def test_numbers_ignore_dates():
+    # date stamps must not create fake number conflicts between notes
+    assert _numbers("결정 (2026-07-15). 예산 80만원") == {"80"}
+    assert _numbers("07/15/2026 미팅, 3명 참석") == {"3"}
+    assert _numbers("2026년 계획: 서버 2대") == {"2"}
+    kind, _ = _classify("합의했다 (2026-07-15). 예산 80만원",
+                        "합의했다 (2026-07-14). 예산 80만원")
+    assert kind == "duplicate"  # only the dates differ -> not a conflict
+
+
+# -------------------------------------------------- remote auth (mobile story)
+def test_remote_auth_rules():
+    from lemory.interfaces.http import remote_auth_error as rae
+
+    # localhost always exempt
+    assert rae("127.0.0.1", "", "") is None
+    assert rae("::1", "", "secret") is None
+    # remote without configured token -> refused outright
+    assert rae("192.168.0.7", "", "")[1] == 403
+    # remote with wrong/missing bearer -> 401
+    assert rae("192.168.0.7", "", "secret")[1] == 401
+    assert rae("192.168.0.7", "Bearer nope", "secret")[1] == 401
+    # remote with the right token -> allowed
+    assert rae("192.168.0.7", "Bearer secret", "secret") is None
+
+
+def test_allowed_hosts_config_extends_guard(engine):
+    from starlette.testclient import TestClient
+
+    from lemory.interfaces.http import build_app
+
+    engine.cfg.allowed_hosts = ["my-desktop.tail-net.ts.net"]
+    app = build_app(engine, watch=False)
+    with TestClient(app) as c:
+        ok = c.get("/status", headers={"host": "my-desktop.tail-net.ts.net:8377"})
+        assert ok.status_code == 200
+        bad = c.get("/status", headers={"host": "evil.example.com"})
+        assert bad.status_code == 421
+
+
+# ----------------------------------------------------------- backup / restore
+def test_backup_restore_roundtrip(engine, tmp_path, monkeypatch):
+    import tarfile
+
+    from typer.testing import CliRunner
+
+    import lemory.interfaces.cli as cli
+
+    engine.index()
+    engine.store.record_hits([1])
+    monkeypatch.setattr(cli, "create_engine", lambda **kw: engine)
+    monkeypatch.setattr("lemory.config.load_config", lambda **kw: engine.cfg)
+    runner = CliRunner()
+    out = tmp_path / "b.tar.gz"
+    r = runner.invoke(app := cli.app, ["backup", str(out), "--vault", str(engine.cfg.vault)])
+    assert r.exit_code == 0, r.output
+    assert out.exists() and "lemory.db" in tarfile.open(out).getnames()
+    # wipe the index, restore, verify usage state survived
+    db = engine.store.db_path
+    engine.store.close()
+    db.unlink()
+    r = runner.invoke(app, ["restore", str(out), "--vault", str(engine.cfg.vault)])
+    assert r.exit_code == 0, r.output
+    from lemory.storage import Store
+    st = Store(db)
+    assert st.hit_stats().get(1, (0, 0))[0] == 1
+    st.close()
+
+
+# ------------------------------------------- semantic fallback links (linkless)
+def test_semantic_links_only_for_linkless_notes(engine):
+    v = engine.cfg.vault
+    # the fake bag-of-words embedder yields low cosines; the floor is
+    # calibrated for real embedders, so lower it for the mechanism test
+    engine.cfg.semantic_links_floor = 0.2
+    # two unlinked notes about the same topic, plus the existing linked fixture notes
+    (v / "국수 레시피.md").write_text(
+        "국수 요리: 면을 삶고 육수를 붓는다. 고명으로 파를 올린다.", encoding="utf-8")
+    (v / "라면 끓이기.md").write_text(
+        "라면 요리: 면을 삶고 스프를 넣는다. 파를 올리면 좋다.", encoding="utf-8")
+    engine.index()
+    store = engine.store
+    docs = {d.title: d.id for d in store.all_docs()}
+    nbrs = store.neighbors([docs["국수 레시피"]])[docs["국수 레시피"]]
+    assert any(kind == "sem" for _, kind, _ in nbrs), "linkless note should get sem edges"
+    # a note with a real wikilink must have NO sem edges (byte-identical guard)
+    mercury = docs["Mercury Initiative"]
+    kinds = {k for r in store.conn().execute(
+        "SELECT kind AS k FROM links WHERE src_doc=?", (mercury,)) for k in [r["k"]]}
+    assert "sem" not in kinds
+
+
+def test_semantic_links_replaced_when_real_link_appears(engine):
+    v = engine.cfg.vault
+    (v / "혼자노트.md").write_text("고양이 사료 비교: 츄르가 최고다.", encoding="utf-8")
+    (v / "고양이.md").write_text("고양이는 츄르와 사료를 먹는다.", encoding="utf-8")
+    engine.index()
+    store = engine.store
+    docs = {d.title: d.id for d in store.all_docs()}
+    # add a real wikilink; sem edges for that doc must give way on resync
+    (v / "혼자노트.md").write_text(
+        "고양이 사료 비교: [[고양이]]가 츄르를 좋아한다.", encoding="utf-8")
+    engine.index()
+    kinds = [r["kind"] for r in store.conn().execute(
+        "SELECT kind FROM links WHERE src_doc=?", (docs["혼자노트"],))]
+    assert "wiki" in kinds and "sem" not in kinds
+
+
+def test_semantic_links_off_config(engine):
+    engine.cfg.semantic_links = False
+    v = engine.cfg.vault
+    (v / "고독한노트.md").write_text("완전히 독립적인 주제의 노트다.", encoding="utf-8")
+    engine.index()
+    n = engine.store.conn().execute(
+        "SELECT COUNT(*) AS n FROM links WHERE kind='sem'").fetchone()["n"]
+    assert n == 0
+
+
+# ----------------------------------------------------------------- docx ingest
+def test_docx_ingest_stdlib(engine, tmp_path):
+    import zipfile
+
+    engine.cfg.index_docx = True
+    doc = engine.cfg.vault / "회의자료.docx"
+    xml = ('<?xml version="1.0"?><w:document><w:body>'
+           '<w:p><w:r><w:t>3분기 OKR: 검색 품질 개선</w:t></w:r></w:p>'
+           '<w:p><w:r><w:t>Owner: Jisoo</w:t></w:r></w:p>'
+           '</w:body></w:document>').encode("utf-8")
+    with zipfile.ZipFile(doc, "w") as z:
+        z.writestr("word/document.xml", xml)
+    engine.index()
+    hits = engine.search("3분기 OKR 검색 품질", k=3, mode="fast")
+    assert hits and hits[0].path.endswith("회의자료.docx")
+
+
+# ------------------------------------------------------------- deep ask
+def test_deep_ask_merges_subquery_evidence(engine):
+    engine.index()
+    normal = engine.ask("What is the Mercury pricing decision?")
+    gen_before = engine.llm.calls["generate"]
+    deep = engine.ask("What is the Mercury pricing decision?", deep=True)
+    # one decomposition call + one answer call
+    assert engine.llm.calls["generate"] - gen_before == 2
+    ids_normal = {h.chunk_id for h in normal.sources}
+    ids_deep = {h.chunk_id for h in deep.sources}
+    assert ids_normal <= ids_deep, "deep mode must only ADD evidence, never drop"

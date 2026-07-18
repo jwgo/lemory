@@ -214,13 +214,36 @@ class LemoryConfig(BaseSettings):
     usage_prior: float = 0.0
 
     # --- attachments ---
-    index_pdf: bool = False  # index PDF text too (pip install 'lemory[pdf]')
+    index_pdf: bool = False   # index PDF text too (pip install 'lemory[pdf]')
+    index_docx: bool = False  # index Word text too (stdlib zip/XML, no deps)
 
     # --- middleware dashboard ---
     # local-only timeline of what passed through: queries (with top sources),
     # AI memory writes, per-client stats. Lives in the same SQLite file,
     # capped ring buffer, never transmitted. Set false to keep no logs.
     event_log: bool = True
+
+    # --- remote access (the mobile story) ---
+    # Serving beyond localhost (e.g. `lemory serve --host 0.0.0.0` so Obsidian
+    # Mobile on the same Wi-Fi can search the desktop index) REQUIRES a token:
+    # every request must carry `Authorization: Bearer <api_token>`. Localhost
+    # clients are exempt so the desktop dashboard/plugin keep working without
+    # setup. Extra hostnames for the DNS-rebinding allowlist (e.g. a Tailscale
+    # MagicDNS name) go in allowed_hosts.
+    api_token: str = ""
+    allowed_hosts: list[str] = Field(default_factory=list)
+
+    # --- semantic fallback links (the linkless-vault answer) ---
+    # Multi-hop strength comes from reading the user's [[wikilinks]] (plus
+    # verbatim title mentions) — which a vault with NO links can't provide.
+    # Fallback: a note with ZERO outgoing edges gets up to k cosine-nearest
+    # neighbor edges (kind='sem', weight=sim*semantic_links_weight). Notes
+    # that have any real link are untouched, so linked vaults — and every
+    # published benchmark — are byte-identical with this on or off.
+    semantic_links: bool = True
+    semantic_links_k: int = 3
+    semantic_links_floor: float = 0.55
+    semantic_links_weight: float = 0.6
 
     # --- optional LLM retrieval stages (qmd-style; each costs LLM calls) ---
     query_expansion: bool = False   # rewrite the query into variants pre-search

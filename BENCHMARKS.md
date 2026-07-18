@@ -1116,6 +1116,16 @@ policy as LLM query expansion (§4c): measured, not adopted.
 
 ## Reproduce
 
+**One command, no API key** — the third-party check we actively invite:
+
+```bash
+./scripts/reproduce.sh          # quick tier (~15 min laptop CPU): KorQuAD + LOCOMO
+./scripts/reproduce.sh --full   # + full 60k-question KorQuAD + LongMemEval 470
+```
+
+If your numbers differ materially from this document, open an issue with
+hardware + output. Full per-benchmark commands:
+
 ```bash
 uv venv && uv pip install -e . && export GEMINI_API_KEY=...
 python benchmarks/prep_squad.py            # downloads SQuAD v2 dev

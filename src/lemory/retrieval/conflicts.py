@@ -27,6 +27,14 @@ if TYPE_CHECKING:
     from ..engine import Engine
 
 _NUM_RE = re.compile(r"\d+(?:[.,]\d+)*")
+# dates are NOT numeric claims: two notes about the same topic written on
+# different days would otherwise flag a fake "number conflict" on their date
+# stamps (observed on real vaults: '(2026-07-15)' vs '예산 80만원'). Strip
+# date-shaped tokens before extracting numbers; temporal ranking handles
+# dates where they actually matter.
+_DATE_RE = re.compile(
+    r"\d{4}[-./년]\s?\d{1,2}[-./월]\s?\d{1,2}일?|\d{1,2}/\d{1,2}/\d{2,4}|\d{4}년"
+)
 # tokens that flip a claim; substring match on purpose — Korean negation is
 # agglutinated ('않는다', '없었다') and English contractions vary ("don't")
 _NEG_TOKENS = ("않", "안 ", "없", "아니", "못 ", "금지", " not ", "n't", " no ", " never ")
@@ -42,6 +50,7 @@ class Conflict:
 
 
 def _numbers(text: str) -> set[str]:
+    text = _DATE_RE.sub(" ", text)
     return {m.group(0).replace(",", "") for m in _NUM_RE.finditer(text)}
 
 

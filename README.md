@@ -475,6 +475,20 @@ lemory.index()
 print(lemory.ask("what did I decide about pricing?").text)
 ```
 
+TypeScript/Node (Vercel AI SDK, LangChain.js, plain agents) — zero-dep client
+in [`clients/js`](clients/js): `new Lemory({client: "my-agent"}).search(...)`.
+
+Recent additions the gap analysis asked for: `lemory ask --deep` (LLM
+decomposes a hard question into sub-queries, retrieves each, merges the
+evidence — opt-in, one extra call); `lemory backup` / `restore` (index +
+usage state; your notes are already your files); **semantic fallback links**
+(a note with zero outgoing links gets cosine-nearest `sem` edges so graph
+expansion works in linkless vaults — linked vaults byte-identical);
+`index_docx = true` (stdlib Word text extraction); and the **mobile story**:
+`lemory serve --host 0.0.0.0` + `api_token` in lemory.toml → phone/tailnet
+clients authenticate with `Authorization: Bearer <token>` while localhost
+stays zero-setup.
+
 REST on `lemory serve`: `GET /search` · `POST /ask` · `GET /context` ·
 `POST /memory` · `POST /append` · `POST /memory/trash` · `POST /index` ·
 `GET /status`, plus the dashboard API (`/api/events`, `/api/clients`,
