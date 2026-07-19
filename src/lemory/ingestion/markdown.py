@@ -162,6 +162,7 @@ def _chat_burst_chunks(
     # one-line chunks
     filler = ""
     prev_tail = ""
+    prev_strong = False
     for b in bursts:
         strong = content_len(b) >= _BURST_MIN_CONTENT or any(
             c.isdigit() for c in b)
@@ -170,9 +171,15 @@ def _chat_burst_chunks(
             if len(filler) > chunk_chars:
                 chunks.append(filler.strip())
                 filler = ""
-            prev_tail = b
+            prev_tail, prev_strong = b, False
             continue
-        text = f"{prev_tail[-overlap:]}\n{b}" if prev_tail and overlap > 0 else b
+        # overlap carries the previous turn ONLY when it was weak (a question
+        # or reaction — the antecedent a reply needs). Duplicating a strong
+        # fact into the next chunk double-counts it in rank fusion — measured
+        # on RoleMemQA-messy update questions: the duplicated OLD preference
+        # outranked the newer gold (trap_above_gold 0.0 → 1.0).
+        carry = prev_tail if (prev_tail and not prev_strong) else ""
+        text = f"{carry[-overlap:]}\n{b}" if carry and overlap > 0 else b
         # a single huge burst still respects the size cap via hard splits
         while len(text) > chunk_chars * 1.5:
             cut = text.rfind(" ", max(chunk_chars - 200, 1), chunk_chars)
@@ -180,7 +187,7 @@ def _chat_burst_chunks(
             chunks.append(text[:cut].strip())
             text = text[cut - min(overlap, cut // 2):]
         chunks.append(text.strip())
-        prev_tail = b
+        prev_tail, prev_strong = b, True
     if filler.strip():
         chunks.append(filler.strip())
     return [c for c in chunks if c]
