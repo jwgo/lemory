@@ -5,7 +5,13 @@ description = "Local memory middleware for your Markdown: your Obsidian vault be
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-keywords = ["obsidian", "mcp", "memory", "rag", "knowledge-base", "local-first", "markdown", "ai-memory"]
+keywords = [
+    "obsidian", "mcp", "model-context-protocol", "memory", "ai-memory",
+    "agent-memory", "long-term-memory", "rag", "retrieval", "hybrid-search",
+    "semantic-search", "embeddings", "vector-search", "knowledge-base",
+    "knowledge-graph", "second-brain", "pkm", "note-taking", "markdown",
+    "local-first", "offline", "korean", "korean-nlp", "claude", "cursor",
+]
 authors = [{ name = "Lemory" }]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -39,9 +45,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jwgo/lemory"
-Documentation = "https://github.com/jwgo/lemory/blob/main/docs/GUIDE.md"
+Homepage = "https://jwgo.github.io/lemory/"
+Repository = "https://github.com/jwgo/lemory"
+Documentation = "https://jwgo.github.io/lemory/"
+Guide = "https://github.com/jwgo/lemory/blob/main/docs/GUIDE.md"
 Benchmarks = "https://github.com/jwgo/lemory/blob/main/BENCHMARKS.md"
+Issues = "https://github.com/jwgo/lemory/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
