@@ -1,11 +1,11 @@
 {
   "lemory": {
     "all_n": 128,
-    "all_doc1": 0.9688,
+    "all_doc1": 0.9844,
     "all_doc8": 1.0,
-    "all_ans1": 0.9609,
+    "all_ans1": 0.9688,
     "all_ans8": 1.0,
-    "all_ans_any1": 0.9609,
+    "all_ans_any1": 0.9688,
     "all_ans_any8": 1.0,
     "all_full_support@8": 1.0,
     "all_trap_above_gold": 0.0,
@@ -17,11 +17,11 @@
     "episodic_ans_any1": 0.9375,
     "episodic_ans_any8": 1.0,
     "long_n": 56,
-    "long_doc1": 0.9643,
+    "long_doc1": 1.0,
     "long_doc8": 1.0,
-    "long_ans1": 0.9643,
+    "long_ans1": 1.0,
     "long_ans8": 1.0,
-    "long_ans_any1": 0.9643,
+    "long_ans_any1": 1.0,
     "long_ans_any8": 1.0,
     "short_n": 16,
     "short_doc1": 1.0,
@@ -40,9 +40,9 @@
     "twohop_n": 8,
     "twohop_doc1": 1.0,
     "twohop_doc8": 1.0,
-    "twohop_ans1": 0.875,
+    "twohop_ans1": 0.75,
     "twohop_ans8": 1.0,
-    "twohop_ans_any1": 0.875,
+    "twohop_ans_any1": 0.75,
     "twohop_ans_any8": 1.0,
     "twohop_full_support@8": 1.0,
     "update_n": 8,
@@ -53,7 +53,7 @@
     "update_ans_any1": 1.0,
     "update_ans_any8": 1.0,
     "update_trap_above_gold": 0.0,
-    "p50_ms": 2.67,
+    "p50_ms": 10.4,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",
@@ -81,7 +81,7 @@
       },
       {
         "q": "서연의 혈액형이 뭐였지?",
-        "top1": "카이와의 대화 s28"
+        "top1": "카이와의 대화 s27"
       },
       {
         "q": "서연이 다닌 고등학교 이름은?",
@@ -97,7 +97,7 @@
       },
       {
         "q": "하은의 혈액형이 뭐였지?",
-        "top1": "리안과의 대화 s20"
+        "top1": "리안과의 대화 s02"
       },
       {
         "q": "하은이 다닌 고등학교 이름은?",
@@ -123,11 +123,11 @@
   },
   "lemory-nograph": {
     "all_n": 128,
-    "all_doc1": 0.9688,
+    "all_doc1": 0.9844,
     "all_doc8": 1.0,
-    "all_ans1": 0.9609,
+    "all_ans1": 0.9688,
     "all_ans8": 1.0,
-    "all_ans_any1": 0.9609,
+    "all_ans_any1": 0.9688,
     "all_ans_any8": 1.0,
     "all_full_support@8": 1.0,
     "all_trap_above_gold": 0.0,
@@ -139,11 +139,11 @@
     "episodic_ans_any1": 0.9375,
     "episodic_ans_any8": 1.0,
     "long_n": 56,
-    "long_doc1": 0.9643,
+    "long_doc1": 1.0,
     "long_doc8": 1.0,
-    "long_ans1": 0.9643,
+    "long_ans1": 1.0,
     "long_ans8": 1.0,
-    "long_ans_any1": 0.9643,
+    "long_ans_any1": 1.0,
     "long_ans_any8": 1.0,
     "short_n": 16,
     "short_doc1": 1.0,
@@ -162,9 +162,9 @@
     "twohop_n": 8,
     "twohop_doc1": 1.0,
     "twohop_doc8": 1.0,
-    "twohop_ans1": 0.875,
+    "twohop_ans1": 0.75,
     "twohop_ans8": 1.0,
-    "twohop_ans_any1": 0.875,
+    "twohop_ans_any1": 0.75,
     "twohop_ans_any8": 1.0,
     "twohop_full_support@8": 1.0,
     "update_n": 8,
@@ -175,7 +175,7 @@
     "update_ans_any1": 1.0,
     "update_ans_any8": 1.0,
     "update_trap_above_gold": 0.0,
-    "p50_ms": 2.54,
+    "p50_ms": 2.89,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",
@@ -203,7 +203,7 @@
       },
       {
         "q": "서연의 혈액형이 뭐였지?",
-        "top1": "카이와의 대화 s28"
+        "top1": "카이와의 대화 s27"
       },
       {
         "q": "서연이 다닌 고등학교 이름은?",
@@ -219,7 +219,7 @@
       },
       {
         "q": "하은의 혈액형이 뭐였지?",
-        "top1": "리안과의 대화 s20"
+        "top1": "리안과의 대화 s02"
       },
       {
         "q": "하은이 다닌 고등학교 이름은?",
@@ -245,27 +245,27 @@
   },
   "vector": {
     "all_n": 128,
-    "all_doc1": 0.9375,
+    "all_doc1": 0.9531,
     "all_doc8": 1.0,
-    "all_ans1": 0.9297,
+    "all_ans1": 0.9375,
     "all_ans8": 1.0,
-    "all_ans_any1": 0.9297,
+    "all_ans_any1": 0.9375,
     "all_ans_any8": 1.0,
     "all_full_support@8": 1.0,
     "all_trap_above_gold": 0.0,
     "episodic_n": 32,
-    "episodic_doc1": 0.9688,
+    "episodic_doc1": 0.9375,
     "episodic_doc8": 1.0,
-    "episodic_ans1": 0.9688,
+    "episodic_ans1": 0.9062,
     "episodic_ans8": 1.0,
-    "episodic_ans_any1": 0.9688,
+    "episodic_ans_any1": 0.9062,
     "episodic_ans_any8": 1.0,
     "long_n": 56,
-    "long_doc1": 0.9643,
+    "long_doc1": 0.9821,
     "long_doc8": 1.0,
-    "long_ans1": 0.9643,
+    "long_ans1": 0.9821,
     "long_ans8": 1.0,
-    "long_ans_any1": 0.9643,
+    "long_ans_any1": 0.9821,
     "long_ans_any8": 1.0,
     "short_n": 16,
     "short_doc1": 1.0,
@@ -282,11 +282,11 @@
     "temporal_ans_any1": 0.875,
     "temporal_ans_any8": 1.0,
     "twohop_n": 8,
-    "twohop_doc1": 0.5,
+    "twohop_doc1": 0.75,
     "twohop_doc8": 1.0,
-    "twohop_ans1": 0.375,
+    "twohop_ans1": 0.625,
     "twohop_ans8": 1.0,
-    "twohop_ans_any1": 0.375,
+    "twohop_ans_any1": 0.625,
     "twohop_ans_any8": 1.0,
     "twohop_full_support@8": 1.0,
     "update_n": 8,
@@ -297,11 +297,11 @@
     "update_ans_any1": 1.0,
     "update_ans_any8": 1.0,
     "update_trap_above_gold": 0.0,
-    "p50_ms": 0.51,
+    "p50_ms": 0.56,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",
-        "top1": "세라와의 대화 s23"
+        "top1": "세라와의 대화 s29"
       },
       {
         "q": "지훈이 다닌 고등학교 이름은?",
@@ -321,7 +321,7 @@
       },
       {
         "q": "도윤이 다닌 고등학교 이름은?",
-        "top1": "하린과의 대화 s07"
+        "top1": "하린과의 대화 s02"
       },
       {
         "q": "서연의 혈액형이 뭐였지?",
@@ -349,7 +349,7 @@
       },
       {
         "q": "수빈의 혈액형이 뭐였지?",
-        "top1": "테오와의 대화 s02"
+        "top1": "테오와의 대화 s01"
       },
       {
         "q": "수빈이 다닌 고등학교 이름은?",
@@ -368,27 +368,27 @@
   "bm25": {
     "all_n": 128,
     "all_doc1": 0.8203,
-    "all_doc8": 0.8672,
+    "all_doc8": 0.9531,
     "all_ans1": 0.8203,
-    "all_ans8": 0.8672,
+    "all_ans8": 0.9531,
     "all_ans_any1": 0.8203,
-    "all_ans_any8": 0.8672,
+    "all_ans_any8": 0.9531,
     "all_full_support@8": 1.0,
     "all_trap_above_gold": 1.0,
     "episodic_n": 32,
-    "episodic_doc1": 0.8125,
+    "episodic_doc1": 0.7812,
     "episodic_doc8": 0.8125,
-    "episodic_ans1": 0.8125,
+    "episodic_ans1": 0.7812,
     "episodic_ans8": 0.8125,
-    "episodic_ans_any1": 0.8125,
+    "episodic_ans_any1": 0.7812,
     "episodic_ans_any8": 0.8125,
     "long_n": 56,
     "long_doc1": 0.8571,
-    "long_doc8": 0.9464,
+    "long_doc8": 1.0,
     "long_ans1": 0.8571,
-    "long_ans8": 0.9464,
+    "long_ans8": 1.0,
     "long_ans_any1": 0.8571,
-    "long_ans_any8": 0.9464,
+    "long_ans_any8": 1.0,
     "short_n": 16,
     "short_doc1": 1.0,
     "short_doc8": 1.0,
@@ -404,22 +404,22 @@
     "temporal_ans_any1": 1.0,
     "temporal_ans_any8": 1.0,
     "twohop_n": 8,
-    "twohop_doc1": 0.875,
+    "twohop_doc1": 1.0,
     "twohop_doc8": 1.0,
-    "twohop_ans1": 0.875,
+    "twohop_ans1": 1.0,
     "twohop_ans8": 1.0,
-    "twohop_ans_any1": 0.875,
+    "twohop_ans_any1": 1.0,
     "twohop_ans_any8": 1.0,
     "twohop_full_support@8": 1.0,
     "update_n": 8,
     "update_doc1": 0.0,
-    "update_doc8": 0.0,
+    "update_doc8": 1.0,
     "update_ans1": 0.0,
-    "update_ans8": 0.0,
+    "update_ans8": 1.0,
     "update_ans_any1": 0.0,
-    "update_ans_any8": 0.0,
+    "update_ans_any8": 1.0,
     "update_trap_above_gold": 1.0,
-    "p50_ms": 0.74,
+    "p50_ms": 0.79,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",

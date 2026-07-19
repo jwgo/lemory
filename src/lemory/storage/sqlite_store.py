@@ -345,10 +345,6 @@ class Store:
             )
             cid = int(cur.lastrowid)
             ids.append(cid)
-            if heading == self.BURST_HEADING:
-                # vector-only granularity: the packed sibling already carries
-                # every token, and short chunks distort BM25 length norms
-                continue
             c.execute(
                 "INSERT INTO chunks_fts(rowid, text, title, heading) VALUES(?,?,?,?)",
                 (cid, fts_index_text(text), fts_index_text(title), heading),
