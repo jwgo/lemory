@@ -56,6 +56,10 @@ class SearchResult:
 # retrieval before ranking. Values with spaces are quoted: tag:"프로젝트 A".
 _OPERATOR_RE = re.compile(r'(?:^|\s)(tag|folder|path)\s*:\s*(?:"([^"]+)"|(\S+))',
                           re.IGNORECASE)
+# escape hatch from cfg.default_scope for a single query: `scope:all 질문`
+# (or 전체: prefix) searches the whole vault without touching settings
+_SCOPE_ALL_RE = re.compile(r"(?:^|\s)(?:scope\s*:\s*all|전체\s*:)(?=\s|$)",
+                           re.IGNORECASE)
 
 
 def parse_operators(query: str) -> tuple[str, list[str], list[str]]:
@@ -240,11 +244,21 @@ def hybrid_search(
     # vector/bm25 ablations as in hybrid.
     allowed_docs: set[int] | None = None
     clean, op_tags, op_folders = parse_operators(query)
+    if not (op_tags or op_folders) and cfg.default_scope:
+        # Cerebras-projects-style default scope: cfg.default_scope (same
+        # operator syntax) applies when the query itself is unscoped.
+        # Explicit operators in the query always win; `scope:all` (or 전체:)
+        # searches the whole vault for one query without touching config.
+        if _SCOPE_ALL_RE.search(query):
+            query = _SCOPE_ALL_RE.sub(" ", query).strip()
+        else:
+            _, op_tags, op_folders = parse_operators(cfg.default_scope)
     if op_tags or op_folders:
         allowed_docs = store.docs_matching(op_tags, op_folders)
         if not allowed_docs:
             return SearchResult(hits=[])
-        query = clean
+        if clean != query:  # operators came from the query text — strip them
+            query = clean
         if not query:
             # bare filter ("tag:회의록") = scoped listing, newest first
             return _filtered_listing(store, allowed_docs, k)

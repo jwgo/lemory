@@ -69,6 +69,7 @@ TUNABLE_FIELDS: dict[str, type] = {
     "chunk_chars": int,
     "chunk_overlap": int,
     "chat_burst_chunking": bool,
+    "default_scope": str,
 }
 
 ACTIVITY_KEY = "console_activity"

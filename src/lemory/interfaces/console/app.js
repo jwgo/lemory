@@ -1053,6 +1053,7 @@ const SETTINGS_META = [
     ["semantic_links", "시맨틱 폴백 링크", "링크 없는 노트에 유사도 엣지 부여 — 실측에서 이득 없음이 확인돼 기본 꺼짐 (BENCHMARKS §12c)", "bool"],
     ["context_neighbors", "이웃 청크 복원", "랭킹 확정 후 앞뒤 청크의 꼬리/머리를 붙여 잘린 전제·주의를 복원 (Cerebras KB 방식) — 검색 지표엔 영향 없음", "bool"],
     ["usage_prior", "사용 이력 부스트", "자주 인용/열람한 노트가 동점을 이깁니다 (0=끔, 0.05-0.15 권장)", "float"],
+    ["default_scope", "기본 검색 범위", "예: folder:프로젝트A tag:업무 — 명시 연산자 없는 모든 질의에 적용, scope:all 로 1회 해제, 비우면 전체", "str"],
     ["event_log", "미들웨어 타임라인", "질의·AI 쓰기 기록 (이 기기 SQLite에만 저장, 외부 전송 없음)", "bool"],
     ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 — 높을수록 연결 노트가 잘 올라옵니다", "float"],
     ["graph_sim_floor", "그래프 유사도 하한", "질의와 이 유사도 미만인 이웃은 무시 (노이즈 차단)", "float"],
@@ -1112,6 +1113,7 @@ async function renderSettings() {
       if (type === "bool") ctl = `<span class="switch ${v ? "on" : ""}" data-key="${key}"></span>`;
       else if (type === "select") ctl = `<select data-key="${key}">${options.map(o =>
         `<option ${o === v ? "selected" : ""}>${o}</option>`).join("")}</select>`;
+      else if (type === "str") ctl = `<input type="text" data-key="${key}" value="${esc(v ?? "")}" placeholder="비움 = 전체" spellcheck="false">`;
       else ctl = `<input type="number" data-key="${key}" value="${v}" step="${type === "float" ? "0.05" : "1"}">`;
       html += `<div class="set-row"><div class="set-info">
         <div class="set-name">${name} <span style="color:var(--text-3);font-size:11px;font-family:ui-monospace,monospace">${key}</span></div>

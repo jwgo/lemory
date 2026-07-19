@@ -117,6 +117,12 @@ class LemoryConfig(BaseSettings):
     # RoleMemQA-messy — see BENCHMARKS. Off = treat chat notes like prose.
     chat_burst_chunking: bool = True
 
+    # --- default scope (Cerebras-projects-style) ---
+    # operator syntax ('folder:프로젝트A tag:업무'), applied to every query
+    # that has no explicit tag:/folder: of its own. `scope:all` (또는 전체:)
+    # in a query bypasses it once. Empty = whole vault (default).
+    default_scope: str = ""
+
     # --- vector index scale-out ---
     # below the threshold: exact float32 scan (zero accuracy loss). Above it:
     # int8 IVF index — 4× less RAM, sublinear query time. 0 disables ANN.
