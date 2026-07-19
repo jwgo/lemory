@@ -111,3 +111,21 @@ def test_chat_bursts_respect_size_cap():
         f"**나**: 사실 {i}번 " + "내용 " * 80 for i in range(8))
     chunks = chunk_note(body, chunk_chars=400, overlap=50, chat_bursts=True)
     assert all(len(t) <= 700 for _, t in chunks)
+
+
+def test_burst_heading_literal_matches_store():
+    # storage can't import ingestion (cycle) so the marker exists twice;
+    # this is the pin holding the two literals together
+    from lemory.ingestion.markdown import BURST_HEADING
+    from lemory.storage.sqlite_store import Store
+    assert BURST_HEADING == Store.BURST_HEADING
+
+
+def test_burst_chunks_are_vector_only():
+    chunks = chunk_note(_CHAT, chat_bursts=True)
+    from lemory.ingestion.markdown import BURST_HEADING
+    kinds = {h for h, _ in chunks}
+    assert BURST_HEADING in kinds and "" != kinds  # both granularities exist
+    # focused chunks carry the marker; packed carry the section heading
+    assert any(h == BURST_HEADING and "임가을" in t for h, t in chunks)
+    assert any(h != BURST_HEADING and "임가을" in t for h, t in chunks)

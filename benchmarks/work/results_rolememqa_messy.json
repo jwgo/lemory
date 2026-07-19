@@ -68,7 +68,7 @@
     "update_ans_any1": 1.0,
     "update_ans_any8": 1.0,
     "update_trap_above_gold": 0.0,
-    "p50_ms": 4.11,
+    "p50_ms": 3.15,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",
@@ -205,7 +205,7 @@
     "update_ans_any1": 1.0,
     "update_ans_any8": 1.0,
     "update_trap_above_gold": 0.0,
-    "p50_ms": 4.18,
+    "p50_ms": 2.99,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",
@@ -342,7 +342,7 @@
     "update_ans_any1": 1.0,
     "update_ans_any8": 1.0,
     "update_trap_above_gold": 0.0,
-    "p50_ms": 0.58,
+    "p50_ms": 0.5,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",
@@ -479,7 +479,7 @@
     "update_ans_any1": 0.0,
     "update_ans_any8": 0.0,
     "update_trap_above_gold": 1.0,
-    "p50_ms": 1.11,
+    "p50_ms": 0.93,
     "abstention_top1": [
       {
         "q": "지훈의 혈액형이 뭐였지?",

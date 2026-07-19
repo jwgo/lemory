@@ -345,6 +345,10 @@ class Store:
             )
             cid = int(cur.lastrowid)
             ids.append(cid)
+            if heading == self.BURST_HEADING:
+                # vector-only granularity: the packed sibling already carries
+                # every token, and short chunks distort BM25 length norms
+                continue
             c.execute(
                 "INSERT INTO chunks_fts(rowid, text, title, heading) VALUES(?,?,?,?)",
                 (cid, fts_index_text(text), fts_index_text(title), heading),
@@ -910,13 +914,19 @@ class Store:
         out = [None, None]
         for i, (op, order) in enumerate((("<", "DESC"), (">", "ASC"))):
             r = c.execute(
-                f"SELECT text FROM chunks WHERE doc_id=? AND ord {op} ? AND heading != ? "
+                f"SELECT text FROM chunks WHERE doc_id=? AND ord {op} ? "
+                f"AND heading NOT IN (?, ?) "
                 f"ORDER BY ord {order} LIMIT 1",
-                (row["doc_id"], row["ord"], self.ENRICH_HEADING)).fetchone()
+                (row["doc_id"], row["ord"], self.ENRICH_HEADING,
+                 self.BURST_HEADING)).fetchone()
             out[i] = r["text"] if r else None
         return out[0], out[1]
 
     ENRICH_HEADING = "↩ context"  # marker for index-time enrichment pseudo-chunks
+    # focused chat-burst chunks (vector-only granularity; excluded from FTS —
+    # their packed sibling carries the lexical signal). Must equal
+    # ingestion.markdown.BURST_HEADING; a test pins the literals together.
+    BURST_HEADING = "↔ 발췌"
 
     def replace_enrichment_chunk(self, doc_id: int, title: str, text: str,
                                  vec: Optional[np.ndarray]) -> None:

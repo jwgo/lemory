@@ -117,6 +117,15 @@ CHAT_SPEAKER_RE = re.compile(r"^([^:：\n]{1,24})\s*[:：]\s*\S")
 # Filler is still indexed (packed together), it just never stands alone.
 _BURST_MIN_CONTENT = 25
 
+# Heading marker for focused burst chunks (mirrors Store.ENRICH_HEADING's
+# role; Store.BURST_HEADING must stay equal — storage can't import ingestion
+# without a cycle, a test pins the two literals together). Burst chunks are
+# VECTOR-ONLY: lexically they add nothing (the packed sibling contains every
+# token) and their short length distorts BM25 normalization — measured on
+# clean RoleMemQA long-type, a focused template chunk flooded the lexical
+# leg above the gold note.
+BURST_HEADING = "↔ 발췌"
+
 
 def _is_chat_section(paras: list[str]) -> bool:
     if len(paras) < 4:
@@ -206,7 +215,7 @@ def chunk_note(
         sec_paras = re.split(r"\n\n+", plain)
         if chat_bursts and _is_chat_section(sec_paras):
             chunks.extend(
-                (sec.heading, t)
+                (BURST_HEADING, t)
                 for t in _chat_burst_chunks(sec_paras, chunk_chars, overlap))
             # fall through: the packed layer is still indexed below
         if len(plain) <= chunk_chars:

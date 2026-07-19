@@ -89,8 +89,10 @@ def find_conflicts(
         if a is None or b is None:
             continue
         # enrichment pseudo-chunks (backlink context) mirror OTHER notes'
-        # text by design — pairing them reports the mirror, not a conflict
-        if Store.ENRICH_HEADING in (a.heading, b.heading):
+        # text by design — pairing them reports the mirror, not a conflict;
+        # burst chunks duplicate their own packed sibling (multi-granularity)
+        skip = (Store.ENRICH_HEADING, Store.BURST_HEADING)
+        if a.heading in skip or b.heading in skip:
             continue
         key = (min(a.doc_id, b.doc_id), max(a.doc_id, b.doc_id))
         if key in seen_docs:  # one finding per note pair keeps the report readable
