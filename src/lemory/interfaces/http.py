@@ -148,6 +148,42 @@ def _log_activity(engine: Engine, kind: str, rep) -> None:
         log.exception("failed to record activity")
 
 
+def _remember_intent(text: str) -> str | None:
+    """Chat-native write path: '기억해줘: 환불은 큐로' / '…라고 기억해' →
+    the content to save, else None. Rule-based on purpose — works with a
+    small on-device brain that can't be trusted with tool-calling."""
+    import re as _re
+
+    t = text.strip()
+    m = _re.match(r"^(?:기억해\s*줘?|저장해\s*줘?|메모해\s*줘?|remember)\s*[:,]?\s*(.+)$", t,
+                  _re.IGNORECASE | _re.DOTALL)
+    if m and len(m.group(1).strip()) >= 4:
+        return m.group(1).strip()
+    m = _re.match(r"^(.+?)\s*(?:이?라고|고|을|를)?\s*(?:기억해\s*줘?|저장해\s*줘?|메모해\s*줘?)\.?$", t,
+                  _re.DOTALL)
+    if m and len(m.group(1).strip()) >= 8:
+        return m.group(1).strip()
+    return None
+
+
+_ANAPHORA = ("그거", "그건", "그때", "그게", "그 ", "이거", "이건", "아까", "방금",
+             "걔", "쟤", "거기", "it ", "that ", "this ")
+
+
+def _contextual_query(question: str, msgs: list[dict]) -> str:
+    """Follow-up repair: retrieval on '그건 언제였지?' alone finds nothing —
+    when the turn is short or anaphoric, retrieve on the previous user turn
+    plus this one. Generation still sees the raw turn (history covers it)."""
+    q = question.strip()
+    anaphoric = len(q) <= 12 or any(q.startswith(a) or f" {a}" in f" {q}" for a in _ANAPHORA)
+    if not anaphoric:
+        return question
+    prev = [m for m in msgs[:-1] if m.get("role") == "user"]
+    if not prev:
+        return question
+    return f"{str(prev[-1]['content'])[:200]} {question}"
+
+
 def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     state = {"watcher_alive": False, "started_at": time.time()}
 
@@ -371,9 +407,48 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         if not msgs or msgs[-1]["role"] != "user":
             raise HTTPException(400, "마지막 메시지는 사용자 메시지여야 합니다")
         question = str(msgs[-1]["content"])
-        hits = engine.search(question, k=cfg.assistant_k)
+
+        # chat-native write path: "…기억해줘" saves a real vault note (with
+        # the same consolidation/approval pipeline as every other AI write)
+        # and confirms — no LLM round-trip, no tool-calling needed.
+        mem = _remember_intent(question)
+        if mem is not None:
+            from ..ingestion.memory import save_memory
+
+            try:
+                path = save_memory(engine, mem, client=_client(request) or "assistant")
+                related = getattr(path, "related", [])
+                lines = [f"기억했습니다 → `{path}`"]
+                if engine.cfg.memory_approval:
+                    lines.append("(승인 대기 — 건강 탭에서 승인하면 검색에 편입됩니다)")
+                for r in related:
+                    flag = " · 중복일 수 있음" if r.get("near_duplicate") else ""
+                    lines.append(f"관련 기억: [[{r['title']}]]{flag}")
+                confirm = "\n".join(lines)
+            except ValueError as e:
+                confirm = f"저장 실패: {e}"
+
+            def gen_mem():
+                yield "data: " + json.dumps({"sources": []}, ensure_ascii=False) + "\n\n"
+                yield "data: " + json.dumps({"delta": confirm}, ensure_ascii=False) + "\n\n"
+                yield "data: " + json.dumps({"done": True}, ensure_ascii=False) + "\n\n"
+
+            return StreamingResponse(gen_mem(), media_type="text/event-stream")
+
+        retrieval_q = _contextual_query(question, msgs)
+        hits = engine.search(retrieval_q, k=cfg.assistant_k)
         context = build_context(hits) if hits else "(관련 노트를 찾지 못했습니다.)"
         system = (SYSTEM + "\n\nNOTES (cite as [n]):\n" + context)
+        # first turn of a session: fold in situational vault context
+        # (Zep-style) so "요새 나 뭐 하고 있었지?" answers without retrieval luck
+        if not [m for m in msgs[:-1] if m.get("role") == "assistant"]:
+            from ..ingestion.memory import context_block
+
+            try:
+                system += "\n\nVAULT CONTEXT (배경 상황, 필요할 때만 활용):\n" + \
+                    context_block(engine, max_chars=1600)
+            except Exception:
+                pass
         history = [{"role": m["role"], "content": str(m["content"])} for m in msgs[:-1][-6:]]
         sources = [{"n": i + 1, "title": h.title, "path": h.path,
                     "snippet": h.text[:180]} for i, h in enumerate(hits)]

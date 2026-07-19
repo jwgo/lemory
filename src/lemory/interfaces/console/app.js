@@ -700,7 +700,7 @@ async function renderAssistant() {
       <div id="asstStatus" class="asst-status"></div>
       <div class="asst-input">
         <button class="btn asst-mic" id="asstMic" title="대화 모드 — 그냥 말하면 됩니다 (로컬 음성인식)" hidden>🎙</button>
-        <textarea id="asstIn" rows="1" placeholder="볼트에 대해 물어보세요… (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
+        <textarea id="asstIn" rows="1" placeholder="물어보거나, '…기억해줘'로 저장 — /검색 /기억 /최근 명령도 됩니다"></textarea>
         <button class="btn primary" id="asstSend">전송</button>
       </div>
     </div></div>`;
@@ -759,7 +759,7 @@ async function renderAssistant() {
   const log = $("#asstLog"), input = $("#asstIn"), send = $("#asstSend");
   ASSIST.history.forEach(msg => appendBubble(log, msg.role, msg.content, msg.sources));
   if (!ASSIST.history.length)
-    log.innerHTML = `<div class="asst-empty">무엇이든 물어보세요. 답변은 볼트의 노트에 근거하고, 아래에 출처를 답니다.<br><span style="color:var(--text-3)">예: "지난주에 정리한 결제 정책 요약해줘"</span></div>`;
+    log.innerHTML = `<div class="asst-empty">무엇이든 물어보세요. 답변은 볼트의 노트에 근거하고, 아래에 출처를 답니다.<br><span style="color:var(--text-3)">예: "지난주에 정리한 결제 정책 요약해줘" · "환불은 비동기 큐로 하기로 했다고 기억해줘"</span></div>`;
 
   input.oninput = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; };
   input.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } };
@@ -887,6 +887,30 @@ async function renderAssistant() {
     if (!text || ASSIST.busy) return;
     input.value = ""; input.style.height = "auto";
     if (!ASSIST.history.length) log.innerHTML = "";
+
+    // slash commands — instant local actions, no LLM round-trip
+    if (text.startsWith("/")) {
+      appendBubble(log, "user", text);
+      const reply = (html) => { const b = appendBubble(log, "assistant", ""); b.querySelector(".asst-text").innerHTML = html; log.scrollTop = log.scrollHeight; };
+      try {
+        if (text.startsWith("/검색 ") || text.startsWith("/s ")) {
+          const q = text.replace(/^\/(검색|s)\s+/, "");
+          const hits = await api(`/search?q=${encodeURIComponent(q)}&k=5&mode=fast`);
+          reply(hits.length ? hits.map(h => `<div><b>${esc(h.title)}</b> <span style="color:var(--text-3)">${esc(h.text.slice(0, 110))}…</span></div>`).join("")
+                            : "검색 결과 없음");
+        } else if (text.startsWith("/기억 ")) {
+          const r = await jpost("/memory", { content: text.slice(4).trim() });
+          reply(`기억했습니다 → <code>${esc(r.saved)}</code>`);
+        } else if (text === "/최근" || text === "/컨텍스트") {
+          const r = await api("/context?max_chars=1200");
+          reply(`<pre style="white-space:pre-wrap;margin:0">${esc(r.context)}</pre>`);
+        } else {
+          reply("명령: <code>/검색 질의</code> · <code>/기억 내용</code> · <code>/최근</code>");
+        }
+      } catch (e) { reply("실패: " + esc(e.message)); }
+      return;
+    }
+
     ASSIST.busy = true; send.disabled = true; ttsBuf = ""; ttsQ.length = 0;
     if (convo) setStatus("생각 중…");
     ASSIST.history.push({ role: "user", content: text });

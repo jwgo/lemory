@@ -348,3 +348,69 @@ def test_health_view_apis(engine):
         assert c.get("/api/suggest_links?k=5").status_code == 200
         assert c.get("/api/conflicts?threshold=0.9").status_code == 200
         assert c.get("/api/pending").json() == []
+
+
+# ------------------------------------------------------- assistant upgrades
+def test_remember_intent_patterns():
+    from lemory.interfaces.http import _remember_intent as ri
+
+    assert ri("기억해줘: 환불은 비동기 큐로 처리") == "환불은 비동기 큐로 처리"
+    assert ri("기억해 줘 회의는 매주 화요일") == "회의는 매주 화요일"
+    assert ri("환불은 비동기 큐로 하기로 했다고 기억해줘") == "환불은 비동기 큐로 하기로 했다"
+    assert ri("서버 IP는 10.0.0.5 라고 저장해줘") == "서버 IP는 10.0.0.5"
+    assert ri("결제 정책이 뭐였지?") is None
+    assert ri("기억해줘") is None  # no content
+
+
+def test_contextual_query_for_followups():
+    from lemory.interfaces.http import _contextual_query as cq
+
+    msgs = [{"role": "user", "content": "결제 모듈 환불 정책이 뭐야?"},
+            {"role": "assistant", "content": "비동기 큐로 처리합니다"},
+            {"role": "user", "content": "그건 언제 정했어?"}]
+    out = cq("그건 언제 정했어?", msgs)
+    assert "결제 모듈" in out and "그건 언제 정했어?" in out
+    # a full question is left alone
+    assert cq("결제 모듈 환불 정책은 무엇인가요?", msgs) == "결제 모듈 환불 정책은 무엇인가요?"
+
+
+def test_assistant_chat_remember_saves_note(engine):
+    from starlette.testclient import TestClient
+
+    from lemory.interfaces.http import build_app
+
+    engine.index()
+    app = build_app(engine, watch=False)
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        r = c.post("/api/assistant/chat", json={
+            "messages": [{"role": "user", "content": "기억해줘: 코끼리 프로젝트 마감은 9월 1일"}],
+            "session": "t1"})
+        assert r.status_code == 200
+        assert "기억했습니다" in r.text
+    hits = engine.search("코끼리 프로젝트 마감", k=3)
+    assert hits and "코끼리" in hits[0].text
+
+
+def test_assistant_chat_grounded_stream(engine, monkeypatch):
+    from starlette.testclient import TestClient
+
+    from lemory.interfaces.http import build_app
+    from lemory.providers import gemma
+
+    engine.index()
+    seen_system = {}
+
+    def fake_stream(system, history, question, **kw):
+        seen_system["s"] = system
+        yield "그라운딩 답변 [1]"
+
+    monkeypatch.setattr(gemma, "chat_stream", fake_stream)
+    app = build_app(engine, watch=False)
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        r = c.post("/api/assistant/chat", json={
+            "messages": [{"role": "user", "content": "Dana Petrov가 좋아하는 DB는?"}],
+            "session": "t2"})
+        assert r.status_code == 200 and "그라운딩 답변" in r.text
+    # first turn folds in the vault context block
+    assert "VAULT CONTEXT" in seen_system["s"]
+    assert "NOTES" in seen_system["s"]
