@@ -128,16 +128,21 @@ def _is_chat_section(paras: list[str]) -> bool:
 def _chat_burst_chunks(
     paras: list[str], chunk_chars: int, overlap: int
 ) -> list[str]:
-    """Chunk a chat-layout section by speaker bursts (Cerebras-style).
+    """Focused burst chunks for a chat-layout section (Cerebras-style).
 
-    Uniform packing dilutes a fact line's embedding with the filler around it
-    — measured messy-chat doc@1 dropped 16pt vs clean notes. Instead:
-    consecutive same-speaker messages form a burst; a burst that carries
-    signal becomes its OWN chunk, prefixed with the tail of the previous
-    burst so question→answer antecedents survive; filler bursts are packed
-    together so they stop polluting fact chunks. All text is still indexed —
-    the gate decides standalone-vs-packed, never keep-vs-drop.
-    """
+    Uniform packing dilutes a fact line's embedding with the filler around
+    it — measured messy-chat doc@1 dropped 16pt vs clean notes. Consecutive
+    same-speaker messages form a burst; a burst that carries signal (the
+    quality gate: enough content or a number) becomes its own chunk,
+    prefixed with the previous turn when that turn was weak (a question or
+    reaction — the antecedent a reply needs; duplicating a STRONG previous
+    burst instead double-counts it in rank fusion, which measurably let old
+    values outrank newer ones on update questions).
+
+    These are ADDITIONAL granularity: callers index them alongside the
+    normal packed chunks, which keep doc-level keyword aggregation (two
+    weak mentions in one note still add up) — dropping the packed layer
+    measurably broke exactly that."""
     bursts: list[str] = []
     speaker = None
     for p in paras:
@@ -157,27 +162,16 @@ def _chat_burst_chunks(
         )
 
     chunks: list[str] = []
-    # filler accumulates ACROSS strong bursts into shared packed chunks —
-    # flushing it at every strong burst would litter the index with tiny
-    # one-line chunks
-    filler = ""
     prev_tail = ""
     prev_strong = False
     for b in bursts:
         strong = content_len(b) >= _BURST_MIN_CONTENT or any(
             c.isdigit() for c in b)
         if not strong:
-            filler = f"{filler}\n{b}" if filler else b
-            if len(filler) > chunk_chars:
-                chunks.append(filler.strip())
-                filler = ""
+            # filler never gets a focused chunk — it lives in the packed
+            # layer the caller indexes anyway
             prev_tail, prev_strong = b, False
             continue
-        # overlap carries the previous turn ONLY when it was weak (a question
-        # or reaction — the antecedent a reply needs). Duplicating a strong
-        # fact into the next chunk double-counts it in rank fusion — measured
-        # on RoleMemQA-messy update questions: the duplicated OLD preference
-        # outranked the newer gold (trap_above_gold 0.0 → 1.0).
         carry = prev_tail if (prev_tail and not prev_strong) else ""
         text = f"{carry[-overlap:]}\n{b}" if carry and overlap > 0 else b
         # a single huge burst still respects the size cap via hard splits
@@ -188,8 +182,6 @@ def _chat_burst_chunks(
             text = text[cut - min(overlap, cut // 2):]
         chunks.append(text.strip())
         prev_tail, prev_strong = b, True
-    if filler.strip():
-        chunks.append(filler.strip())
     return [c for c in chunks if c]
 
 
@@ -203,7 +195,8 @@ def chunk_note(
     boundaries with overlap. Tiny trailing pieces merge into the previous
     chunk. Title context is added later by embed_text_for_chunk, not here.
     Chat-layout sections (speaker-prefixed paragraphs, e.g. chat imports)
-    chunk by speaker burst instead — see _chat_burst_chunks.
+    additionally get focused speaker-burst chunks on top of the packed ones
+    — multi-granularity, see _chat_burst_chunks.
     """
     chunks: list[tuple[str, str]] = []
     for sec in split_sections(body):
@@ -215,7 +208,7 @@ def chunk_note(
             chunks.extend(
                 (sec.heading, t)
                 for t in _chat_burst_chunks(sec_paras, chunk_chars, overlap))
-            continue
+            # fall through: the packed layer is still indexed below
         if len(plain) <= chunk_chars:
             chunks.append((sec.heading, plain))
             continue
