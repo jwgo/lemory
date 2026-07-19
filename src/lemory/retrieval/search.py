@@ -756,32 +756,37 @@ def _bm25_coverage(store: Store, query: str,
     stems = {t: (_to_jamo(t, drop_last_tail=True)
                  if has_hangul and _HANGUL_RE.search(t) and len(t) >= 2 else "")
              for t in q_tokens}
-    # AUTHORITY window: the first 8 distinct DOCS in BM25 order — the pin
-    # gate opens only on evidence near the top (a masked-entity identifier
-    # often sits at rank 4..8; that is the problem the pin exists to fix).
-    # The window used to be 8 chunks ≈ 8 docs; multi-granularity notes
-    # (burst + packed chunks) and short-chunk BM25 length normalization
-    # changed what 8 chunks means, so the doc-count is now explicit.
-    # CHOICE window: floor-passing candidates are scanned deeper (top-24) —
-    # template-heavy chat corpora put eight near-identical OLD statements of
-    # a fact ahead of the newest one, and the recency-weighted choice must
-    # be able to see it (measured: clean-RoleMemQA update doc@1 1.0 → 0.0
-    # when the gold update sat at rank 8 behind eight template twins). The
-    # gate ('best', what callers compare to verbatim thresholds) still comes
-    # from the authority window alone.
-    chunk_doc = store.get_chunks([cid for cid, _ in bm25_hits[:24]])
-    auth_docs: set[int] = set()
+    # AUTHORITY window: the first 8 candidates in BM25 order, counted after
+    # same-doc nested dedupe — the pin gate opens only on evidence near the
+    # top (a masked-entity identifier often sits at rank 4..8; that is the
+    # problem the pin exists to fix). On single-granularity corpora nothing
+    # nests, so this is byte-for-byte the old top-8-chunks window (verified:
+    # widening it to 8 distinct docs cost KorQuAD r@1 0.94 → 0.9325).
+    # Multi-granularity chat notes put a focused burst chunk inside its
+    # packed sibling; counting both wastes window slots on one note.
+    # CHOICE window: under vague-recency intent ONLY, floor-passing
+    # candidates are scanned deeper (top-24) — template-heavy chat corpora
+    # put eight near-identical OLD statements of a fact ahead of the newest
+    # one, and the recency-weighted choice must be able to see it (measured:
+    # clean-RoleMemQA update doc@1 1.0 → 0.0 when the gold update sat at
+    # rank 8 behind eight template twins). The gate ('best', what callers
+    # compare to verbatim thresholds) still comes from the authority window.
+    scan_n = 24 if rec is not None else 8
+    chunk_doc = store.get_chunks([cid for cid, _ in bm25_hits[:max(scan_n, 16)]])
     auth_ids: set[int] = set()
-    for cid, _ in bm25_hits[:24]:
+    doc_texts: dict[int, list[str]] = {}
+    for cid, _ in bm25_hits[:16]:
         m = chunk_doc.get(cid)
-        if m is None:
+        if m is None or len(auth_ids) >= 8:
             continue
-        if m.doc_id not in auth_docs and len(auth_docs) >= 8:
-            continue
-        auth_docs.add(m.doc_id)
+        sq = "".join(m.text.split())
+        seen = doc_texts.setdefault(m.doc_id, [])
+        if any(sq in t or t in sq for t in seen):
+            continue  # nested twin of a chunk already in the window
+        seen.append(sq)
         auth_ids.add(cid)
     scored: list[tuple[float, float, int]] = []  # (cover, recency_weighted, cid)
-    for cid, _ in bm25_hits[:24]:
+    for cid, _ in bm25_hits[:scan_n]:
         m = chunk_doc.get(cid)
         if m is None:
             continue

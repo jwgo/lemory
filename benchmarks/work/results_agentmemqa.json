@@ -1,421 +1,421 @@
 {
   "lemory": {
     "all_n": 45,
-    "all_doc1": 0.0,
-    "all_doc8": 0.0,
-    "all_ans1": 0.0,
-    "all_ans8": 0.0,
-    "all_ans_any1": 0.0,
-    "all_ans_any8": 0.0,
-    "all_full_support@8": 0.0,
+    "all_doc1": 0.9778,
+    "all_doc8": 1.0,
+    "all_ans1": 0.9333,
+    "all_ans8": 1.0,
+    "all_ans_any1": 0.9333,
+    "all_ans_any8": 1.0,
+    "all_full_support@8": 1.0,
     "all_trap_above_gold": 0.0,
     "bugfix_n": 5,
-    "bugfix_doc1": 0.0,
-    "bugfix_doc8": 0.0,
-    "bugfix_ans1": 0.0,
-    "bugfix_ans8": 0.0,
-    "bugfix_ans_any1": 0.0,
-    "bugfix_ans_any8": 0.0,
+    "bugfix_doc1": 1.0,
+    "bugfix_doc8": 1.0,
+    "bugfix_ans1": 1.0,
+    "bugfix_ans8": 1.0,
+    "bugfix_ans_any1": 1.0,
+    "bugfix_ans_any8": 1.0,
     "convention_n": 5,
-    "convention_doc1": 0.0,
-    "convention_doc8": 0.0,
-    "convention_ans1": 0.0,
-    "convention_ans8": 0.0,
-    "convention_ans_any1": 0.0,
-    "convention_ans_any8": 0.0,
+    "convention_doc1": 1.0,
+    "convention_doc8": 1.0,
+    "convention_ans1": 1.0,
+    "convention_ans8": 1.0,
+    "convention_ans_any1": 1.0,
+    "convention_ans_any8": 1.0,
     "decision_n": 10,
-    "decision_doc1": 0.0,
-    "decision_doc8": 0.0,
-    "decision_ans1": 0.0,
-    "decision_ans8": 0.0,
-    "decision_ans_any1": 0.0,
-    "decision_ans_any8": 0.0,
+    "decision_doc1": 0.9,
+    "decision_doc8": 1.0,
+    "decision_ans1": 0.9,
+    "decision_ans8": 1.0,
+    "decision_ans_any1": 0.9,
+    "decision_ans_any8": 1.0,
     "decision_trap_above_gold": 0.0,
     "person_n": 5,
-    "person_doc1": 0.0,
-    "person_doc8": 0.0,
-    "person_ans1": 0.0,
-    "person_ans8": 0.0,
-    "person_ans_any1": 0.0,
-    "person_ans_any8": 0.0,
+    "person_doc1": 1.0,
+    "person_doc8": 1.0,
+    "person_ans1": 1.0,
+    "person_ans8": 1.0,
+    "person_ans_any1": 1.0,
+    "person_ans_any8": 1.0,
     "temporal_n": 5,
-    "temporal_doc1": 0.0,
-    "temporal_doc8": 0.0,
-    "temporal_ans1": 0.0,
-    "temporal_ans8": 0.0,
-    "temporal_ans_any1": 0.0,
-    "temporal_ans_any8": 0.0,
+    "temporal_doc1": 1.0,
+    "temporal_doc8": 1.0,
+    "temporal_ans1": 1.0,
+    "temporal_ans8": 1.0,
+    "temporal_ans_any1": 1.0,
+    "temporal_ans_any8": 1.0,
     "twohop_n": 5,
-    "twohop_doc1": 0.0,
-    "twohop_doc8": 0.0,
-    "twohop_ans1": 0.0,
-    "twohop_ans8": 0.0,
-    "twohop_ans_any1": 0.0,
-    "twohop_ans_any8": 0.0,
-    "twohop_full_support@8": 0.0,
+    "twohop_doc1": 1.0,
+    "twohop_doc8": 1.0,
+    "twohop_ans1": 0.6,
+    "twohop_ans8": 1.0,
+    "twohop_ans_any1": 0.6,
+    "twohop_ans_any8": 1.0,
+    "twohop_full_support@8": 1.0,
     "value_n": 10,
-    "value_doc1": 0.0,
-    "value_doc8": 0.0,
-    "value_ans1": 0.0,
-    "value_ans8": 0.0,
-    "value_ans_any1": 0.0,
-    "value_ans_any8": 0.0,
-    "p50_ms": 9.28,
+    "value_doc1": 1.0,
+    "value_doc8": 1.0,
+    "value_ans1": 1.0,
+    "value_ans8": 1.0,
+    "value_ans_any1": 1.0,
+    "value_ans_any8": 1.0,
+    "p50_ms": 13.14,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-14 어시스턴트 페이북 결제연동 s02"
       },
       {
         "q": "[페이북 결제연동] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-07 어시스턴트 페이북 결제연동 s12"
       },
       {
         "q": "[사내 위키 개편] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-15 어시스턴트 사내 위키 개편 s02"
       },
       {
         "q": "[사내 위키 개편] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-29 어시스턴트 사내 위키 개편 s11"
       },
       {
         "q": "[로그 파이프라인] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-14 어시스턴트 로그 파이프라인 s02"
       },
       {
         "q": "[로그 파이프라인] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-02 어시스턴트 로그 파이프라인 s12"
       },
       {
         "q": "[모바일 푸시 서버] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-17 어시스턴트 모바일 푸시 서버 s02"
       },
       {
         "q": "[모바일 푸시 서버] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-15 어시스턴트 모바일 푸시 서버 s08"
       },
       {
         "q": "[리포트 대시보드] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-12 어시스턴트 리포트 대시보드 s02"
       },
       {
         "q": "[리포트 대시보드] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-17 어시스턴트 리포트 대시보드 s16"
       }
     ]
   },
   "lemory-nograph": {
     "all_n": 45,
-    "all_doc1": 0.0,
-    "all_doc8": 0.0,
-    "all_ans1": 0.0,
-    "all_ans8": 0.0,
-    "all_ans_any1": 0.0,
-    "all_ans_any8": 0.0,
-    "all_full_support@8": 0.0,
+    "all_doc1": 0.9778,
+    "all_doc8": 1.0,
+    "all_ans1": 0.9333,
+    "all_ans8": 1.0,
+    "all_ans_any1": 0.9333,
+    "all_ans_any8": 1.0,
+    "all_full_support@8": 1.0,
     "all_trap_above_gold": 0.0,
     "bugfix_n": 5,
-    "bugfix_doc1": 0.0,
-    "bugfix_doc8": 0.0,
-    "bugfix_ans1": 0.0,
-    "bugfix_ans8": 0.0,
-    "bugfix_ans_any1": 0.0,
-    "bugfix_ans_any8": 0.0,
+    "bugfix_doc1": 1.0,
+    "bugfix_doc8": 1.0,
+    "bugfix_ans1": 1.0,
+    "bugfix_ans8": 1.0,
+    "bugfix_ans_any1": 1.0,
+    "bugfix_ans_any8": 1.0,
     "convention_n": 5,
-    "convention_doc1": 0.0,
-    "convention_doc8": 0.0,
-    "convention_ans1": 0.0,
-    "convention_ans8": 0.0,
-    "convention_ans_any1": 0.0,
-    "convention_ans_any8": 0.0,
+    "convention_doc1": 1.0,
+    "convention_doc8": 1.0,
+    "convention_ans1": 1.0,
+    "convention_ans8": 1.0,
+    "convention_ans_any1": 1.0,
+    "convention_ans_any8": 1.0,
     "decision_n": 10,
-    "decision_doc1": 0.0,
-    "decision_doc8": 0.0,
-    "decision_ans1": 0.0,
-    "decision_ans8": 0.0,
-    "decision_ans_any1": 0.0,
-    "decision_ans_any8": 0.0,
+    "decision_doc1": 0.9,
+    "decision_doc8": 1.0,
+    "decision_ans1": 0.9,
+    "decision_ans8": 1.0,
+    "decision_ans_any1": 0.9,
+    "decision_ans_any8": 1.0,
     "decision_trap_above_gold": 0.0,
     "person_n": 5,
-    "person_doc1": 0.0,
-    "person_doc8": 0.0,
-    "person_ans1": 0.0,
-    "person_ans8": 0.0,
-    "person_ans_any1": 0.0,
-    "person_ans_any8": 0.0,
+    "person_doc1": 1.0,
+    "person_doc8": 1.0,
+    "person_ans1": 1.0,
+    "person_ans8": 1.0,
+    "person_ans_any1": 1.0,
+    "person_ans_any8": 1.0,
     "temporal_n": 5,
-    "temporal_doc1": 0.0,
-    "temporal_doc8": 0.0,
-    "temporal_ans1": 0.0,
-    "temporal_ans8": 0.0,
-    "temporal_ans_any1": 0.0,
-    "temporal_ans_any8": 0.0,
+    "temporal_doc1": 1.0,
+    "temporal_doc8": 1.0,
+    "temporal_ans1": 1.0,
+    "temporal_ans8": 1.0,
+    "temporal_ans_any1": 1.0,
+    "temporal_ans_any8": 1.0,
     "twohop_n": 5,
-    "twohop_doc1": 0.0,
-    "twohop_doc8": 0.0,
-    "twohop_ans1": 0.0,
-    "twohop_ans8": 0.0,
-    "twohop_ans_any1": 0.0,
-    "twohop_ans_any8": 0.0,
-    "twohop_full_support@8": 0.0,
+    "twohop_doc1": 1.0,
+    "twohop_doc8": 1.0,
+    "twohop_ans1": 0.6,
+    "twohop_ans8": 1.0,
+    "twohop_ans_any1": 0.6,
+    "twohop_ans_any8": 1.0,
+    "twohop_full_support@8": 1.0,
     "value_n": 10,
-    "value_doc1": 0.0,
-    "value_doc8": 0.0,
-    "value_ans1": 0.0,
-    "value_ans8": 0.0,
-    "value_ans_any1": 0.0,
-    "value_ans_any8": 0.0,
-    "p50_ms": 0.17,
+    "value_doc1": 1.0,
+    "value_doc8": 1.0,
+    "value_ans1": 1.0,
+    "value_ans8": 1.0,
+    "value_ans_any1": 1.0,
+    "value_ans_any8": 1.0,
+    "p50_ms": 4.67,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-14 어시스턴트 페이북 결제연동 s02"
       },
       {
         "q": "[페이북 결제연동] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-07 어시스턴트 페이북 결제연동 s12"
       },
       {
         "q": "[사내 위키 개편] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-15 어시스턴트 사내 위키 개편 s02"
       },
       {
         "q": "[사내 위키 개편] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-29 어시스턴트 사내 위키 개편 s11"
       },
       {
         "q": "[로그 파이프라인] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-14 어시스턴트 로그 파이프라인 s02"
       },
       {
         "q": "[로그 파이프라인] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-02 어시스턴트 로그 파이프라인 s12"
       },
       {
         "q": "[모바일 푸시 서버] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-17 어시스턴트 모바일 푸시 서버 s02"
       },
       {
         "q": "[모바일 푸시 서버] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-15 어시스턴트 모바일 푸시 서버 s08"
       },
       {
         "q": "[리포트 대시보드] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-12 어시스턴트 리포트 대시보드 s02"
       },
       {
         "q": "[리포트 대시보드] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-17 어시스턴트 리포트 대시보드 s16"
       }
     ]
   },
   "vector": {
     "all_n": 45,
-    "all_doc1": 0.0,
-    "all_doc8": 0.0,
-    "all_ans1": 0.0,
-    "all_ans8": 0.0,
-    "all_ans_any1": 0.0,
-    "all_ans_any8": 0.0,
-    "all_full_support@8": 0.0,
-    "all_trap_above_gold": 0.0,
+    "all_doc1": 0.8222,
+    "all_doc8": 1.0,
+    "all_ans1": 0.7778,
+    "all_ans8": 1.0,
+    "all_ans_any1": 0.7778,
+    "all_ans_any8": 1.0,
+    "all_full_support@8": 1.0,
+    "all_trap_above_gold": 0.8,
     "bugfix_n": 5,
-    "bugfix_doc1": 0.0,
-    "bugfix_doc8": 0.0,
-    "bugfix_ans1": 0.0,
-    "bugfix_ans8": 0.0,
-    "bugfix_ans_any1": 0.0,
-    "bugfix_ans_any8": 0.0,
+    "bugfix_doc1": 1.0,
+    "bugfix_doc8": 1.0,
+    "bugfix_ans1": 1.0,
+    "bugfix_ans8": 1.0,
+    "bugfix_ans_any1": 1.0,
+    "bugfix_ans_any8": 1.0,
     "convention_n": 5,
-    "convention_doc1": 0.0,
-    "convention_doc8": 0.0,
-    "convention_ans1": 0.0,
-    "convention_ans8": 0.0,
-    "convention_ans_any1": 0.0,
-    "convention_ans_any8": 0.0,
+    "convention_doc1": 1.0,
+    "convention_doc8": 1.0,
+    "convention_ans1": 1.0,
+    "convention_ans8": 1.0,
+    "convention_ans_any1": 1.0,
+    "convention_ans_any8": 1.0,
     "decision_n": 10,
-    "decision_doc1": 0.0,
-    "decision_doc8": 0.0,
-    "decision_ans1": 0.0,
-    "decision_ans8": 0.0,
-    "decision_ans_any1": 0.0,
-    "decision_ans_any8": 0.0,
-    "decision_trap_above_gold": 0.0,
+    "decision_doc1": 0.2,
+    "decision_doc8": 1.0,
+    "decision_ans1": 0.2,
+    "decision_ans8": 1.0,
+    "decision_ans_any1": 0.2,
+    "decision_ans_any8": 1.0,
+    "decision_trap_above_gold": 0.8,
     "person_n": 5,
-    "person_doc1": 0.0,
-    "person_doc8": 0.0,
-    "person_ans1": 0.0,
-    "person_ans8": 0.0,
-    "person_ans_any1": 0.0,
-    "person_ans_any8": 0.0,
+    "person_doc1": 1.0,
+    "person_doc8": 1.0,
+    "person_ans1": 1.0,
+    "person_ans8": 1.0,
+    "person_ans_any1": 1.0,
+    "person_ans_any8": 1.0,
     "temporal_n": 5,
-    "temporal_doc1": 0.0,
-    "temporal_doc8": 0.0,
-    "temporal_ans1": 0.0,
-    "temporal_ans8": 0.0,
-    "temporal_ans_any1": 0.0,
-    "temporal_ans_any8": 0.0,
+    "temporal_doc1": 1.0,
+    "temporal_doc8": 1.0,
+    "temporal_ans1": 1.0,
+    "temporal_ans8": 1.0,
+    "temporal_ans_any1": 1.0,
+    "temporal_ans_any8": 1.0,
     "twohop_n": 5,
-    "twohop_doc1": 0.0,
-    "twohop_doc8": 0.0,
-    "twohop_ans1": 0.0,
-    "twohop_ans8": 0.0,
-    "twohop_ans_any1": 0.0,
-    "twohop_ans_any8": 0.0,
-    "twohop_full_support@8": 0.0,
+    "twohop_doc1": 1.0,
+    "twohop_doc8": 1.0,
+    "twohop_ans1": 0.6,
+    "twohop_ans8": 1.0,
+    "twohop_ans_any1": 0.6,
+    "twohop_ans_any8": 1.0,
+    "twohop_full_support@8": 1.0,
     "value_n": 10,
-    "value_doc1": 0.0,
-    "value_doc8": 0.0,
-    "value_ans1": 0.0,
-    "value_ans8": 0.0,
-    "value_ans_any1": 0.0,
-    "value_ans_any8": 0.0,
-    "p50_ms": 0.03,
+    "value_doc1": 1.0,
+    "value_doc8": 1.0,
+    "value_ans1": 1.0,
+    "value_ans8": 1.0,
+    "value_ans_any1": 1.0,
+    "value_ans_any8": 1.0,
+    "p50_ms": 0.41,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-14 어시스턴트 페이북 결제연동 s02"
       },
       {
         "q": "[페이북 결제연동] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-07 어시스턴트 페이북 결제연동 s12"
       },
       {
         "q": "[사내 위키 개편] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-15 어시스턴트 사내 위키 개편 s02"
       },
       {
         "q": "[사내 위키 개편] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-29 어시스턴트 사내 위키 개편 s11"
       },
       {
         "q": "[로그 파이프라인] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-14 어시스턴트 로그 파이프라인 s02"
       },
       {
         "q": "[로그 파이프라인] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-21 어시스턴트 로그 파이프라인 s09"
       },
       {
         "q": "[모바일 푸시 서버] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-17 어시스턴트 모바일 푸시 서버 s02"
       },
       {
         "q": "[모바일 푸시 서버] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-15 어시스턴트 모바일 푸시 서버 s08"
       },
       {
         "q": "[리포트 대시보드] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-12 어시스턴트 리포트 대시보드 s02"
       },
       {
         "q": "[리포트 대시보드] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-29 어시스턴트 리포트 대시보드 s12"
       }
     ]
   },
   "bm25": {
     "all_n": 45,
-    "all_doc1": 0.0,
-    "all_doc8": 0.0,
-    "all_ans1": 0.0,
-    "all_ans8": 0.0,
-    "all_ans_any1": 0.0,
-    "all_ans_any8": 0.0,
-    "all_full_support@8": 0.0,
-    "all_trap_above_gold": 0.0,
+    "all_doc1": 0.8889,
+    "all_doc8": 1.0,
+    "all_ans1": 0.8444,
+    "all_ans8": 1.0,
+    "all_ans_any1": 0.8444,
+    "all_ans_any8": 1.0,
+    "all_full_support@8": 1.0,
+    "all_trap_above_gold": 0.5,
     "bugfix_n": 5,
-    "bugfix_doc1": 0.0,
-    "bugfix_doc8": 0.0,
-    "bugfix_ans1": 0.0,
-    "bugfix_ans8": 0.0,
-    "bugfix_ans_any1": 0.0,
-    "bugfix_ans_any8": 0.0,
+    "bugfix_doc1": 1.0,
+    "bugfix_doc8": 1.0,
+    "bugfix_ans1": 1.0,
+    "bugfix_ans8": 1.0,
+    "bugfix_ans_any1": 1.0,
+    "bugfix_ans_any8": 1.0,
     "convention_n": 5,
-    "convention_doc1": 0.0,
-    "convention_doc8": 0.0,
-    "convention_ans1": 0.0,
-    "convention_ans8": 0.0,
-    "convention_ans_any1": 0.0,
-    "convention_ans_any8": 0.0,
+    "convention_doc1": 1.0,
+    "convention_doc8": 1.0,
+    "convention_ans1": 1.0,
+    "convention_ans8": 1.0,
+    "convention_ans_any1": 1.0,
+    "convention_ans_any8": 1.0,
     "decision_n": 10,
-    "decision_doc1": 0.0,
-    "decision_doc8": 0.0,
-    "decision_ans1": 0.0,
-    "decision_ans8": 0.0,
-    "decision_ans_any1": 0.0,
-    "decision_ans_any8": 0.0,
-    "decision_trap_above_gold": 0.0,
+    "decision_doc1": 0.5,
+    "decision_doc8": 1.0,
+    "decision_ans1": 0.5,
+    "decision_ans8": 1.0,
+    "decision_ans_any1": 0.5,
+    "decision_ans_any8": 1.0,
+    "decision_trap_above_gold": 0.5,
     "person_n": 5,
-    "person_doc1": 0.0,
-    "person_doc8": 0.0,
-    "person_ans1": 0.0,
-    "person_ans8": 0.0,
-    "person_ans_any1": 0.0,
-    "person_ans_any8": 0.0,
+    "person_doc1": 1.0,
+    "person_doc8": 1.0,
+    "person_ans1": 1.0,
+    "person_ans8": 1.0,
+    "person_ans_any1": 1.0,
+    "person_ans_any8": 1.0,
     "temporal_n": 5,
-    "temporal_doc1": 0.0,
-    "temporal_doc8": 0.0,
-    "temporal_ans1": 0.0,
-    "temporal_ans8": 0.0,
-    "temporal_ans_any1": 0.0,
-    "temporal_ans_any8": 0.0,
+    "temporal_doc1": 1.0,
+    "temporal_doc8": 1.0,
+    "temporal_ans1": 1.0,
+    "temporal_ans8": 1.0,
+    "temporal_ans_any1": 1.0,
+    "temporal_ans_any8": 1.0,
     "twohop_n": 5,
-    "twohop_doc1": 0.0,
-    "twohop_doc8": 0.0,
-    "twohop_ans1": 0.0,
-    "twohop_ans8": 0.0,
-    "twohop_ans_any1": 0.0,
-    "twohop_ans_any8": 0.0,
-    "twohop_full_support@8": 0.0,
+    "twohop_doc1": 1.0,
+    "twohop_doc8": 1.0,
+    "twohop_ans1": 0.6,
+    "twohop_ans8": 1.0,
+    "twohop_ans_any1": 0.6,
+    "twohop_ans_any8": 1.0,
+    "twohop_full_support@8": 1.0,
     "value_n": 10,
-    "value_doc1": 0.0,
-    "value_doc8": 0.0,
-    "value_ans1": 0.0,
-    "value_ans8": 0.0,
-    "value_ans_any1": 0.0,
-    "value_ans_any8": 0.0,
-    "p50_ms": 0.07,
+    "value_doc1": 1.0,
+    "value_doc8": 1.0,
+    "value_ans1": 1.0,
+    "value_ans8": 1.0,
+    "value_ans_any1": 1.0,
+    "value_ans_any8": 1.0,
+    "p50_ms": 1.64,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-14 어시스턴트 페이북 결제연동 s02"
       },
       {
         "q": "[페이북 결제연동] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-07 어시스턴트 페이북 결제연동 s12"
       },
       {
         "q": "[사내 위키 개편] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-15 어시스턴트 사내 위키 개편 s02"
       },
       {
         "q": "[사내 위키 개편] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-04 어시스턴트 사내 위키 개편 s12"
       },
       {
         "q": "[로그 파이프라인] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-14 어시스턴트 로그 파이프라인 s02"
       },
       {
         "q": "[로그 파이프라인] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-02 어시스턴트 로그 파이프라인 s12"
       },
       {
         "q": "[모바일 푸시 서버] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-17 어시스턴트 모바일 푸시 서버 s02"
       },
       {
         "q": "[모바일 푸시 서버] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-06-01 어시스턴트 모바일 푸시 서버 s12"
       },
       {
         "q": "[리포트 대시보드] 프로덕션 DB 비밀번호가 뭐지?",
-        "top1": null
+        "top1": "2026-04-12 어시스턴트 리포트 대시보드 s02"
       },
       {
         "q": "[리포트 대시보드] 작년 회고 문서 어디 있지?",
-        "top1": null
+        "top1": "2026-05-29 어시스턴트 리포트 대시보드 s12"
       }
     ]
   }
