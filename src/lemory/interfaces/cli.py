@@ -19,6 +19,16 @@ app = typer.Typer(
     invoke_without_command=True)
 console = Console()
 
+# Output language for user-facing labels. Korean-first by default; set
+# LEMORY_LANG=en for English chrome (used by English docs/screenshots and by
+# English-speaking users). Only the small set of labels below is localized —
+# note content is always shown verbatim.
+_EN = os.environ.get("LEMORY_LANG", "").lower().startswith("en")
+
+
+def _t(ko: str, en: str) -> str:
+    return en if _EN else ko
+
 
 @app.callback(invoke_without_command=True)
 def _welcome(ctx: typer.Context):
@@ -336,8 +346,9 @@ def remember(
     path = save_memory(eng, content, title=title, folder=folder, tags=tag_list, client="cli")
     console.print(f"[green]saved[/green] {path}")
     for r in getattr(path, "related", []):
-        flag = " [yellow](중복일 수 있음 · possible duplicate)[/yellow]" if r["near_duplicate"] else ""
-        console.print(f"  [dim]관련 기억:[/dim] [[{r['title']}]] sim={r['sim']}{flag}")
+        flag = (" [yellow]" + _t("(중복일 수 있음)", "(possible duplicate)")
+                + "[/yellow]") if r["near_duplicate"] else ""
+        console.print("  [dim]" + _t("관련 기억:", "related:") + f"[/dim] [[{r['title']}]] sim={r['sim']}{flag}")
 
 
 @app.command("pending")
@@ -350,7 +361,7 @@ def pending_cmd(vault: Optional[Path] = typer.Option(None)):
     eng = _engine(vault)
     rows = list_pending(eng)
     if not rows:
-        console.print("[green]승인 대기 없음[/green]")
+        console.print(_t("[green]승인 대기 없음[/green]", "[green]nothing pending[/green]"))
         return
     table = Table()
     table.add_column("path")
@@ -358,7 +369,8 @@ def pending_cmd(vault: Optional[Path] = typer.Option(None)):
     for r in rows:
         table.add_row(r["path"], r["title"])
     console.print(table)
-    console.print(f"[dim]{len(rows)}건 대기 — lemory approve <path> 로 승인[/dim]")
+    console.print("[dim]" + _t(f"{len(rows)}건 대기 — lemory approve <path> 로 승인",
+                               f"{len(rows)} pending — approve with lemory approve <path>") + "[/dim]")
 
 
 @app.command("approve")
@@ -479,11 +491,12 @@ def drift_cmd(
         return
     total = sum(len(v) for k, v in findings.items() if isinstance(v, list))
     if total == 0:
-        console.print(f"[green]✔ 드리프트 없음[/green] — 노트 {findings['notes_scanned']}개 검사")
+        console.print(_t(f"[green]✔ 드리프트 없음[/green] — 노트 {findings['notes_scanned']}개 검사",
+                         f"[green]✔ no drift[/green] — {findings['notes_scanned']} notes scanned"))
         return
-    for kind, label in (("broken_wikilinks", "깨진 위키링크"),
-                        ("missing_file_links", "없는 파일로 가는 링크"),
-                        ("unresolved_duplicates", "미해소 중복 플래그")):
+    for kind, label in (("broken_wikilinks", _t("깨진 위키링크", "broken wikilinks")),
+                        ("missing_file_links", _t("없는 파일로 가는 링크", "links to missing files")),
+                        ("unresolved_duplicates", _t("미해소 중복 플래그", "unresolved duplicate flags"))):
         rows = findings[kind]
         if not rows:
             continue
@@ -493,7 +506,8 @@ def drift_cmd(
         for r in rows[:20]:
             table.add_row(r["note"], r.get("target", r.get("duplicate_of", "")))
         console.print(table)
-    console.print("[dim]고치려면: lemory drift --prompt | (에이전트에 전달)[/dim]")
+    console.print("[dim]" + _t("고치려면: lemory drift --prompt | (에이전트에 전달)",
+                               "to fix: lemory drift --prompt | (pipe to your agent)") + "[/dim]")
 
 
 @app.command("conflicts")
@@ -511,14 +525,17 @@ def conflicts_cmd(
     eng.index()
     found = eng.conflicts(threshold=threshold, limit=limit)
     if not found:
-        console.print("[green]✔ 모순 없음[/green] — 충돌하는 노트 쌍이 없습니다")
+        console.print(_t("[green]✔ 모순 없음[/green] — 충돌하는 노트 쌍이 없습니다",
+                         "[green]✔ no conflicts[/green] — no disagreeing note pairs"))
         return
-    labels = {"number": "숫자 불일치", "negation": "부정 충돌", "duplicate": "중복 후보"}
+    labels = {"number": _t("숫자 불일치", "number"),
+              "negation": _t("부정 충돌", "negation"),
+              "duplicate": _t("중복 후보", "duplicate")}
     table = Table(show_lines=True)
-    table.add_column("종류", width=10)
+    table.add_column(_t("종류", "kind"), width=10)
     table.add_column("sim", width=5)
-    table.add_column("노트 A / 노트 B")
-    table.add_column("내용")
+    table.add_column(_t("노트 A / 노트 B", "note A / note B"))
+    table.add_column(_t("내용", "detail"))
     for c in found:
         table.add_row(
             labels[c.kind],

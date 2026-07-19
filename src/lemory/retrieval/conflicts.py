@@ -17,9 +17,13 @@ disagreement.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+# English chrome when LEMORY_LANG=en (parity with the CLI's _t helper).
+_EN = os.environ.get("LEMORY_LANG", "").lower().startswith("en")
 
 from ..storage import ChunkHit, Store
 
@@ -66,8 +70,8 @@ def _classify(a_text: str, b_text: str) -> tuple[str, str]:
         if only_a or only_b:
             return "number", f"{'/'.join(only_a) or '—'} vs {'/'.join(only_b) or '—'}"
     if _has_negation(a_text) != _has_negation(b_text):
-        return "negation", "한쪽이 주장을 부정함"
-    return "duplicate", "내용이 거의 동일함"
+        return "negation", ("one side negates the claim" if _EN else "한쪽이 주장을 부정함")
+    return "duplicate", ("near-identical content" if _EN else "내용이 거의 동일함")
 
 
 def find_conflicts(
