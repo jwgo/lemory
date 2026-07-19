@@ -496,11 +496,18 @@ def hybrid_search(
         # (measured: two-hop full-support dropped when both granularities of
         # one note made top-8). Same-doc containment → one slot: a subset
         # adds nothing (skip), a superset replaces the subset at its rank.
+        # Leg aliasing already collapses most burst pairs upstream — this is
+        # the safety net for the un-aliasable ones (hard-split bursts) — and
+        # it applies ONLY when a burst chunk is involved: incidental
+        # overlap-suffix containment between ordinary chunks predates burst
+        # chunking and merging it changed KorQuAD results.
         nested = False
         if cap < 10**9:
             mt = _squash(meta.text)
             for i, h in enumerate(hits):
                 if h.doc_id != meta.doc_id:
+                    continue
+                if Store.BURST_HEADING not in (meta.heading, h.heading):
                     continue
                 ht = _squash(h.text)
                 if mt in ht:
@@ -830,16 +837,20 @@ def _bm25_coverage(store: Store, query: str,
     scan_n = 24 if rec is not None else 8
     chunk_doc = store.get_chunks([cid for cid, _ in bm25_hits[:max(scan_n, 16)]])
     auth_ids: set[int] = set()
-    doc_texts: dict[int, list[str]] = {}
+    doc_texts: dict[int, list[tuple[str, bool]]] = {}
     for cid, _ in bm25_hits[:16]:
         m = chunk_doc.get(cid)
         if m is None or len(auth_ids) >= 8:
             continue
+        burst = m.heading == Store.BURST_HEADING
         sq = "".join(m.text.split())
         seen = doc_texts.setdefault(m.doc_id, [])
-        if any(sq in t or t in sq for t in seen):
-            continue  # nested twin of a chunk already in the window
-        seen.append(sq)
+        # nested-twin skip applies only to burst-involved pairs — incidental
+        # overlap-suffix containment between ordinary chunks predates burst
+        # chunking and must not change the window on classic corpora
+        if any((burst or b) and (sq in t or t in sq) for t, b in seen):
+            continue
+        seen.append((sq, burst))
         auth_ids.add(cid)
     scored: list[tuple[float, float, int]] = []  # (cover, recency_weighted, cid)
     for cid, _ in bm25_hits[:scan_n]:
