@@ -475,9 +475,35 @@ def hybrid_search(
     cap = cfg.per_doc_cap if mode in ("hybrid", "fast") else 10**9
     hits: list[ChunkHit] = []
     per_doc: dict[int, int] = {}
+
+    def _squash(t: str) -> str:
+        return "".join(t.split())
+
     for cid, score in ranked:
         meta = chunk_meta.get(cid)
         if meta is None:
+            continue
+        # multi-granularity notes index a focused burst chunk INSIDE a packed
+        # chunk; spending two result slots on nested text starves other docs
+        # (measured: two-hop full-support dropped when both granularities of
+        # one note made top-8). Same-doc containment → one slot: a subset
+        # adds nothing (skip), a superset replaces the subset at its rank.
+        nested = False
+        if cap < 10**9:
+            mt = _squash(meta.text)
+            for i, h in enumerate(hits):
+                if h.doc_id != meta.doc_id:
+                    continue
+                ht = _squash(h.text)
+                if mt in ht:
+                    nested = True
+                    break
+                if ht in mt:
+                    meta.score = h.score
+                    hits[i] = meta
+                    nested = True
+                    break
+        if nested:
             continue
         if per_doc.get(meta.doc_id, 0) >= cap:
             continue
