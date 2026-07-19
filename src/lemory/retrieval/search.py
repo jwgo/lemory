@@ -272,6 +272,7 @@ def hybrid_search(
     tagged_lists: list[tuple[str, list[tuple[int, float]], float]] = []
     vec_hits: list[tuple[int, float]] = []
     bm25_hits: list[tuple[int, float]] = []
+    nested_alias: dict[int, int] = {}
     for q_text, weight, legs in queries:
         v_hits: list[tuple[int, float]] = []
         b_hits: list[tuple[int, float]] = []
@@ -291,15 +292,13 @@ def hybrid_search(
                 v_hits = store.vector_search(v, cfg.k_vector * depth)
         if mode in ("hybrid", "fast", "bm25"):
             b_hits = store.bm25_search(q_text, cfg.k_bm25 * depth)
-        # multi-granularity notes put a focused burst chunk INSIDE a packed
-        # sibling; when both rank in one leg the doc holds two RRF lottery
-        # tickets and razor-thin fusion margins flip toward it (measured on
-        # clean-RoleMemQA long-type: an irrelevant note's nested twins at
-        # BM25 rank 0+1 beat the gold 0.0404 vs 0.0398). Each leg keeps a
-        # doc's best-ranked granularity of any nested pair; corpora without
-        # burst chunks skip this entirely.
-        v_hits = _dedupe_nested_leg(store, v_hits)
-        b_hits = _dedupe_nested_leg(store, b_hits)
+        # multi-granularity: focused burst chunks act as rank boosters for
+        # their packed sibling, never as extra fusion tickets — see
+        # _canonicalize_nested_leg for the measured failure modes of the
+        # alternatives. One alias cache per search: legs and query variants
+        # agree on canonical ids by construction.
+        v_hits = _canonicalize_nested_leg(store, v_hits, nested_alias)
+        b_hits = _canonicalize_nested_leg(store, b_hits, nested_alias)
         if q_text == query:
             vec_hits, bm25_hits = v_hits, b_hits
         tagged_lists.append(("vec", v_hits, cfg.w_vector * weight))
@@ -723,32 +722,52 @@ def _idf_weight(lex: dict, token: str) -> float:
     return 1.0 / (1.0 + math.log1p(c))
 
 
-def _dedupe_nested_leg(
-    store: Store, hits: list[tuple[int, float]]
+def _canonicalize_nested_leg(
+    store: Store, hits: list[tuple[int, float]],
+    alias_cache: dict[int, int] | None = None,
 ) -> list[tuple[int, float]]:
-    """Within one retrieval leg, keep only the best-ranked of any nested
-    same-doc chunk pair (a focused burst chunk and the packed sibling that
-    contains it). One doc, one ticket per leg — see call site. No-op unless
-    a burst chunk is present in the list."""
+    """Rewrite focused burst chunks to their packed superset chunk within a
+    retrieval leg, keeping each canonical chunk's best rank.
+
+    Why aliasing and not dropping: two earlier designs measurably failed.
+    Leaving both granularities in a leg double-counts the doc in RRF and
+    flips razor-thin fusion margins (clean-RoleMemQA long-type, 0.0404 vs
+    0.0398). Per-leg dropping picks DIFFERENT survivors per leg (vector
+    keeps the focused chunk, BM25 the packed one), splitting one doc's
+    fusion mass across two chunk ids — doc@8 collapsed across every chat
+    bench. Aliasing makes fusion run on exactly the pre-burst chunk set:
+    a focused chunk that out-ranks its sibling IMPROVES the sibling's rank,
+    and nothing else changes. No-op unless burst chunks are in the list."""
     if not hits:
         return hits
     metas = store.get_chunks([cid for cid, _ in hits])
-    if not any(m.heading == Store.BURST_HEADING for m in metas.values()):
+    bursts = [cid for cid, m in metas.items()
+              if m.heading == Store.BURST_HEADING]
+    if not bursts:
         return hits
-    keep: list[tuple[int, float]] = []
-    by_doc: dict[int, list[str]] = {}
-    for cid, s in hits:  # rank order — earlier wins
-        m = metas.get(cid)
-        if m is None:
-            keep.append((cid, s))
+    alias = alias_cache if alias_cache is not None else {}
+    by_doc: dict[int, list[int]] = {}
+    for cid in bursts:
+        if cid not in alias:
+            by_doc.setdefault(metas[cid].doc_id, []).append(cid)
+    for doc_id, cids in by_doc.items():
+        dmeta = store.get_chunks(store.doc_chunk_ids(doc_id))
+        packed = [(pid, "".join(m.text.split())) for pid, m in dmeta.items()
+                  if m.heading not in (Store.BURST_HEADING, Store.ENRICH_HEADING)]
+        for cid in cids:
+            sq = "".join(metas[cid].text.split())
+            # a hard-split long burst can span two packed chunks — then no
+            # superset exists and the chunk stays its own canonical id
+            alias[cid] = next((pid for pid, pt in packed if sq in pt), cid)
+    out: list[tuple[int, float]] = []
+    seen: set[int] = set()
+    for cid, s in hits:  # rank order — best rank per canonical id wins
+        c = alias.get(cid, cid)
+        if c in seen:
             continue
-        sq = "".join(m.text.split())
-        seen = by_doc.setdefault(m.doc_id, [])
-        if any(sq in t or t in sq for t in seen):
-            continue
-        seen.append(sq)
-        keep.append((cid, s))
-    return keep
+        seen.add(c)
+        out.append((c, s))
+    return out
 
 
 def _bm25_coverage(store: Store, query: str,
