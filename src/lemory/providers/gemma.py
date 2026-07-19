@@ -68,51 +68,77 @@ def _resolve_gguf(repo: str, file: str) -> str:
         raise
 
 
-def _model(repo: str, file: str):
-    key = (repo, file)
+def _model(repo: str, file: str, n_ctx: int = N_CTX, gpu_layers: int = -1):
+    key = (repo, file, n_ctx, gpu_layers)  # distinct runtime configs don't collide
     with _LOAD_LOCK:
         m = _MODELS.get(key)
         if m is None:
             from llama_cpp import Llama
 
             path = _resolve_gguf(repo, file)
-            m = Llama(model_path=path, n_gpu_layers=-1, n_ctx=N_CTX,
+            m = Llama(model_path=path, n_gpu_layers=gpu_layers, n_ctx=n_ctx,
                       chat_format="gemma", verbose=False)
             _MODELS[key] = m
         return m
 
 
-def _fit_system(llm, system: str, history: list[dict], question: str,
-                max_output_tokens: int) -> str:
-    """Trim the grounding NOTES (system) so the whole prompt fits n_ctx — RAG
-    contexts can exceed the window, and build_context orders notes by rank, so
-    dropping the tail loses the least-relevant grounding."""
+def _fit(llm, system: str, history: list[dict], question: str,
+         max_output_tokens: int) -> tuple[str, list[dict]]:
+    """Fit (grounding, history, question) into the window with the RIGHT
+    priority: the freshly-retrieved NOTES are the answer's evidence, so they
+    outrank stale chat turns. Order of sacrifice as the context fills:
+
+        1. keep the question (always) and the answer budget,
+        2. keep the grounding NOTES (trim their tail only if they alone are huge
+           — build_context orders by rank, so the tail is least relevant),
+        3. fill whatever budget remains with the MOST RECENT history turns,
+           dropping the oldest first (sliding window).
+
+    The old code did the opposite — it trimmed the grounding to make room for
+    history — so a long conversation slowly starved retrieval and later turns
+    lost their evidence. Returns (grounding, kept_history)."""
+    def toks(s: str) -> int:
+        return len(llm.tokenize(s.encode("utf-8")))
+
     try:
-        used = len(llm.tokenize(question.encode("utf-8"))) + sum(
-            len(llm.tokenize(str(m.get("content", "")).encode("utf-8"))) for m in history)
-        keep = N_CTX - max_output_tokens - used - 128
-        if keep < 256:
-            keep = 256
+        ctx = llm.n_ctx()
+        budget = ctx - max_output_tokens - toks(question) - 160
+        if budget < 256:
+            budget = 256
+        # grounding gets up to ~75% of the budget; question always survives
         ids = llm.tokenize(system.encode("utf-8"))
-        if len(ids) > keep:
-            return llm.detokenize(ids[:keep]).decode("utf-8", "ignore")
+        gcap = max(256, int(budget * 0.75))
+        if len(ids) > gcap:
+            system = llm.detokenize(ids[:gcap]).decode("utf-8", "ignore")
+            gtok = gcap
+        else:
+            gtok = len(ids)
+        # fill the remainder with the newest history turns, oldest dropped first
+        remain = budget - gtok
+        kept: list[dict] = []
+        for m in reversed(history):
+            c = str(m.get("content", ""))
+            t = toks(c) + 8
+            if t > remain:
+                break
+            kept.insert(0, m)
+            remain -= t
+        return system, kept
     except Exception:
-        # tokenizer unavailable → conservative char cap (Korean ~1 token/char,
-        # so stay well under N_CTX - output budget rather than risk an overflow)
-        return system[:6000]
-    return system
+        return system[:6000], history[-2:]
 
 
 def chat_stream(system: str, history: list[dict], question: str,
                 repo: str = DEFAULT_REPO, file: str = DEFAULT_FILE,
-                max_output_tokens: int = 512):
+                max_output_tokens: int = 512,
+                n_ctx: int = N_CTX, gpu_layers: int = -1):
     """Yield answer text deltas, grounded via `system` and continued from
     `history` (a list of {"role","content"} for prior turns)."""
-    llm = _model(repo, file)
+    llm = _model(repo, file, n_ctx, gpu_layers)
     hist = [{"role": m["role"], "content": str(m["content"])}
             for m in history if m.get("role") in ("user", "assistant") and m.get("content")]
     with _GEN_LOCK:
-        system = _fit_system(llm, system, hist, question, max_output_tokens)
+        system, hist = _fit(llm, system, hist, question, max_output_tokens)
         # Gemma's chat template has NO system role — llama.cpp's `format_gemma`
         # drops a {"role":"system"} message entirely. Fold the grounding NOTES
         # into the current user turn so retrieval actually reaches the model.
@@ -126,8 +152,10 @@ def chat_stream(system: str, history: list[dict], question: str,
 
 
 def generate(system: str, question: str, repo: str = DEFAULT_REPO,
-             file: str = DEFAULT_FILE, max_output_tokens: int = 512) -> str:
+             file: str = DEFAULT_FILE, max_output_tokens: int = 512,
+             n_ctx: int = N_CTX, gpu_layers: int = -1) -> str:
     """Non-streaming grounded answer (for engine.ask / the search view), so a
     keyless local install can answer on-device without any API key or daemon."""
     return "".join(chat_stream(system, [], question, repo=repo, file=file,
-                               max_output_tokens=max_output_tokens)).strip()
+                               max_output_tokens=max_output_tokens,
+                               n_ctx=n_ctx, gpu_layers=gpu_layers)).strip()

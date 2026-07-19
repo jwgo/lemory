@@ -72,6 +72,14 @@ class LemoryConfig(BaseSettings):
     # ships Q4_0 (its only Q4); a wrong/renamed file self-heals in gemma._model.
     assistant_gguf_repo: str = "ggml-org/gemma-4-E4B-it-GGUF"
     assistant_gguf_file: str = "gemma-4-E4B-it-Q4_0.gguf"
+    # answer-model runtime knobs (llama.cpp). n_ctx drives the KV-cache size and
+    # prefill cost per turn — 4096 comfortably holds `assistant_k` grounding
+    # notes + question + answer while roughly halving memory/latency vs 8192 on
+    # RAM-tight machines; _fit_system trims the grounding to fit. answer_gpu_layers
+    # -1 = offload all layers (Metal/CUDA); set 0 for CPU-only, or a number for
+    # partial offload when VRAM/unified memory is tight.
+    answer_n_ctx: int = 4096
+    answer_gpu_layers: int = -1
     assistant_k: int = 6                      # notes retrieved as grounding per turn
     # the write half of the memory loop: every console-assistant conversation
     # is upserted into the vault as a dated session note (chats/ folder, the

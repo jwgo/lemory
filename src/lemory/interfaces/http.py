@@ -70,6 +70,8 @@ TUNABLE_FIELDS: dict[str, type] = {
     "chunk_overlap": int,
     "chat_burst_chunking": bool,
     "default_scope": str,
+    "answer_n_ctx": int,
+    "answer_gpu_layers": int,
 }
 
 ACTIVITY_KEY = "console_activity"
@@ -175,16 +177,26 @@ _ANAPHORA = ("그거", "그건", "그때", "그게", "그 ", "이거", "이건",
 
 def _contextual_query(question: str, msgs: list[dict]) -> str:
     """Follow-up repair: retrieval on '그건 언제였지?' alone finds nothing —
-    when the turn is short or anaphoric, retrieve on the previous user turn
-    plus this one. Generation still sees the raw turn (history covers it)."""
+    when the turn is short or anaphoric, retrieve on the recent conversation
+    plus this one. The antecedent of '그 사람/그거' usually lives in the
+    ASSISTANT's last answer (e.g. it named '김지수'), not just the user's
+    previous question — so fold in both. Generation still sees the raw turn
+    (history covers it)."""
     q = question.strip()
-    anaphoric = len(q) <= 12 or any(q.startswith(a) or f" {a}" in f" {q}" for a in _ANAPHORA)
+    anaphoric = len(q) <= 16 or any(q.startswith(a) or f" {a}" in f" {q}" for a in _ANAPHORA)
     if not anaphoric:
         return question
-    prev = [m for m in msgs[:-1] if m.get("role") == "user"]
-    if not prev:
+    prev_user = [m for m in msgs[:-1] if m.get("role") == "user"]
+    prev_asst = [m for m in msgs[:-1] if m.get("role") == "assistant"]
+    if not prev_user and not prev_asst:
         return question
-    return f"{str(prev[-1]['content'])[:200]} {question}"
+    parts = []
+    if prev_user:
+        parts.append(str(prev_user[-1]["content"])[:160])
+    if prev_asst:  # the answer that introduced the entity the user now refers to
+        parts.append(str(prev_asst[-1]["content"])[:160])
+    parts.append(question)
+    return " ".join(parts)
 
 
 def build_app(engine: Engine, watch: bool = True) -> FastAPI:
@@ -360,7 +372,8 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         stages = [
             ("brain", f"답변 모델 준비 중… ({cfg.assistant_gguf_file})", lambda: __import__(
                 "lemory.providers.gemma", fromlist=["_model"])._model(
-                cfg.assistant_gguf_repo, cfg.assistant_gguf_file)),
+                cfg.assistant_gguf_repo, cfg.assistant_gguf_file,
+                cfg.answer_n_ctx, cfg.answer_gpu_layers)),
             ("stt", "음성 인식(Whisper) 준비 중…", lambda: __import__(
                 "lemory.providers.whisper_stt", fromlist=["_model"])._model(
                 __import__("lemory.providers.whisper_stt", fromlist=["DEFAULT_SIZE"]).DEFAULT_SIZE)),
@@ -468,7 +481,8 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             from ..providers import gemma
             yield from gemma.chat_stream(
                 system, history, question,
-                repo=cfg.assistant_gguf_repo, file=cfg.assistant_gguf_file)
+                repo=cfg.assistant_gguf_repo, file=cfg.assistant_gguf_file,
+                n_ctx=cfg.answer_n_ctx, gpu_layers=cfg.answer_gpu_layers)
 
         def gen():
             try:
