@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lemory — local memory for your Markdown</title>
+<meta name="description" content="Turn your Obsidian/Markdown notes into memory for every AI you use. Local-first, keyless, Korean-first, with every retrieval claim benchmarked. One command to start.">
+<link rel="canonical" href="https://jwgo.github.io/lemory/en.html">
+<link rel="alternate" hreflang="ko" href="https://jwgo.github.io/lemory/">
+<link rel="alternate" hreflang="en" href="https://jwgo.github.io/lemory/en.html">
+<link rel="alternate" hreflang="x-default" href="https://jwgo.github.io/lemory/">
+<meta property="og:title" content="Lemory — local memory for your Markdown">
+<meta property="og:description" content="Your memory should belong to you. Not rows in someone's database — Markdown files in your own vault.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jwgo.github.io/lemory/en.html">
+<meta property="og:image" content="https://jwgo.github.io/lemory/assets/console-knowledge.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍋</text></svg>">
+<style>
+:root{
+  --bg:#fffdf8; --fg:#1f2328; --fg2:#57606a; --line:#e8e2d4;
+  --card:#ffffff; --accent:#b58a00; --accent-bg:#fff7dd;
+  --code-bg:#f6f4ee; --code-fg:#24292f; --hero:#fff9e6;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1115; --fg:#e6e6e6; --fg2:#9aa4af; --line:#262b33;
+    --card:#161a20; --accent:#e8c34a; --accent-bg:#2a2410;
+    --code-bg:#1b2027; --code-fg:#d6dde6; --hero:#171410;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--fg);line-height:1.7;font-size:16px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:860px;margin:0 auto;padding:0 20px}
+header.top{position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:10}
+.topbar{display:flex;align-items:center;gap:14px;padding:12px 0}
+.brand{font-weight:800;font-size:17px;color:var(--fg)}
+.topbar nav{margin-left:auto;display:flex;gap:14px;font-size:14px;flex-wrap:wrap}
+.topbar nav a{color:var(--fg2)}
+.lang{border:1px solid var(--line);border-radius:999px;padding:2px 12px;font-size:13px}
+.hero{background:var(--hero);border-bottom:1px solid var(--line);padding:56px 0 40px;text-align:center}
+.hero h1{font-size:clamp(28px,5vw,44px);margin:0 0 10px;letter-spacing:-.02em}
+.hero p.lead{font-size:clamp(16px,2.4vw,19px);color:var(--fg2);margin:0 auto 26px;max-width:560px}
+.hero .cta{display:inline-block;background:var(--fg);color:var(--bg);padding:12px 26px;border-radius:12px;font-weight:700}
+.hero .cta:hover{text-decoration:none;opacity:.88}
+.hero .sub{display:block;margin-top:12px;font-size:13px;color:var(--fg2)}
+.hero img{max-width:100%;border-radius:12px;margin-top:34px;border:1px solid var(--line)}
+section{padding:48px 0;border-bottom:1px solid var(--line)}
+h2{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+h3{font-size:18px;margin:28px 0 8px}
+.kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+p{margin:12px 0}
+.muted{color:var(--fg2)}
+pre{background:var(--code-bg);color:var(--code-fg);padding:16px 18px;border-radius:12px;overflow-x:auto;font-size:14px;line-height:1.6;border:1px solid var(--line)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+p code,li code{background:var(--code-bg);padding:1px 6px;border-radius:6px;font-size:.9em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:20px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card b{display:block;margin-bottom:6px;font-size:15px}
+.card p{margin:0;font-size:14px;color:var(--fg2)}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:8px 12px;text-align:left}
+th{background:var(--code-bg)}
+.num{font-variant-numeric:tabular-nums}
+.step{display:flex;gap:14px;margin:18px 0;align-items:flex-start}
+.step .n{flex:0 0 30px;height:30px;border-radius:999px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-top:2px}
+footer{padding:38px 0;color:var(--fg2);font-size:14px;text-align:center}
+.pill{display:inline-block;background:var(--accent-bg);color:var(--accent);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-right:6px}
+blockquote{margin:16px 0;padding:12px 18px;border-left:3px solid var(--accent);background:var(--card);border-radius:0 10px 10px 0;color:var(--fg2)}
+img.shot{max-width:100%;border-radius:12px;border:1px solid var(--line);margin:14px 0}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap topbar">
+  <span class="brand">🍋 Lemory</span>
+  <nav>
+    <a href="#why">Why</a>
+    <a href="#install">Install</a>
+    <a href="#usecases">Use cases</a>
+    <a href="#howto">How to use</a>
+    <a href="#how">Under the hood</a>
+    <a href="https://github.com/jwgo/lemory">GitHub</a>
+    <a class="lang" href="./">한국어</a>
+  </nav>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <h1>Your memory should belong to you</h1>
+  <p class="lead">Turn your Obsidian/Markdown notes into memory for every AI
+  you use. Not rows in someone's database — <b>files in your own folder</b>.</p>
+  <a class="cta" href="#install">Start in one minute</a>
+  <span class="sub">Keyless, free, everything runs on your machine</span>
+  <img src="assets/demo1_korean.gif" alt="A real 1,469-note vault answering a natural-language question in 0.1 seconds" loading="lazy">
+  <span class="sub">Not a mockup. A real 1,469-document wiki vault answering in 0.1s, with a typo repaired without any API call.</span>
+</div></div>
+
+<section id="why"><div class="wrap">
+  <div class="kicker">Why</div>
+  <h2>Why we built this</h2>
+  <p>Today's AI memory products want your knowledge as rows in <b>their</b>
+  database. They summarize what you said and store the summary. Information
+  is lost at write time, you can't verify it later, and if you ever leave
+  the service, your memory stays behind.</p>
+  <p>We think differently: <b>the Markdown files you already own are the
+  better database.</b> They have dates, original wording, git history, and
+  one <code>rm</code> deletes them. Lemory sits between those files and your
+  AI, and does three things:</p>
+  <div class="grid">
+    <div class="card"><b>AI reads your memory</b><p>Hybrid retrieval: semantic + CJK-aware keyword search + your [[wikilink]] graph. Benchmarked against every competitor we can run — losses published too.</p></div>
+    <div class="card"><b>AI writes your memory</b><p>Decisions and facts land as plain .md notes in your vault, with duplicate detection and automatic related-links.</p></div>
+    <div class="card"><b>You see everything</b><p>Every query, every note an AI wrote (one-click undo), per-client usage — all in a dashboard, all in one local SQLite file.</p></div>
+  </div>
+  <p>One more thing: most of this space treats Korean (and CJK in general)
+  as an afterthought. Lemory treats it as a benchmark suite — Hangul bigram
+  indexing, syllable-level typo repair, morphology-aware matching. Ask in
+  Korean over English notes and it still finds the answer.</p>
+  <blockquote>Every number regenerates from committed code and public data.
+  Losses and failed experiments are published too:
+  <a href="https://github.com/jwgo/lemory/blob/main/BENCHMARKS.md">BENCHMARKS.md</a>.</blockquote>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <div class="kicker">Install</div>
+  <h2>Install — one command</h2>
+  <div class="step"><div class="n">1</div><div>
+    <b>Install</b>
+    <pre>pipx install "git+https://github.com/jwgo/lemory"</pre>
+    <p class="muted">No pipx? Plain <code>pip install</code> works. Python 3.10+ is all you need.</p>
+  </div></div>
+  <div class="step"><div class="n">2</div><div>
+    <b>Start</b>
+    <pre>lemory up ~/Obsidian/MyVault</pre>
+    <p class="muted">This one line does config → indexing → dashboard. Any
+    folder of <code>.md</code> files counts as a vault — Obsidian optional.</p>
+  </div></div>
+  <div class="step"><div class="n">3</div><div>
+    <b>Ask</b>
+    <pre>lemory ask "where did I leave off on that project?"</pre>
+    <p class="muted">That's it. Typos and casual phrasing are fine.</p>
+  </div></div>
+  <h3>No API key required</h3>
+  <p>With a Gemini key it uses the cloud; without one it runs the
+  <b>on-device stack that ships by default</b> (Korean-tuned e5-small-ko-v2
+  embeddings + Gemma 4 answers). In fully-offline mode, <b>not one byte</b>
+  of your vault leaves the machine — air-gapped environments included.</p>
+  <table>
+    <tr><th>Mode</th><th>Needs</th><th>You get</th></tr>
+    <tr><td>On-device (default)</td><td>No key, 8GB+ RAM</td><td>Search + answers, fully offline</td></tr>
+    <tr><td>Light local</td><td>No key, 4GB RAM</td><td>Search only (Raspberry-Pi-class OK)</td></tr>
+    <tr><td>Gemini cloud</td><td>One free key (no card)</td><td>Search + answers, ~250 questions/day free</td></tr>
+  </table>
+  <p class="muted">No LLM pipeline runs at ingest. Indexing 1,000 notes =
+  0 LLM calls, searchable in seconds.</p>
+</div></section>
+
+<section id="usecases"><div class="wrap">
+  <div class="kicker">Use cases</div>
+  <h2>Where it shines</h2>
+  <div class="grid">
+    <div class="card"><b>💼 Work &amp; meetings</b><p>"What budget did we settle on at the Q3 kickoff?" "How did the remote policy change since last year?" — the more meeting notes, the stronger it gets.</p></div>
+    <div class="card"><b>📚 Study notes</b><p>"What was the event loop again — from my notes?" Answers from what you wrote, not from the internet.</p></div>
+    <div class="card"><b>🤖 Long-term memory for AI assistants</b><p>Connect Claude/Cursor via MCP and decisions survive the session. The next session picks up where you left off.</p></div>
+    <div class="card"><b>💬 Chat memory</b><p>Import your ChatGPT/Claude exports and decisions buried in conversations become searchable — a month later, with the source cited.</p></div>
+    <div class="card"><b>🎮 Games &amp; hobbies</b><p>"What did I write down to prep for that boss?" "My golden ratio for kimchi stew" — strategy notes and recipes alike.</p></div>
+    <div class="card"><b>🏠 Life admin</b><p>"That ramen place in Osaka?" "What's step one if my lease renewal is refused?" — anything you ever wrote down.</p></div>
+  </div>
+  <h3>The queries plain RAG structurally can't do</h3>
+  <pre>$ lemory ask "what database does the Atlas project lead prefer?"
+# multi-hop: Atlas note → [[lead]] wikilink → that person's note has the answer
+
+$ lemory ask "what book have I been reading lately?"   # picks the CURRENT one
+$ lemory ask "what was I reading in March?"            # March reaches history</pre>
+  <p>Your <code>[[wikilinks]]</code> are already a knowledge graph. Reading
+  them for free measured higher on multi-hop (1.000) than the graphs
+  competitors pay LLM pipelines to build (0.53–0.81).</p>
+</div></section>
+
+<section id="howto"><div class="wrap">
+  <div class="kicker">How to use</div>
+  <h2>How to use it day-to-day</h2>
+  <h3>① Keep the server running</h3>
+  <pre>lemory serve        # http://127.0.0.1:8377</pre>
+  <p>The Obsidian plugin, Claude/MCP, and the web dashboard all attach here.
+  Edit notes while it runs and they re-index within seconds. One-off
+  <code>lemory ask</code> works without it.</p>
+  <img class="shot" src="assets/console-knowledge.png" alt="Dashboard knowledge tab: note detail, local graph, related notes" loading="lazy">
+  <h3>② Connect your AI</h3>
+  <pre>claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault --client claude-desktop
+lemory skill install claude-code    # teach the assistant to use it well
+lemory hooks install claude-code    # auto-save session memory on exit</pre>
+  <p>Cursor, Windsurf, VS Code — anything that speaks MCP works the same
+  way. With the hook installed, every Claude Code session ends by saving
+  the decisions worth keeping as <b>one dated note</b>. No discipline
+  required.</p>
+  <h3>③ Write and tend your memory</h3>
+  <pre>lemory remember "VPN renews every March, owner: Kim Haneul" --tags ops
+lemory search "tag:meetings folder:2026 budget"   # scoped search
+lemory suggest-links    # unlinked mentions → link proposals (weekly)
+lemory drift            # broken links & unresolved duplicates
+lemory graph --open     # the whole vault as an interactive graph</pre>
+  <p>Everything an AI writes shows up in the dashboard feed with attribution
+  and an <b>undo button</b>. Nothing passes through invisibly.</p>
+  <h3>④ Privacy is one line</h3>
+  <pre>---
+lemory: false
+---</pre>
+  <p>Put that at the top of any note and it is never indexed, never
+  retrieved, never sent to any model. Your diary stays a diary.</p>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <div class="kicker">Under the hood</div>
+  <h2>How it works</h2>
+  <pre>your vault (*.md) ──watch──► parse: frontmatter · tags · [[links]] · dates
+                                │
+                                ▼
+            one SQLite file: chunks · BM25 · link graph · embed cache
+                                │
+query ─► typo repair ─► dense + lexical (fusion) ─► title & recency boosts
+                                │
+                       1-hop graph expansion   ← multi-hop answers come from here
+                                │
+                                ▼
+            dated, cited context ─► LLM ─► answer [n]</pre>
+  <p>Search is local and LLM-free (3–13ms). One embedding call per query
+  (cached), one generation call per answer. Past 20k chunks the vector index
+  switches automatically — <b>1M chunks = 5.9ms per query</b>.</p>
+  <h3>In numbers</h3>
+  <table class="num">
+    <tr><th>Measured</th><th>Lemory</th><th>Context</th></tr>
+    <tr><td>Multi-hop answer-in-context@8</td><td><b>1.000</b></td><td>LightRAG 0.807 · mem0 0.579 · qmd 0.526</td></tr>
+    <tr><td>Retrieval latency (p50)</td><td><b>~3ms</b></td><td>mem0 212ms · qmd 0.6–59s</td></tr>
+    <tr><td>KorQuAD recall@1 (keyless local)</td><td><b>0.930</b></td><td>BM25 0.900 · vector-only 0.840</td></tr>
+    <tr><td>LongMemEval 500-question Recall@5</td><td><b>0.983</b></td><td>zero API calls, local embedder</td></tr>
+    <tr><td>Ingest (1,000 notes)</td><td><b>0 LLM calls</b></td><td>some competitors: 45 min for 54 notes</td></tr>
+  </table>
+  <p class="muted">All measured on the same harness, reproducible from the
+  repo. The axes we lose (e.g. a small English vault where vector-only edges
+  us by one question) are printed too.</p>
+</div></section>
+
+<section id="dev"><div class="wrap">
+  <div class="kicker">For developers</div>
+  <h2>For developers</h2>
+  <pre>import lemory
+lemory.configure(vault="~/Obsidian/MyVault")
+lemory.index()
+print(lemory.ask("what did I decide about pricing?").text)</pre>
+  <p><span class="pill">REST</span> <code>GET /search</code> · <code>POST /ask</code> · <code>POST /memory</code> …
+  <span class="pill">TS/JS</span> zero-dep client (<code>clients/js</code>)
+  <span class="pill">Python</span> LangChain · LlamaIndex retrievers
+  <span class="pill">Docker</span> self-hosting
+  <span class="pill">Connector SDK</span> <code>lemory connect script.py</code> pulls any source into vault notes</p>
+  <p>Details in the <a href="https://github.com/jwgo/lemory/blob/main/README.en.md">English README</a>.</p>
+</div></section>
+
+<footer><div class="wrap">
+  🍋 <b>Lemory</b> · MIT ·
+  <a href="https://github.com/jwgo/lemory">GitHub</a> ·
+  <a href="https://github.com/jwgo/lemory/blob/main/BENCHMARKS.md">Benchmarks</a> ·
+  <a href="https://github.com/jwgo/lemory/blob/main/docs/GUIDE.md">Full guide</a> ·
+  <a href="./">한국어</a>
+  <p class="muted" style="margin-top:8px">Your memory should belong to you.</p>
+</div></footer>
+
+</body>
+</html>
