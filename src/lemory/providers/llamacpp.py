@@ -38,7 +38,8 @@ class LlamaCppLocalClient:
                  gguf_file: str = DEFAULT_GGUF_FILE,
                  embed_dim: int = DEFAULT_GGUF_DIM,
                  n_ctx: int = 1024, generator=None,
-                 answer_repo: str | None = None, answer_file: str | None = None):
+                 answer_repo: str | None = None, answer_file: str | None = None,
+                 answer_n_ctx: int | None = None, answer_gpu_layers: int | None = None):
         self.llm_model = generator.llm_model if generator else "none (local search-only)"
         # a stable, human-readable id the index stores to detect model switches
         self.embed_model = f"llamacpp:{gguf_repo}/{gguf_file}"
@@ -51,6 +52,8 @@ class LlamaCppLocalClient:
         self._generator = generator
         self._answer_repo = answer_repo
         self._answer_file = answer_file
+        self._answer_n_ctx = answer_n_ctx
+        self._answer_gpu_layers = answer_gpu_layers
 
     def _embedder(self):
         with self._lock:
@@ -89,7 +92,8 @@ class LlamaCppLocalClient:
         if self._generator is not None:
             return self._generator.generate(prompt, system=system, **kw)
         from .local import _local_generate
-        return _local_generate(prompt, system, self._answer_repo, self._answer_file)
+        return _local_generate(prompt, system, self._answer_repo, self._answer_file,
+                               self._answer_n_ctx, self._answer_gpu_layers)
 
     def generate_json(self, prompt: str, system: str | None = None, **kw) -> Any:
         if self._generator is not None:
@@ -97,7 +101,8 @@ class LlamaCppLocalClient:
         from .base import parse_json_loose
         from .local import _local_generate
         return parse_json_loose(
-            _local_generate(prompt, system, self._answer_repo, self._answer_file))
+            _local_generate(prompt, system, self._answer_repo, self._answer_file,
+                            self._answer_n_ctx, self._answer_gpu_layers))
 
     def close(self) -> None:
         if self._generator is not None:

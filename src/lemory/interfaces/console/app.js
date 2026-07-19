@@ -1054,6 +1054,8 @@ const SETTINGS_META = [
     ["context_neighbors", "이웃 청크 복원", "랭킹 확정 후 앞뒤 청크의 꼬리/머리를 붙여 잘린 전제·주의를 복원 (Cerebras KB 방식) — 검색 지표엔 영향 없음", "bool"],
     ["usage_prior", "사용 이력 부스트", "자주 인용/열람한 노트가 동점을 이깁니다 (0=끔, 0.05-0.15 권장)", "float"],
     ["default_scope", "기본 검색 범위", "예: folder:프로젝트A tag:업무 — 명시 연산자 없는 모든 질의에 적용, scope:all 로 1회 해제, 비우면 전체", "str"],
+    ["answer_n_ctx", "답변 모델 컨텍스트(토큰)", "온디바이스 답변 창 크기. 작을수록 메모리·지연 절감(RAM 부족 시 낮추기), 클수록 근거 노트를 더 많이 담음. 기본 4096", "int"],
+    ["answer_gpu_layers", "답변 모델 GPU 레이어", "-1=전부 GPU(Metal/CUDA) · 0=CPU 전용 · N=부분 오프로드(통합메모리/VRAM 부족 시)", "int"],
     ["event_log", "미들웨어 타임라인", "질의·AI 쓰기 기록 (이 기기 SQLite에만 저장, 외부 전송 없음)", "bool"],
     ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 — 높을수록 연결 노트가 잘 올라옵니다", "float"],
     ["graph_sim_floor", "그래프 유사도 하한", "질의와 이 유사도 미만인 이웃은 무시 (노이즈 차단)", "float"],
