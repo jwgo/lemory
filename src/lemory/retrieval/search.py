@@ -756,12 +756,35 @@ def _bm25_coverage(store: Store, query: str,
     stems = {t: (_to_jamo(t, drop_last_tail=True)
                  if has_hangul and _HANGUL_RE.search(t) and len(t) >= 2 else "")
              for t in q_tokens}
-    # top-8, not top-3: a masked-entity query's identifier often sits in the
-    # rank-4..8 chunk (that being the problem the pin exists to fix) — a
-    # 3-chunk window couldn't see the evidence that should open the gate
-    meta = store.get_chunks([cid for cid, _ in bm25_hits[:8]])
+    # AUTHORITY window: the first 8 distinct DOCS in BM25 order — the pin
+    # gate opens only on evidence near the top (a masked-entity identifier
+    # often sits at rank 4..8; that is the problem the pin exists to fix).
+    # The window used to be 8 chunks ≈ 8 docs; multi-granularity notes
+    # (burst + packed chunks) and short-chunk BM25 length normalization
+    # changed what 8 chunks means, so the doc-count is now explicit.
+    # CHOICE window: floor-passing candidates are scanned deeper (top-24) —
+    # template-heavy chat corpora put eight near-identical OLD statements of
+    # a fact ahead of the newest one, and the recency-weighted choice must
+    # be able to see it (measured: clean-RoleMemQA update doc@1 1.0 → 0.0
+    # when the gold update sat at rank 8 behind eight template twins). The
+    # gate ('best', what callers compare to verbatim thresholds) still comes
+    # from the authority window alone.
+    chunk_doc = store.get_chunks([cid for cid, _ in bm25_hits[:24]])
+    auth_docs: set[int] = set()
+    auth_ids: set[int] = set()
+    for cid, _ in bm25_hits[:24]:
+        m = chunk_doc.get(cid)
+        if m is None:
+            continue
+        if m.doc_id not in auth_docs and len(auth_docs) >= 8:
+            continue
+        auth_docs.add(m.doc_id)
+        auth_ids.add(cid)
     scored: list[tuple[float, float, int]] = []  # (cover, recency_weighted, cid)
-    for cid, m in meta.items():
+    for cid, _ in bm25_hits[:24]:
+        m = chunk_doc.get(cid)
+        if m is None:
+            continue
         text = (m.text + " " + m.title).lower()
         text_jamo = _to_jamo(text) if has_hangul else ""
         hit = sum(w for t, w in weights.items()
@@ -776,7 +799,9 @@ def _bm25_coverage(store: Store, query: str,
         scored.append((cover, weighted, cid))
     if not scored:
         return 0.0, None
-    best = max(c for c, _, _ in scored)
+    best = max((c for c, _, cid in scored if cid in auth_ids), default=0.0)
+    if best <= 0:
+        return 0.0, None
     # recency may only choose among AUTHORITATIVE candidates: anything at or
     # above the pin gate is, by the pin's own definition, verbatim enough to
     # be pinned — among those, the newest statement of the fact wins (a
