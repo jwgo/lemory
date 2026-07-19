@@ -37,7 +37,8 @@ class LlamaCppLocalClient:
     def __init__(self, gguf_repo: str = DEFAULT_GGUF_REPO,
                  gguf_file: str = DEFAULT_GGUF_FILE,
                  embed_dim: int = DEFAULT_GGUF_DIM,
-                 n_ctx: int = 1024, generator=None):
+                 n_ctx: int = 1024, generator=None,
+                 answer_repo: str | None = None, answer_file: str | None = None):
         self.llm_model = generator.llm_model if generator else "none (local search-only)"
         # a stable, human-readable id the index stores to detect model switches
         self.embed_model = f"llamacpp:{gguf_repo}/{gguf_file}"
@@ -48,6 +49,8 @@ class LlamaCppLocalClient:
         self._model = None
         self._lock = threading.Lock()
         self._generator = generator
+        self._answer_repo = answer_repo
+        self._answer_file = answer_file
 
     def _embedder(self):
         with self._lock:
@@ -86,14 +89,15 @@ class LlamaCppLocalClient:
         if self._generator is not None:
             return self._generator.generate(prompt, system=system, **kw)
         from .local import _local_generate
-        return _local_generate(prompt, system)
+        return _local_generate(prompt, system, self._answer_repo, self._answer_file)
 
     def generate_json(self, prompt: str, system: str | None = None, **kw) -> Any:
         if self._generator is not None:
             return self._generator.generate_json(prompt, system=system, **kw)
         from .base import parse_json_loose
         from .local import _local_generate
-        return parse_json_loose(_local_generate(prompt, system))
+        return parse_json_loose(
+            _local_generate(prompt, system, self._answer_repo, self._answer_file))
 
     def close(self) -> None:
         if self._generator is not None:

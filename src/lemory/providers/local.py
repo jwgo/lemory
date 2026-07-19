@@ -60,15 +60,23 @@ def _register_custom(model: str) -> None:
         pass  # already registered in this process, or fastembed too old
 
 
-def _local_generate(prompt: str, system: str | None) -> str:
+def _local_generate(prompt: str, system: str | None,
+                    repo: str | None = None, file: str | None = None) -> str:
     """On-device answer for a keyless local install: Gemma 4 on llama.cpp (the
     same engine as the embedder) when `lemory[llama]` is installed, else a
-    helpful error. Lets ask() and the console search view answer with no key."""
+    helpful error. Lets ask() and the console search view answer with no key.
+
+    repo/file come from config (the model the console 'Models' card selects) so
+    the search/ask path answers with the SAME model as the assistant — not a
+    separate hardcoded default."""
     from . import gemma
 
     ok, _ = gemma.available()
     if ok:
-        return gemma.generate(system or "", prompt)
+        kw = {}
+        if repo and file:
+            kw = {"repo": repo, "file": file}
+        return gemma.generate(system or "", prompt, **kw)
     raise RuntimeError(
         "로컬 답변 생성기가 없습니다: 검색은 오프라인으로 되지만 ask(답변)는 LLM이 "
         ' 필요합니다. 온디바이스 답변은 pip install "lemory[llama]" (Gemma 4), '
@@ -79,13 +87,18 @@ def _local_generate(prompt: str, system: str | None) -> str:
 class LocalClient:
     """LLMClient implementation with local embeddings and no generator."""
 
-    def __init__(self, embed_model: str = DEFAULT_EMBED_MODEL, generator=None):
+    def __init__(self, embed_model: str = DEFAULT_EMBED_MODEL, generator=None,
+                 answer_repo: str | None = None, answer_file: str | None = None):
         self.llm_model = generator.llm_model if generator else "none (local search-only)"
         self.embed_model = embed_model
         self.embed_dim = LOCAL_EMBED_DIM
         self._model = None
         self._lock = threading.Lock()
         self._generator = generator  # optional API client for ask()
+        # configured on-device answer model (shared with the assistant), so
+        # search/ask uses the model the user actually selected
+        self._answer_repo = answer_repo
+        self._answer_file = answer_file
 
     def _embedder(self):
         with self._lock:
@@ -131,13 +144,14 @@ class LocalClient:
     def generate(self, prompt: str, system: str | None = None, **kw) -> str:
         if self._generator is not None:
             return self._generator.generate(prompt, system=system, **kw)
-        return _local_generate(prompt, system)
+        return _local_generate(prompt, system, self._answer_repo, self._answer_file)
 
     def generate_json(self, prompt: str, system: str | None = None, **kw) -> Any:
         if self._generator is not None:
             return self._generator.generate_json(prompt, system=system, **kw)
         from .base import parse_json_loose
-        return parse_json_loose(_local_generate(prompt, system))
+        return parse_json_loose(
+            _local_generate(prompt, system, self._answer_repo, self._answer_file))
 
     def close(self) -> None:
         if self._generator is not None:

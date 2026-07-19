@@ -66,11 +66,12 @@ class LemoryConfig(BaseSettings):
     local_embed_gguf_dim: int = 1024
 
     # console "assistant mode": a grounded, streaming chat over the vault, à la
-    # parlor. The brain is on-device Gemma 4 on llama.cpp (Q4_K_M GGUF) — the
-    # same engine as the embedder and reranker, no daemon. E4B is Google's
-    # recommended size (default); switch to the lighter E2B in the console.
+    # parlor. The brain is on-device Gemma 4 on llama.cpp — the same engine as
+    # the embedder and reranker, no daemon. E4B is Google's recommended size
+    # (default); switch to the lighter E2B in the console. ggml-org's E4B repo
+    # ships Q4_0 (its only Q4); a wrong/renamed file self-heals in gemma._model.
     assistant_gguf_repo: str = "ggml-org/gemma-4-E4B-it-GGUF"
-    assistant_gguf_file: str = "gemma-4-E4B-it-Q4_K_M.gguf"
+    assistant_gguf_file: str = "gemma-4-E4B-it-Q4_0.gguf"
     assistant_k: int = 6                      # notes retrieved as grounding per turn
     # the write half of the memory loop: every console-assistant conversation
     # is upserted into the vault as a dated session note (chats/ folder, the
