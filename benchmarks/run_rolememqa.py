@@ -12,6 +12,7 @@
     python benchmarks/run_rolememqa.py                 # 4 arms (clean)
     python benchmarks/run_rolememqa.py --messy         # 지저분한 실채팅 변형
     python benchmarks/run_rolememqa.py --arm lemory
+    python benchmarks/run_rolememqa.py --messy --flat  # 버스트 청킹 OFF 대조군
 """
 
 from __future__ import annotations
@@ -103,6 +104,8 @@ def evaluate(eng, questions: list[dict], mode: str, graph: bool) -> dict:
 def main() -> None:
     load_env()
     messy = "--messy" in sys.argv
+    # --flat: chat burst chunking off — the uniform-packing control arm
+    flat = "--flat" in sys.argv
     qfile = DATA / "rolememqa" / ("questions_messy.jsonl" if messy else "questions.jsonl")
     vault = DATA / "rolememqa" / ("vault-messy" if messy else "vault")
     questions = [json.loads(l) for l in qfile.read_text().splitlines()]
@@ -111,7 +114,9 @@ def main() -> None:
         name = sys.argv[sys.argv.index("--arm") + 1]
         arms = {name: ARMS[name]}
 
-    eng = make_engine(vault, tag="rolememqa-messy" if messy else "rolememqa")
+    tag = ("rolememqa-messy" if messy else "rolememqa") + ("-flat" if flat else "")
+    overrides = {"chat_burst_chunking": False} if flat else {}
+    eng = make_engine(vault, tag=tag, **overrides)
     rep = eng.index()
     print(f"index: docs={eng.store.doc_count()} chunks={eng.store.chunk_count()} "
           f"embedded={rep.embedded} ({rep.seconds:.0f}s)", flush=True)
@@ -134,7 +139,8 @@ def main() -> None:
                     extra += f" trap_above_gold={s[f'{t}_trap_above_gold']}"
                 print(f"   {t:9s} doc1={s[f'{t}_doc1']} doc8={s[f'{t}_doc8']} "
                       f"ans8={s[f'{t}_ans8']}{extra}", flush=True)
-    out = WORK / ("results_rolememqa_messy.json" if messy else "results_rolememqa.json")
+    out = WORK / (("results_rolememqa_messy.json" if messy else "results_rolememqa.json")
+                  .replace(".json", "_flat.json" if flat else ".json"))
     save_json(out, results)
     print("saved ->", out)
 
