@@ -480,7 +480,7 @@ def hybrid_search(
     # generic LLM rerank when only `rerank` is set.
     use_reranker = cfg.reranker and mode == "hybrid"
     if use_reranker and fused:
-        _dedicated_rerank(engine, query, fused, chunk_meta)
+        _dedicated_rerank(engine, query, fused, chunk_meta, rec_ctx=rec_ctx)
     elif use_rerank and fused:
         _llm_rerank(engine, query, fused, chunk_meta)
 
@@ -971,7 +971,7 @@ def _llm_rerank(
 
 def _dedicated_rerank(
     engine: "Engine", query: str, fused: dict[int, float],
-    chunk_meta: dict[int, ChunkHit]
+    chunk_meta: dict[int, ChunkHit], rec_ctx: tuple | None = None,
 ) -> None:
     """Reorder the top candidates with a dedicated cross-encoder reranker.
 
@@ -979,7 +979,15 @@ def _dedicated_rerank(
     relevance score P("yes") per candidate. We reorder the top `rerank_top`
     fused candidates by that score, all lifted above the fused range (best
     first), so the reranker only reorders what retrieval already surfaced —
-    it never invents a ranking for chunks retrieval missed."""
+    it never invents a ranking for chunks retrieval missed.
+
+    `rec_ctx` (doc_dates, anchor, half_life, boost) is set when the query has
+    vague-recency intent: a cross-encoder judges text relevance only and has
+    no concept of temporal validity, so on updated facts it resurfaces the
+    MORE VERBATIM old statement above its correction (measured: AgentMemQA
+    decision 0.80 → 0.50 — the reason rerank ships off). Multiplying its
+    scores by the same recency factor the fusion stage uses restores the
+    time axis without touching its relevance judgement on timeless queries."""
     cfg = engine.cfg
     top = sorted(fused.items(), key=lambda x: -x[1])[: cfg.rerank_top]
     docs, cids = [], []
@@ -997,6 +1005,17 @@ def _dedicated_rerank(
     scores = _reranker_scores(engine, query, docs)
     if scores is None or len(scores) != len(cids):
         return  # keep fusion ranking on any reranker failure
+    if rec_ctx is not None:
+        dates, anchor, hl, boost = rec_ctx
+        for i, cid in enumerate(cids):
+            m = chunk_meta.get(cid)
+            ts = dates.get(m.doc_id, 0.0) if m is not None else 0.0
+            if ts > 0:
+                # same 0.6-damped multiplier as the fusion stage — full
+                # strength let a brand-new weak candidate beat an older
+                # strong one there (AgentMemQA decision-type), and the
+                # reranker sits on the same diffuse-relevance ground
+                scores[i] *= 1.0 + boost * 0.6 * recency_weight(ts, anchor, hl)
     top_fused = max(fused.values(), default=1.0) or 1.0
     # cross-encoder continuous scores: reorder the candidates by relevance, all
     # lifted above the fused range (best first), so the reranker only reorders
