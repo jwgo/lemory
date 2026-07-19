@@ -60,7 +60,7 @@
     "value_ans8": 1.0,
     "value_ans_any1": 1.0,
     "value_ans_any8": 1.0,
-    "p50_ms": 6.38,
+    "p50_ms": 6.37,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",
@@ -165,7 +165,7 @@
     "value_ans8": 1.0,
     "value_ans_any1": 1.0,
     "value_ans_any8": 1.0,
-    "p50_ms": 6.29,
+    "p50_ms": 6.33,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",
@@ -270,7 +270,7 @@
     "value_ans8": 1.0,
     "value_ans_any1": 1.0,
     "value_ans_any8": 1.0,
-    "p50_ms": 1.28,
+    "p50_ms": 1.12,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",
@@ -375,7 +375,7 @@
     "value_ans8": 1.0,
     "value_ans_any1": 1.0,
     "value_ans_any8": 1.0,
-    "p50_ms": 2.59,
+    "p50_ms": 2.48,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",
