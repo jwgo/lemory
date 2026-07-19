@@ -1,7 +1,7 @@
 """On-device answer LLM on the **same llama.cpp engine** as the embedder and the
 reranker — one runtime (Metal / CUDA / Vulkan / CPU offload), no daemon, no
 second engine. Runs **Gemma 4** (E4B by default, E2B for lighter machines) from
-a Q4_K_M GGUF; the model auto-downloads from HuggingFace once and is cached, and
+a Q4 GGUF; the model auto-downloads from HuggingFace once and is cached, and
 the context easily holds the retrieved NOTES (Gemma 4 supports a large window).
 
     pip install "lemory[llama]"
@@ -11,14 +11,20 @@ from __future__ import annotations
 import threading
 
 DEFAULT_REPO = "ggml-org/gemma-4-E4B-it-GGUF"
-DEFAULT_FILE = "gemma-4-E4B-it-Q4_K_M.gguf"
+DEFAULT_FILE = "gemma-4-E4B-it-Q4_0.gguf"
 
 # selectable sizes: E4B (Google's recommended, default) and E2B (lighter/faster).
-# Both Q4 GGUFs; ggml-org ships E4B Q4_K_M, unsloth ships the E2B Q4.
+# ggml-org's E4B repo ships Q4_0 (not Q4_K_M); unsloth's E2B ships the full
+# quant ladder. If a pinned filename ever 404s (repo re-quantized/renamed),
+# _model() self-heals by listing the repo and picking an available quant.
 MODELS = {
-    "E2B": ("unsloth/gemma-4-E2B-it-GGUF", "gemma-4-E2B-it-Q4_0.gguf"),
-    "E4B": ("ggml-org/gemma-4-E4B-it-GGUF", "gemma-4-E4B-it-Q4_K_M.gguf"),
+    "E2B": ("unsloth/gemma-4-E2B-it-GGUF", "gemma-4-E2B-it-Q4_K_M.gguf"),
+    "E4B": ("ggml-org/gemma-4-E4B-it-GGUF", "gemma-4-E4B-it-Q4_0.gguf"),
 }
+
+# preferred quant order when a pinned file is missing — good size/quality
+# balance first, never the mmproj/mtp side-car files.
+_QUANT_ORDER = ("Q4_K_M", "Q4_0", "Q4_K_S", "Q4_1", "Q5_K_M", "Q8_0")
 
 N_CTX = 8192  # holds the RAG NOTES + question + answer comfortably
 
@@ -34,15 +40,42 @@ def available() -> tuple[bool, str]:
     return False, '답변 모델(llama.cpp)이 설치되지 않았습니다: pip install "lemory[llama]"'
 
 
+def _resolve_gguf(repo: str, file: str) -> str:
+    """Download `file` from `repo`; if it 404s (repo re-quantized or renamed the
+    pinned file), list the repo's GGUFs and pick the best available quant so a
+    single upstream rename never hard-crashes on-device answering."""
+    from huggingface_hub import hf_hub_download
+
+    try:
+        return hf_hub_download(repo, file)
+    except Exception:
+        from huggingface_hub import HfApi
+
+        try:
+            names = [s for s in HfApi().list_repo_files(repo) if s.endswith(".gguf")]
+        except Exception:
+            raise  # can't reach the repo at all → surface the original error
+        # never the multimodal-projector / multi-token-prediction side-cars
+        cands = [n for n in names
+                 if "mmproj" not in n.lower() and "/mtp" not in n.lower()
+                 and not n.lower().startswith("mtp")]
+        for quant in _QUANT_ORDER:
+            for n in cands:
+                if quant.lower() in n.lower():
+                    return hf_hub_download(repo, n)
+        if cands:  # last resort: any non-sidecar gguf
+            return hf_hub_download(repo, sorted(cands)[0])
+        raise
+
+
 def _model(repo: str, file: str):
     key = (repo, file)
     with _LOAD_LOCK:
         m = _MODELS.get(key)
         if m is None:
-            from huggingface_hub import hf_hub_download
             from llama_cpp import Llama
 
-            path = hf_hub_download(repo, file)
+            path = _resolve_gguf(repo, file)
             m = Llama(model_path=path, n_gpu_layers=-1, n_ctx=N_CTX,
                       chat_format="gemma", verbose=False)
             _MODELS[key] = m

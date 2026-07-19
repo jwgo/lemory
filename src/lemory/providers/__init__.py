@@ -31,10 +31,14 @@ def create_client(cfg: "LemoryConfig") -> LLMClient:
             return LlamaCppLocalClient(
                 gguf_repo=cfg.local_embed_gguf_repo,
                 gguf_file=cfg.local_embed_gguf_file,
-                embed_dim=cfg.local_embed_gguf_dim, generator=generator)
+                embed_dim=cfg.local_embed_gguf_dim, generator=generator,
+                answer_repo=cfg.assistant_gguf_repo,
+                answer_file=cfg.assistant_gguf_file)
         from .local import LocalClient
 
-        return LocalClient(embed_model=cfg.local_embed_model, generator=generator)
+        return LocalClient(embed_model=cfg.local_embed_model, generator=generator,
+                           answer_repo=cfg.assistant_gguf_repo,
+                           answer_file=cfg.assistant_gguf_file)
     if provider == "openai":
         from .openai import OpenAIClient
 
