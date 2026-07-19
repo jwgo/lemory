@@ -12,7 +12,7 @@
 [![Benchmarks](https://img.shields.io/badge/benchmarks-reproducible-orange.svg)](BENCHMARKS.md)
 [![KorMapleQA](https://img.shields.io/badge/KorMapleQA-2%2C075%20questions-yellow.svg)](benchmarks/data/kormapleqa/README.md)
 
-<img src="docs/assets/demo1_korean.gif" alt="Live search on a real 1,469-note namuwiki vault: Korean question answered in ~0.1s of local compute, typo repaired automatically" width="840">
+<img src="docs/assets/demo1_en.gif" alt="Live instant search on the demo vault: an English question answered in ~0.1s of local compute, no query embedding" width="840">
 
 <sub>Not a mock. A real 1,469-note / ~42,000-chunk namuwiki vault: a natural
 Korean question answered in ~0.1 s of local compute, a typo repaired without
@@ -171,7 +171,7 @@ indexed before, the flag removes it.
 ## The memory loop: say it once, it's remembered
 
 <div align="center">
-<img src="docs/assets/demo4_memoryloop.gif" width="840" alt="Day 1: a conversation auto-saves as a session note. Day 30: the assistant recalls the fact in 4ms with a citation.">
+<img src="docs/assets/demo4_en.gif" width="840" alt="Day 1: a conversation auto-saves as a session note. Day 30: the assistant recalls the fact in 4ms with a citation.">
 </div>
 
 Every console-assistant conversation auto-saves as a dated session note in
@@ -199,7 +199,7 @@ the Cerebras-inspired burst chunking that got it there published in
 ## A second brain, not a log file
 
 <div align="center">
-<img src="docs/assets/demo3_secondbrain.gif" width="840" alt="Duplicate memory flagged with a wikilink, unlinked mentions become link suggestions">
+<img src="docs/assets/demo3_en.gif" width="840" alt="Duplicate memory flagged with a wikilink, unlinked mentions become link suggestions">
 </div>
 
 Human notes never need any of this machinery: drop a file in the vault and
@@ -249,7 +249,7 @@ trash; human-authored notes are refused by construction). Every query shows
 up in **최근 질의** with its top sources. That's the middleware contract:
 nothing passes through invisibly.
 
-<img src="docs/assets/demo-write.gif" alt="Claude saves a memory and it appears in the feed as a Markdown file, attributed to claude-desktop, with one-click undo" width="820">
+<img src="docs/assets/demo-write_en.gif" alt="Claude saves a memory and it appears in the feed as a Markdown file, attributed to claude-desktop, with one-click undo" width="820">
 
 ## Demo gallery — every feature, really running
 
@@ -259,10 +259,10 @@ script — nothing is mocked).
 
 | | |
 |---|---|
-| **즉답 검색** `--fast` · 임베딩 0회, 3.8ms<br><img src="docs/assets/demo5_fast.gif" width="420"> | **모순 탐지** `lemory conflicts` · 기억 vs 기억<br><img src="docs/assets/demo6_conflicts.gif" width="420"> |
-| **AI 쓰기 승인 게이트** pending → approve<br><img src="docs/assets/demo7_approval.gif" width="420"> | **드리프트 감지** `lemory drift` · 기억 vs 현실<br><img src="docs/assets/demo8_drift.gif" width="420"> |
-| **스코프 연산자** `tag:` `folder:` `path:`<br><img src="docs/assets/demo9_operators.gif" width="420"> | **시간 인지** "요새 작업하던…" → 최신 결정 1위<br><img src="docs/assets/demo10_temporal.gif" width="420"> |
-| **오타 교정** FoundatoinDB → FoundationDB<br><img src="docs/assets/demo12_typo.gif" width="420"> | **전량 스케일 검증** KorQuAD 9,663문단 × 60,407질문<br><img src="docs/assets/demo11_scale.gif" width="420"> |
+| **Instant search** `--fast` · 0 embeddings, 3.8ms<br><img src="docs/assets/demo5_en.gif" width="420"> | **Conflict scan** `lemory conflicts` · memory vs memory<br><img src="docs/assets/demo6_en.gif" width="420"> |
+| **AI-write approval gate** pending → approve<br><img src="docs/assets/demo7_en.gif" width="420"> | **Drift detection** `lemory drift` · memory vs reality<br><img src="docs/assets/demo8_en.gif" width="420"> |
+| **Scope operators** `tag:` `folder:` `path:`<br><img src="docs/assets/demo9_en.gif" width="420"> | **Time-aware** "…lately" → latest decision ranks first<br><img src="docs/assets/demo10_en.gif" width="420"> |
+| **Typo repair** FoundatoinDB → FoundationDB<br><img src="docs/assets/demo12_en.gif" width="420"> | **Full-scale validation** KorQuAD 9,663 paras × 60,407 Q<br><img src="docs/assets/demo11_en.gif" width="420"> |
 
 ## The dashboard
 
@@ -279,7 +279,7 @@ script — nothing is mocked).
 - **설정**: retrieval knobs with live apply; the timeline itself is a
   setting (`event_log`) and all of it stays in your local SQLite file
 
-<img src="docs/assets/console-knowledge.png" alt="지식: 노트 상세, 로컬 그래프, 관련 노트" width="820">
+<img src="docs/assets/console-knowledge.png" alt="Knowledge tab: note detail, local graph, related notes" width="820">
 
 ## Files vs rows: why this beats a memory API for personal knowledge
 
