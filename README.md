@@ -438,6 +438,7 @@ $ lemory ask "3월에 읽던 책은?"                # asking about March reache
 $ lemory search "tag:회의록 folder:2026 예산"   # scoping operators, all modes
 $ lemory remember "VPN 갱신은 매년 3월, 담당 김하늘" --tags ops   # write from the CLI
 $ lemory import-chats conversations.json        # ChatGPT/Claude export → searchable notes
+$ lemory connect ./my_source.py                 # connector SDK: any source → vault notes
 $ lemory graph --open                           # the whole vault as an interactive graph
 $ lemory context                                # one-call vault digest for any agent
 ```

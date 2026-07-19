@@ -548,6 +548,37 @@ def import_chats(
         console.print("새로 추가된 대화가 없습니다 (이미 가져왔거나 빈 내보내기).")
 
 
+@app.command("connect")
+def connect_cmd(
+    script: Path = typer.Argument(..., help="커넥터 파이썬 파일 (pull(state) 또는 fetch() 정의)"),
+    folder: str = typer.Option("", help="노트를 쓸 볼트 폴더 (기본: 가져옴/<이름>)"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """커넥터 스크립트를 실행해 외부 소스를 볼트 노트로 가져옵니다.
+
+    커넥터는 사용자가 소유한 파이썬 파일이며 결과물은 평범한 마크다운
+    노트입니다 — 검색·수정·삭제 모두 다른 노트와 동일. pull(state)를
+    정의하면 커서가 저장돼 증분 수집이 됩니다. 재실행은 멱등(같은 id는
+    같은 파일을 덮어씀)이고 삭제는 절대 하지 않습니다."""
+    from ..ingestion.connectors import run_connector
+
+    if not script.is_file():
+        console.print(f"[red]파일이 없습니다:[/red] {script}")
+        raise typer.Exit(1)
+    eng = _engine(vault)
+    rep = run_connector(eng, script, folder=folder)
+    if rep.written:
+        console.print(f"[green]{len(rep.written)}개 노트[/green]를 가져와 색인했습니다:")
+        for rel in rep.written[:10]:
+            console.print(f"  {rel}")
+        if len(rep.written) > 10:
+            console.print(f"  … +{len(rep.written) - 10}")
+    else:
+        console.print("가져올 항목이 없습니다.")
+    if rep.skipped:
+        console.print(f"[yellow]{rep.skipped}개 항목 건너뜀[/yellow] (title/body 누락 또는 경로 이탈)")
+
+
 @app.command()
 def hook(
     agent: str = typer.Argument(..., help="Hook source: claude-code"),
