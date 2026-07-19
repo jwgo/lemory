@@ -1051,6 +1051,7 @@ const SETTINGS_META = [
     ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
     ["memory_approval", "AI 쓰기 승인제", "AI가 쓴 기억을 사람이 승인해야 검색에 편입됩니다 (건강 탭에서 승인)", "bool"],
     ["semantic_links", "시맨틱 폴백 링크", "링크 없는 노트에 유사도 엣지 부여 — 실측에서 이득 없음이 확인돼 기본 꺼짐 (BENCHMARKS §12c)", "bool"],
+    ["context_neighbors", "이웃 청크 복원", "랭킹 확정 후 앞뒤 청크의 꼬리/머리를 붙여 잘린 전제·주의를 복원 (Cerebras KB 방식) — 검색 지표엔 영향 없음", "bool"],
     ["usage_prior", "사용 이력 부스트", "자주 인용/열람한 노트가 동점을 이깁니다 (0=끔, 0.05-0.15 권장)", "float"],
     ["event_log", "미들웨어 타임라인", "질의·AI 쓰기 기록 (이 기기 SQLite에만 저장, 외부 전송 없음)", "bool"],
     ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 — 높을수록 연결 노트가 잘 올라옵니다", "float"],

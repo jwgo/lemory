@@ -205,6 +205,14 @@ class LemoryConfig(BaseSettings):
     graph_sim_floor: float = 0.25  # skip neighbors whose best chunk sim is below this
     mention_links: bool = True
     per_doc_cap: int = 3
+    # Cerebras-style post-ranking context expansion: once ranking is final,
+    # re-attach the tail/head of each winner's NEIGHBOR chunks so headings,
+    # preconditions and caveats that chunking split apart aren't lost. Only
+    # changes what the generator READS — retrieval metrics are untouched.
+    # Opt-in for ask() so published e2e numbers stay exact; the console
+    # assistant always uses it (its answers aren't benchmark rows).
+    context_neighbors: bool = False
+    context_neighbor_chars: int = 240
     title_boost: float = 0.12
     # cognee-"memify"-style usage prior: notes that keep getting retrieved in
     # real use rank slightly higher. Default OFF and it stays off until someone

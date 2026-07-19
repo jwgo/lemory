@@ -40,7 +40,13 @@ def build_prompt(context: str, question: str, instruction: str = "ANSWER:") -> s
     return f"NOTES:\n{context}\n\nQUESTION: {question}\n\n{instruction}"
 
 
-def build_context(hits: list[ChunkHit], max_chars: int = 14000) -> str:
+def build_context(hits: list[ChunkHit], max_chars: int = 14000,
+                  store=None, neighbor_chars: int = 0) -> str:
+    """Numbered evidence blocks for the generator. With `store` and
+    neighbor_chars > 0, each block is expanded with the tail of the previous
+    chunk and the head of the next (Cerebras-style post-ranking expansion):
+    ranking already decided WHAT to read; this restores the preconditions and
+    caveats the chunk boundary cut away. Selection is unchanged."""
     from datetime import datetime
 
     parts = []
@@ -51,6 +57,12 @@ def build_context(hits: list[ChunkHit], max_chars: int = 14000) -> str:
             date_tag = f" ({datetime.fromtimestamp(h.doc_date).date().isoformat()})"
         head = f"[{i}] {h.title}{date_tag}" + (f" › {h.heading}" if h.heading else "")
         body = h.text
+        if store is not None and neighbor_chars > 0:
+            prev_t, next_t = store.adjacent_chunks(h.chunk_id)
+            if prev_t:
+                body = f"…{prev_t[-neighbor_chars:]}\n{body}"
+            if next_t:
+                body = f"{body}\n{next_t[:neighbor_chars]}…"
         block = f"{head}\n{body}\n"
         if used + len(block) > max_chars:
             break
@@ -113,7 +125,10 @@ def answer(engine: "Engine", question: str, k: int = 8, deep: bool = False) -> A
 
         context = build_compact_context(engine, question, hits)
     else:
-        context = build_context(hits)
+        context = build_context(
+            hits, store=engine.store,
+            neighbor_chars=engine.cfg.context_neighbor_chars
+            if engine.cfg.context_neighbors else 0)
     prompt = build_prompt(context, question)
     text = engine.llm.generate(prompt, system=SYSTEM, temperature=0.1)
     return Answer(text=text.strip(), sources=hits)

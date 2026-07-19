@@ -491,6 +491,16 @@ Self-hosting: `docker build -t lemory . && docker run -p 127.0.0.1:8377:8377
 index integrity, FTS5, embedder and generator in one shot — paste its output
 into your issue.
 
+Adopted from [Cerebras' enterprise KB write-up](https://www.cerebras.ai/blog/how-we-built-our-knowledge-base)
+(credited, like the mex nod): **post-ranking neighbor expansion** — once
+ranking is final, each winning chunk is re-joined with the tail/head of its
+neighboring chunks so the preconditions and caveats that chunking split
+apart aren't lost (`context_neighbors`; always on in the console assistant,
+opt-in for ask() so published e2e numbers stay exact). Their other core
+moves — hybrid lexical+vector+recency fused with RRF, per-source result
+caps, LLM-free MCP primitives with the agent as orchestrator, thread
+distillation — are architecture Lemory already shipped and measured.
+
 Recent additions the gap analysis asked for: `lemory ask --deep` (LLM
 decomposes a hard question into sub-queries, retrieves each, merges the
 evidence — opt-in, one extra call); `lemory backup` / `restore` (index +

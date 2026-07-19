@@ -47,6 +47,7 @@ TUNABLE_FIELDS: dict[str, type] = {
     "event_log": bool,
     "memory_approval": bool,
     "semantic_links": bool,
+    "context_neighbors": bool,
     "usage_prior": float,
     "assistant_log_sessions": bool,
     "graph_expansion": bool,
@@ -437,7 +438,10 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
 
         retrieval_q = _contextual_query(question, msgs)
         hits = engine.search(retrieval_q, k=cfg.assistant_k)
-        context = build_context(hits) if hits else "(관련 노트를 찾지 못했습니다.)"
+        context = build_context(
+            hits, store=engine.store,
+            neighbor_chars=cfg.context_neighbor_chars,
+        ) if hits else "(관련 노트를 찾지 못했습니다.)"
         system = (SYSTEM + "\n\nNOTES (cite as [n]):\n" + context)
         # first turn of a session: fold in situational vault context
         # (Zep-style) so "요새 나 뭐 하고 있었지?" answers without retrieval luck

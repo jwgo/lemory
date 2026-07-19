@@ -414,3 +414,32 @@ def test_assistant_chat_grounded_stream(engine, monkeypatch):
     # first turn folds in the vault context block
     assert "VAULT CONTEXT" in seen_system["s"]
     assert "NOTES" in seen_system["s"]
+
+
+# ------------------------------------- neighbor context (Cerebras-inspired)
+def test_adjacent_chunks_and_context_expansion(engine):
+    v = engine.cfg.vault
+    (v / "긴노트.md").write_text(
+        "## 전제\n" + "이 작업은 반드시 백업 후에 진행해야 한다. " * 12 +
+        "\n\n## 절차\n" + "복구 명령은 restore --full 이다. " * 12 +
+        "\n\n## 주의\n" + "완료 후 반드시 검증 스크립트를 돌린다. " * 12,
+        encoding="utf-8")
+    engine.index()
+    hits = engine.search("restore 복구 명령", k=1)
+    assert hits and "restore" in hits[0].text
+    prev_t, next_t = engine.store.adjacent_chunks(hits[0].chunk_id)
+    assert prev_t and "백업" in prev_t
+    from lemory.retrieval.answer import build_context
+    plain = build_context(hits)
+    expanded = build_context(hits, store=engine.store, neighbor_chars=240)
+    assert "백업" not in plain and "백업" in expanded, \
+        "neighbor expansion must restore the precondition the boundary cut away"
+    assert len(expanded) > len(plain)
+
+
+def test_ask_neighbor_expansion_opt_in(engine):
+    engine.index()
+    # default off: ask context building unchanged (published e2e numbers exact)
+    assert engine.cfg.context_neighbors is False
+    ans = engine.ask("What is Dana's favorite database?")
+    assert ans.sources

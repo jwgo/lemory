@@ -899,6 +899,23 @@ class Store:
         pairs.sort(key=lambda p: -p[2])
         return pairs[:cap]
 
+    def adjacent_chunks(self, chunk_id: int) -> tuple[Optional[str], Optional[str]]:
+        """(prev_text, next_text) by ord within the same doc — the context a
+        chunk boundary cut away (Cerebras-style post-ranking expansion).
+        Enrichment pseudo-chunks are skipped."""
+        c = self.conn()
+        row = c.execute("SELECT doc_id, ord FROM chunks WHERE id=?", (chunk_id,)).fetchone()
+        if not row:
+            return None, None
+        out = [None, None]
+        for i, (op, order) in enumerate((("<", "DESC"), (">", "ASC"))):
+            r = c.execute(
+                f"SELECT text FROM chunks WHERE doc_id=? AND ord {op} ? AND heading != ? "
+                f"ORDER BY ord {order} LIMIT 1",
+                (row["doc_id"], row["ord"], self.ENRICH_HEADING)).fetchone()
+            out[i] = r["text"] if r else None
+        return out[0], out[1]
+
     ENRICH_HEADING = "↩ context"  # marker for index-time enrichment pseudo-chunks
 
     def replace_enrichment_chunk(self, doc_id: int, title: str, text: str,
