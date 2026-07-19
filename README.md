@@ -188,12 +188,13 @@ replays real pipeline output. Two optional layers on top:
   same policy: save session facts via `lemory remember` before the session
   ends.
 
-The general-agent side is measured too: **AgentMemQA** ([§7f](BENCHMARKS.md)) - 12 weeks of work-assistant sessions (mixed Korean/English tech talk, code blocks, error traces) with scored reversed-decision traps. Keyless hybrid doc@1 **0.956**, beating both its own legs; and an honest counter-finding: a cross-encoder reranker is temporally blind and UNDOES recency on updated facts (decision 0.80 -> 0.50), one more reason it ships off.
+The general-agent side is measured too: **AgentMemQA** ([§7f](BENCHMARKS.md)) - 12 weeks of work-assistant sessions (mixed Korean/English tech talk, code blocks, error traces) with scored reversed-decision traps. Keyless hybrid doc@1 **0.978** with **zero** reversed-decision traps, beating both its own legs; and an honest counter-finding: a cross-encoder reranker is temporally blind and UNDOES recency on updated facts (decision 0.80 -> 0.50), one more reason it ships off.
 
 Retrieval under real chat mess is measured, not assumed: RoleMemQA-messy
 plants retracted facts, joke-fakes, and vocabulary-poisoning small talk -
-retraction recall 1.000 (zero stale traps), overall doc@1 0.820 vs 0.984
-clean ([§7e](BENCHMARKS.md)).
+overall doc@1 0.836 vs 0.977 clean, with the full win/regression ledger of
+the Cerebras-inspired burst chunking that got it there published in
+[§7e](BENCHMARKS.md).
 
 ## A second brain, not a log file
 
@@ -359,7 +360,7 @@ published **RoleMemQA** ([§7e](BENCHMARKS.md)): 8 personas x 30 dated chat
 sessions, 144 code-verified questions across short-term / long-term /
 episodic / preference-update / temporal / 2-hop / abstention memory. Keyless
 Lemory answers the memory-store question - *does the right session surface?*
-- at **doc@1 0.984** (update-type 1.000 with **zero** stale-preference
+- at **doc@1 0.977** (update-type 1.000 with **zero** stale-preference
 traps), beating its own vector (0.938) and BM25 (0.820) legs at ~1ms. It
 also caught two real defects we then fixed: recency must anchor to the
 memory's own timeline (not the wall clock), and chat boilerplate must not
