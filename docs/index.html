@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lemory — 내 마크다운을 위한 로컬 메모리</title>
+<meta name="description" content="내 옵시디언·마크다운 노트를 AI의 기억으로. 키 없이 로컬에서, 한국어 우선으로, 전부 측정된 검색 품질로. 설치 한 줄이면 시작돼요.">
+<link rel="canonical" href="https://jwgo.github.io/lemory/">
+<link rel="alternate" hreflang="ko" href="https://jwgo.github.io/lemory/">
+<link rel="alternate" hreflang="en" href="https://jwgo.github.io/lemory/en.html">
+<link rel="alternate" hreflang="x-default" href="https://jwgo.github.io/lemory/">
+<meta property="og:title" content="Lemory — 내 마크다운을 위한 로컬 메모리">
+<meta property="og:description" content="기억은 당신 것이어야 하니까요. 남의 데이터베이스가 아니라, 내 폴더 안의 마크다운 파일로.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jwgo.github.io/lemory/">
+<meta property="og:image" content="https://jwgo.github.io/lemory/assets/console-knowledge.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍋</text></svg>">
+<style>
+:root{
+  --bg:#fffdf8; --fg:#1f2328; --fg2:#57606a; --line:#e8e2d4;
+  --card:#ffffff; --accent:#b58a00; --accent-bg:#fff7dd;
+  --code-bg:#f6f4ee; --code-fg:#24292f; --hero:#fff9e6;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1115; --fg:#e6e6e6; --fg2:#9aa4af; --line:#262b33;
+    --card:#161a20; --accent:#e8c34a; --accent-bg:#2a2410;
+    --code-bg:#1b2027; --code-fg:#d6dde6; --hero:#171410;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",Segoe UI,sans-serif;background:var(--bg);color:var(--fg);line-height:1.75;font-size:16px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:860px;margin:0 auto;padding:0 20px}
+header.top{position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:10}
+.topbar{display:flex;align-items:center;gap:14px;padding:12px 0}
+.brand{font-weight:800;font-size:17px;color:var(--fg)}
+.topbar nav{margin-left:auto;display:flex;gap:14px;font-size:14px;flex-wrap:wrap}
+.topbar nav a{color:var(--fg2)}
+.lang{border:1px solid var(--line);border-radius:999px;padding:2px 12px;font-size:13px}
+.hero{background:var(--hero);border-bottom:1px solid var(--line);padding:56px 0 40px;text-align:center}
+.hero h1{font-size:clamp(28px,5vw,44px);margin:0 0 10px;letter-spacing:-.02em}
+.hero p.lead{font-size:clamp(16px,2.4vw,19px);color:var(--fg2);margin:0 auto 26px;max-width:560px}
+.hero .cta{display:inline-block;background:var(--fg);color:var(--bg);padding:12px 26px;border-radius:12px;font-weight:700}
+.hero .cta:hover{text-decoration:none;opacity:.88}
+.hero .sub{display:block;margin-top:12px;font-size:13px;color:var(--fg2)}
+.hero img{max-width:100%;border-radius:12px;margin-top:34px;border:1px solid var(--line)}
+section{padding:48px 0;border-bottom:1px solid var(--line)}
+h2{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+h3{font-size:18px;margin:28px 0 8px}
+.kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+p{margin:12px 0}
+.muted{color:var(--fg2)}
+pre{background:var(--code-bg);color:var(--code-fg);padding:16px 18px;border-radius:12px;overflow-x:auto;font-size:14px;line-height:1.6;border:1px solid var(--line)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+p code,li code{background:var(--code-bg);padding:1px 6px;border-radius:6px;font-size:.9em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:20px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card b{display:block;margin-bottom:6px;font-size:15px}
+.card p{margin:0;font-size:14px;color:var(--fg2)}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:8px 12px;text-align:left}
+th{background:var(--code-bg)}
+.num{font-variant-numeric:tabular-nums}
+.step{display:flex;gap:14px;margin:18px 0;align-items:flex-start}
+.step .n{flex:0 0 30px;height:30px;border-radius:999px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-top:2px}
+footer{padding:38px 0;color:var(--fg2);font-size:14px;text-align:center}
+.pill{display:inline-block;background:var(--accent-bg);color:var(--accent);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-right:6px}
+blockquote{margin:16px 0;padding:12px 18px;border-left:3px solid var(--accent);background:var(--card);border-radius:0 10px 10px 0;color:var(--fg2)}
+img.shot{max-width:100%;border-radius:12px;border:1px solid var(--line);margin:14px 0}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap topbar">
+  <span class="brand">🍋 Lemory</span>
+  <nav>
+    <a href="#why">왜 만들었나</a>
+    <a href="#install">설치</a>
+    <a href="#usecases">어디에 쓰나</a>
+    <a href="#howto">사용법</a>
+    <a href="#how">작동 원리</a>
+    <a href="https://github.com/jwgo/lemory">GitHub</a>
+    <a class="lang" href="en.html">EN</a>
+  </nav>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <h1>기억은 당신 것이어야 하니까요</h1>
+  <p class="lead">내 옵시디언·마크다운 노트를 AI의 기억으로.<br>
+  남의 데이터베이스가 아니라, <b>내 폴더 안의 파일</b>로요.</p>
+  <a class="cta" href="#install">1분 만에 시작하기</a>
+  <span class="sub">키 없이, 무료로, 전부 내 컴퓨터에서 돌아가요</span>
+  <img src="assets/demo1_korean.gif" alt="실제 나무위키 1,469노트 볼트에서 한국어 질문이 0.1초 만에 답변되는 장면" loading="lazy">
+  <span class="sub">목업이 아니에요. 나무위키 실제 문서 1,469개 볼트에서 0.1초 만에 답이 나오고, 오타는 API 없이 고쳐져요.</span>
+</div></div>
+
+<section id="why"><div class="wrap">
+  <div class="kicker">Why</div>
+  <h2>이걸 왜 만들었나요?</h2>
+  <p>요즘 AI 메모리 제품들은 내 지식을 <b>자기들 데이터베이스</b>에 넣고
+  싶어 해요. 내가 한 말을 요약해서 행(row)으로 저장하죠. 저장할 때 정보가
+  깎이고, 나중에 원문을 확인할 수도 없고, 그 서비스를 떠나면 기억도 두고
+  나와야 해요.</p>
+  <p>저희 생각은 달라요. <b>내가 이미 가진 마크다운 파일이 더 좋은
+  데이터베이스예요.</b> 날짜가 있고, 원문이 있고, 깃으로 관리되고,
+  <code>rm</code> 한 번이면 지워져요. Lemory는 그 파일들과 AI 사이에
+  앉아서 세 가지를 해요.</p>
+  <div class="grid">
+    <div class="card"><b>AI가 기억을 꺼내요</b><p>의미 검색 + 한국어에 강한 키워드 검색 + [[위키링크]] 그래프를 합친 하이브리드 검색이에요. 경쟁 제품 전부와 같은 조건에서 측정했고, 지는 항목도 공개해요.</p></div>
+    <div class="card"><b>AI가 기억을 남겨요</b><p>결정과 사실이 볼트 안의 평범한 .md 노트로 저장돼요. 중복이면 표시하고, 관련 기억은 링크로 이어줘요.</p></div>
+    <div class="card"><b>뭐가 오갔는지 다 보여요</b><p>모든 질의, AI가 쓴 모든 노트(클릭 한 번으로 되돌리기), 클라이언트별 사용량이 대시보드에 남아요. 전부 내 컴퓨터의 SQLite 파일 하나예요.</p></div>
+  </div>
+  <p>그리고 하나 더요. 이 분야 대부분은 <b>한국어를 나중 일로</b> 미뤄요.
+  Lemory는 한글 바이그램 색인, 음절 단위 오타 교정("메플이스토리"로
+  메이플스토리를 찾아요), 조사·활용을 아는 매칭까지 한국어를 1등 시민으로
+  다뤄요. 영어 노트에 한국어로 물어도 찾아요.</p>
+  <blockquote>모든 성능 수치는 커밋된 코드와 공개 데이터로 재현돼요.
+  지는 항목, 실패한 실험까지 <a href="https://github.com/jwgo/lemory/blob/main/BENCHMARKS.md">BENCHMARKS.md</a>에
+  전부 공개해요.</blockquote>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <div class="kicker">Install</div>
+  <h2>설치 — 명령 한 줄이면 돼요</h2>
+  <div class="step"><div class="n">1</div><div>
+    <b>설치하기</b>
+    <pre>pipx install "git+https://github.com/jwgo/lemory"</pre>
+    <p class="muted">pipx가 없으면 <code>pip install</code>로 해도 돼요. Python 3.10 이상이면 충분해요.</p>
+  </div></div>
+  <div class="step"><div class="n">2</div><div>
+    <b>시작하기</b>
+    <pre>lemory up ~/Obsidian/MyVault</pre>
+    <p class="muted">이 한 줄이 설정 → 색인 → 대시보드까지 전부 해요. 볼트는
+    <code>.md</code> 파일이 든 폴더면 뭐든 돼요. 옵시디언이 아니어도요.</p>
+  </div></div>
+  <div class="step"><div class="n">3</div><div>
+    <b>물어보기</b>
+    <pre>lemory ask "요새 내가 하던 그 프로젝트 어디까지 했지?"</pre>
+    <p class="muted">끝이에요. 오타를 내도, 반말로 물어도 돼요.</p>
+  </div></div>
+  <h3>키가 없어도 돼요</h3>
+  <p>Gemini 키가 있으면 클라우드로, 없으면 <b>기본 탑재된 온디바이스
+  스택</b>(한국어 특화 e5-small-ko-v2 임베딩 + Gemma 4 답변)으로 돌아요.
+  완전 오프라인 모드에선 볼트 내용이 <b>한 바이트도</b> 밖으로 안 나가요.
+  망분리 환경에서도 그대로 써요.</p>
+  <table>
+    <tr><th>모드</th><th>필요한 것</th><th>되는 것</th></tr>
+    <tr><td>온디바이스 (기본)</td><td>키 없음, RAM 8GB+</td><td>검색 + 답변, 전부 오프라인</td></tr>
+    <tr><td>경량 로컬</td><td>키 없음, RAM 4GB</td><td>검색만 (라즈베리파이급도 OK)</td></tr>
+    <tr><td>Gemini 클라우드</td><td>무료 키 1개 (카드 등록 없음)</td><td>검색 + 답변, 하루 약 250질문 무료</td></tr>
+  </table>
+  <p class="muted">색인할 때 LLM이 아예 안 돌아요. 노트 1,000개 색인 =
+  LLM 호출 0회, 몇 초면 검색이 돼요.</p>
+</div></section>
+
+<section id="usecases"><div class="wrap">
+  <div class="kicker">Use cases</div>
+  <h2>어디에 쓰면 좋나요?</h2>
+  <div class="grid">
+    <div class="card"><b>💼 업무·회의</b><p>"3분기 킥오프에서 예산 얼마로 잡았지?" "재택 정책, 작년이랑 뭐가 달라졌지?" — 회의록이 쌓일수록 강해져요.</p></div>
+    <div class="card"><b>📚 공부한 것</b><p>"이벤트 루프 뭐였지? 내 노트 기준으로" — 인터넷 말고 내가 정리한 내용으로 답해요.</p></div>
+    <div class="card"><b>🤖 AI 비서의 장기기억</b><p>Claude·Cursor에 MCP로 연결하면, 세션이 끝나도 결정과 사실이 남아요. 다음 세션이 이어서 기억해요.</p></div>
+    <div class="card"><b>💬 채팅 기억</b><p>ChatGPT/Claude 대화 내보내기를 넣어두면 대화 속 결정들도 검색돼요. "내 여동생 이름 뭐랬지?"가 한 달 뒤에도 나와요.</p></div>
+    <div class="card"><b>🎮 게임·취미</b><p>"카오스 벨룸 준비물 뭐라고 적어놨더라?" "김치찌개 황금비율" — 공략 노트도 레시피도요.</p></div>
+    <div class="card"><b>🏠 생활 기록</b><p>"오사카 그 라멘집 이름이 뭐였지?" "전세 갱신 거절당하면 뭐부터?" — 적어둔 건 뭐든지요.</p></div>
+  </div>
+  <h3>일반 검색으론 안 되는 것들이 돼요</h3>
+  <pre>$ lemory ask "프로젝트 아틀라스 리드가 좋아하는 DB가 뭐더라?"
+# 멀티홉: 아틀라스 노트 → [[리드]] 링크 → 그 사람 노트에서 답을 찾아요
+
+$ lemory ask "요새 내가 읽던 책 뭐였지?"      # "지금" 책을 골라요
+$ lemory ask "3월에 읽던 책은?"               # 3월을 물으면 그때 기록으로</pre>
+  <p>내 <code>[[위키링크]]</code>가 곧 지식그래프예요. 그걸 공짜로 읽는
+  Lemory의 멀티홉 점수(1.000)가, LLM으로 그래프를 만드는 제품들(0.53~0.81)보다
+  높게 측정됐어요.</p>
+</div></section>
+
+<section id="howto"><div class="wrap">
+  <div class="kicker">How to use</div>
+  <h2>사용법 — 매일 이렇게 써요</h2>
+  <h3>① 서버를 켜두세요</h3>
+  <pre>lemory serve        # http://127.0.0.1:8377</pre>
+  <p>옵시디언 플러그인, Claude/MCP, 웹 대시보드가 전부 여기에 붙어요.
+  켜둔 동안 노트를 고치면 몇 초 안에 자동으로 다시 색인돼요.
+  <code>lemory ask</code> 한 줄은 서버 없이도 돼요.</p>
+  <img class="shot" src="assets/console-knowledge.png" alt="대시보드 지식 탭: 노트 상세, 로컬 그래프, 관련 노트" loading="lazy">
+  <h3>② AI에게 연결하세요</h3>
+  <pre>claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault --client claude-desktop
+lemory skill install claude-code    # 잘 쓰는 법까지 가르치기
+lemory hooks install claude-code    # 세션 끝나면 자동으로 기억 저장</pre>
+  <p>Cursor, Windsurf, VS Code 등 MCP를 지원하면 뭐든 같은 방식이에요.
+  훅을 걸어두면 Claude Code 세션이 끝날 때마다 기억할 만한 결정이
+  <b>날짜 붙은 노트 하나</b>로 저장돼요. 부지런할 필요가 없어요.</p>
+  <h3>③ 기억을 남기고, 다듬으세요</h3>
+  <pre>lemory remember "VPN 갱신은 매년 3월, 담당 김하늘" --tags 업무
+lemory search "tag:회의록 folder:2026 예산"    # 범위를 좁혀서 검색
+lemory suggest-links     # 언급만 하고 링크 안 건 것들 제안 (주 1회 추천)
+lemory drift             # 깨진 링크·방치된 중복 점검
+lemory graph --open      # 볼트 전체를 인터랙티브 그래프로</pre>
+  <p>AI가 쓴 건 전부 대시보드 피드에 "누가 썼는지"와 <b>되돌리기 버튼</b>과
+  함께 떠요. 아무것도 몰래 지나가지 않아요.</p>
+  <h3>④ 프라이버시는 한 줄이에요</h3>
+  <pre>---
+lemory: false
+---</pre>
+  <p>노트 맨 위에 이 한 줄만 적으면 그 노트는 색인도, 검색도, 어떤
+  모델로도 전송되지 않아요. 일기장은 일기장으로 남아요.</p>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <div class="kicker">Under the hood</div>
+  <h2>어떻게 돌아가나요?</h2>
+  <pre>내 볼트 (*.md) ──감시──► 파싱: frontmatter · 태그 · [[링크]] · 날짜
+                              │
+                              ▼
+          SQLite 파일 하나: 청크 · BM25 · 링크 그래프 · 임베딩 캐시
+                              │
+질문 ─► 오타 교정 ─► 벡터 + 키워드 (융합) ─► 제목·최신성 부스트
+                              │
+                     1홉 그래프 확장   ← 멀티홉 답이 여기서 나와요
+                              │
+                              ▼
+          날짜와 출처가 붙은 컨텍스트 ─► LLM ─► 답변 [n]</pre>
+  <p>검색은 로컬이고 LLM이 없어요(3~13ms). 질문당 임베딩 1회(캐시됨),
+  답변 생성 1회예요. 청크 2만 개를 넘으면 벡터 인덱스가 자동으로
+  전환돼서 <b>청크 100만 개에서도 질의당 5.9ms</b>예요.</p>
+  <h3>숫자로 보면</h3>
+  <table class="num">
+    <tr><th>측정</th><th>Lemory</th><th>비교</th></tr>
+    <tr><td>멀티홉 answer-in-context@8</td><td><b>1.000</b></td><td>LightRAG 0.807 · mem0 0.579 · qmd 0.526</td></tr>
+    <tr><td>검색 지연 (p50)</td><td><b>약 3ms</b></td><td>mem0 212ms · qmd 0.6~59초</td></tr>
+    <tr><td>KorQuAD recall@1 (키 없이 로컬)</td><td><b>0.930</b></td><td>BM25 0.900 · 벡터 단독 0.840</td></tr>
+    <tr><td>LongMemEval 500문항 Recall@5</td><td><b>0.983</b></td><td>API 호출 0회, 로컬 임베더만으로</td></tr>
+    <tr><td>색인 (노트 1,000개)</td><td><b>LLM 0회</b></td><td>일부 경쟁 제품은 54노트에 45분</td></tr>
+  </table>
+  <p class="muted">전부 같은 조건에서 직접 측정했고, 재현 스크립트가 저장소에
+  있어요. 저희가 지는 항목(예: 작은 영어 볼트에선 벡터 단독이 한 문제 차로
+  이겨요)도 그대로 적어뒀어요.</p>
+</div></section>
+
+<section id="dev"><div class="wrap">
+  <div class="kicker">For developers</div>
+  <h2>개발자라면</h2>
+  <pre>import lemory
+lemory.configure(vault="~/Obsidian/MyVault")
+lemory.index()
+print(lemory.ask("가격 정책 뭐라고 결정했더라?").text)</pre>
+  <p><span class="pill">REST</span> <code>GET /search</code> · <code>POST /ask</code> · <code>POST /memory</code> 등
+  <span class="pill">TS/JS</span> 의존성 0 클라이언트 (<code>clients/js</code>)
+  <span class="pill">Python</span> LangChain · LlamaIndex 리트리버
+  <span class="pill">Docker</span> 셀프호스팅
+  <span class="pill">커넥터 SDK</span> <code>lemory connect script.py</code>로 어떤 소스든 볼트 노트로</p>
+  <p>자세한 건 <a href="https://github.com/jwgo/lemory#개발자라면">README 개발자 섹션</a>을 보세요.</p>
+</div></section>
+
+<footer><div class="wrap">
+  🍋 <b>Lemory</b> · MIT ·
+  <a href="https://github.com/jwgo/lemory">GitHub</a> ·
+  <a href="https://github.com/jwgo/lemory/blob/main/BENCHMARKS.md">벤치마크</a> ·
+  <a href="https://github.com/jwgo/lemory/blob/main/docs/GUIDE.ko.md">상세 가이드</a> ·
+  <a href="en.html">English</a>
+  <p class="muted" style="margin-top:8px">기억은 당신 것이어야 하니까요.</p>
+</div></footer>
+
+</body>
+</html>
