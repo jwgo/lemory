@@ -112,6 +112,10 @@ class LemoryConfig(BaseSettings):
     chunk_chars: int = 882
     chunk_overlap: int = 180
     min_chunk_chars: int = 120
+    # chat-layout notes ('**나**: …' paragraphs) chunk by speaker burst with a
+    # filler gate instead of uniform packing (Cerebras-KB-style). Measured on
+    # RoleMemQA-messy — see BENCHMARKS. Off = treat chat notes like prose.
+    chat_burst_chunking: bool = True
 
     # --- vector index scale-out ---
     # below the threshold: exact float32 scan (zero accuracy loss). Above it:

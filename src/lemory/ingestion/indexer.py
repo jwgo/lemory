@@ -149,7 +149,7 @@ class Indexer:
         dry-run estimate and the real sync can never disagree on chunk counts."""
         chunks = chunk_note(
             note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
-            self.cfg.min_chunk_chars,
+            self.cfg.min_chunk_chars, chat_bursts=self.cfg.chat_burst_chunking,
         )
         if not chunks:
             plain = render_plain(note.body)

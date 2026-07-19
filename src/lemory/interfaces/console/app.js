@@ -1078,6 +1078,7 @@ const SETTINGS_META = [
     ["enrich_entities", "LLM 개체 추출", "cognee식 개체 그래프 보강 — LLM 쿼터 소모", "bool"],
     ["chunk_chars", "청크 크기(자)", "재색인 후 적용", "int"],
     ["chunk_overlap", "청크 겹침(자)", "재색인 후 적용", "int"],
+    ["chat_burst_chunking", "대화 버스트 청킹", "채팅 노트를 화자 버스트 단위로 색인 — 재색인 후 적용", "bool"],
   ]],
 ];
 

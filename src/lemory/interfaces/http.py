@@ -68,6 +68,7 @@ TUNABLE_FIELDS: dict[str, type] = {
     "k_bm25": int,
     "chunk_chars": int,
     "chunk_overlap": int,
+    "chat_burst_chunking": bool,
 }
 
 ACTIVITY_KEY = "console_activity"
