@@ -1,0 +1,26 @@
+{
+  "corpus": 1145,
+  "questions": 4442,
+  "arms": {
+    "hybrid": {
+      "recall@1": 0.8636,
+      "recall@5": 0.9496,
+      "p50_ms": 11.1
+    },
+    "fast": {
+      "recall@1": 0.8478,
+      "recall@5": 0.9322,
+      "p50_ms": 3.4
+    },
+    "vector": {
+      "recall@1": 0.8372,
+      "recall@5": 0.9462,
+      "p50_ms": 1.2
+    },
+    "bm25": {
+      "recall@1": 0.8478,
+      "recall@5": 0.9322,
+      "p50_ms": 3.3
+    }
+  }
+}

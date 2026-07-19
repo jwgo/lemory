@@ -112,6 +112,16 @@ class LemoryConfig(BaseSettings):
     chunk_chars: int = 882
     chunk_overlap: int = 180
     min_chunk_chars: int = 120
+    # chat-layout notes ('**나**: …' paragraphs) chunk by speaker burst with a
+    # filler gate instead of uniform packing (Cerebras-KB-style). Measured on
+    # RoleMemQA-messy — see BENCHMARKS. Off = treat chat notes like prose.
+    chat_burst_chunking: bool = True
+
+    # --- default scope (Cerebras-projects-style) ---
+    # operator syntax ('folder:프로젝트A tag:업무'), applied to every query
+    # that has no explicit tag:/folder: of its own. `scope:all` (또는 전체:)
+    # in a query bypasses it once. Empty = whole vault (default).
+    default_scope: str = ""
 
     # --- vector index scale-out ---
     # below the threshold: exact float32 scan (zero accuracy loss). Above it:
@@ -205,6 +215,14 @@ class LemoryConfig(BaseSettings):
     graph_sim_floor: float = 0.25  # skip neighbors whose best chunk sim is below this
     mention_links: bool = True
     per_doc_cap: int = 3
+    # Cerebras-style post-ranking context expansion: once ranking is final,
+    # re-attach the tail/head of each winner's NEIGHBOR chunks so headings,
+    # preconditions and caveats that chunking split apart aren't lost. Only
+    # changes what the generator READS — retrieval metrics are untouched.
+    # Opt-in for ask() so published e2e numbers stay exact; the console
+    # assistant always uses it (its answers aren't benchmark rows).
+    context_neighbors: bool = False
+    context_neighbor_chars: int = 240
     title_boost: float = 0.12
     # cognee-"memify"-style usage prior: notes that keep getting retrieved in
     # real use rank slightly higher. Default OFF and it stays off until someone
@@ -214,13 +232,40 @@ class LemoryConfig(BaseSettings):
     usage_prior: float = 0.0
 
     # --- attachments ---
-    index_pdf: bool = False  # index PDF text too (pip install 'lemory[pdf]')
+    index_pdf: bool = False   # index PDF text too (pip install 'lemory[pdf]')
+    index_docx: bool = False  # index Word text too (stdlib zip/XML, no deps)
 
     # --- middleware dashboard ---
     # local-only timeline of what passed through: queries (with top sources),
     # AI memory writes, per-client stats. Lives in the same SQLite file,
     # capped ring buffer, never transmitted. Set false to keep no logs.
     event_log: bool = True
+
+    # --- remote access (the mobile story) ---
+    # Serving beyond localhost (e.g. `lemory serve --host 0.0.0.0` so Obsidian
+    # Mobile on the same Wi-Fi can search the desktop index) REQUIRES a token:
+    # every request must carry `Authorization: Bearer <api_token>`. Localhost
+    # clients are exempt so the desktop dashboard/plugin keep working without
+    # setup. Extra hostnames for the DNS-rebinding allowlist (e.g. a Tailscale
+    # MagicDNS name) go in allowed_hosts.
+    api_token: str = ""
+    allowed_hosts: list[str] = Field(default_factory=list)
+
+    # --- semantic fallback links (measured: DON'T turn on blindly) ---
+    # Hypothesis was: a vault with no [[wikilinks]] could recover multi-hop
+    # via cosine-nearest 'sem' edges on linkless notes. The ablation
+    # (benchmarks/run_linkless.py) REFUTED it on the multihop corpus: verbatim
+    # title mentions alone fully recover (1.000), while sem edges alone score
+    # BELOW no-graph (0.474/0.491 vs 0.491/0.544) — similarity neighbors are
+    # not relational bridges, and the vector leg already carries similarity,
+    # so sem edges only displace direct hits. Default OFF per the same
+    # standard as usage_prior: a signal ships on only after it measurably
+    # helps. Kept as opt-in for corpora where mentions can't fire AND
+    # semantic neighborhoods happen to align with relations.
+    semantic_links: bool = False
+    semantic_links_k: int = 3
+    semantic_links_floor: float = 0.55
+    semantic_links_weight: float = 0.6
 
     # --- optional LLM retrieval stages (qmd-style; each costs LLM calls) ---
     query_expansion: bool = False   # rewrite the query into variants pre-search

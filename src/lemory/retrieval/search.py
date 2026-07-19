@@ -56,6 +56,10 @@ class SearchResult:
 # retrieval before ranking. Values with spaces are quoted: tag:"프로젝트 A".
 _OPERATOR_RE = re.compile(r'(?:^|\s)(tag|folder|path)\s*:\s*(?:"([^"]+)"|(\S+))',
                           re.IGNORECASE)
+# escape hatch from cfg.default_scope for a single query: `scope:all 질문`
+# (or 전체: prefix) searches the whole vault without touching settings
+_SCOPE_ALL_RE = re.compile(r"(?:^|\s)(?:scope\s*:\s*all|전체\s*:)(?=\s|$)",
+                           re.IGNORECASE)
 
 
 def parse_operators(query: str) -> tuple[str, list[str], list[str]]:
@@ -240,11 +244,21 @@ def hybrid_search(
     # vector/bm25 ablations as in hybrid.
     allowed_docs: set[int] | None = None
     clean, op_tags, op_folders = parse_operators(query)
+    if not (op_tags or op_folders) and cfg.default_scope:
+        # Cerebras-projects-style default scope: cfg.default_scope (same
+        # operator syntax) applies when the query itself is unscoped.
+        # Explicit operators in the query always win; `scope:all` (or 전체:)
+        # searches the whole vault for one query without touching config.
+        if _SCOPE_ALL_RE.search(query):
+            query = _SCOPE_ALL_RE.sub(" ", query).strip()
+        else:
+            _, op_tags, op_folders = parse_operators(cfg.default_scope)
     if op_tags or op_folders:
         allowed_docs = store.docs_matching(op_tags, op_folders)
         if not allowed_docs:
             return SearchResult(hits=[])
-        query = clean
+        if clean != query:  # operators came from the query text — strip them
+            query = clean
         if not query:
             # bare filter ("tag:회의록") = scoped listing, newest first
             return _filtered_listing(store, allowed_docs, k)
@@ -272,6 +286,7 @@ def hybrid_search(
     tagged_lists: list[tuple[str, list[tuple[int, float]], float]] = []
     vec_hits: list[tuple[int, float]] = []
     bm25_hits: list[tuple[int, float]] = []
+    nested_alias: dict[int, int] = {}
     for q_text, weight, legs in queries:
         v_hits: list[tuple[int, float]] = []
         b_hits: list[tuple[int, float]] = []
@@ -291,6 +306,13 @@ def hybrid_search(
                 v_hits = store.vector_search(v, cfg.k_vector * depth)
         if mode in ("hybrid", "fast", "bm25"):
             b_hits = store.bm25_search(q_text, cfg.k_bm25 * depth)
+        # multi-granularity: focused burst chunks act as rank boosters for
+        # their packed sibling, never as extra fusion tickets — see
+        # _canonicalize_nested_leg for the measured failure modes of the
+        # alternatives. One alias cache per search: legs and query variants
+        # agree on canonical ids by construction.
+        v_hits = _canonicalize_nested_leg(store, v_hits, nested_alias)
+        b_hits = _canonicalize_nested_leg(store, b_hits, nested_alias)
         if q_text == query:
             vec_hits, bm25_hits = v_hits, b_hits
         tagged_lists.append(("vec", v_hits, cfg.w_vector * weight))
@@ -475,9 +497,42 @@ def hybrid_search(
     cap = cfg.per_doc_cap if mode in ("hybrid", "fast") else 10**9
     hits: list[ChunkHit] = []
     per_doc: dict[int, int] = {}
+
+    def _squash(t: str) -> str:
+        return "".join(t.split())
+
     for cid, score in ranked:
         meta = chunk_meta.get(cid)
         if meta is None:
+            continue
+        # multi-granularity notes index a focused burst chunk INSIDE a packed
+        # chunk; spending two result slots on nested text starves other docs
+        # (measured: two-hop full-support dropped when both granularities of
+        # one note made top-8). Same-doc containment → one slot: a subset
+        # adds nothing (skip), a superset replaces the subset at its rank.
+        # Leg aliasing already collapses most burst pairs upstream — this is
+        # the safety net for the un-aliasable ones (hard-split bursts) — and
+        # it applies ONLY when a burst chunk is involved: incidental
+        # overlap-suffix containment between ordinary chunks predates burst
+        # chunking and merging it changed KorQuAD results.
+        nested = False
+        if cap < 10**9:
+            mt = _squash(meta.text)
+            for i, h in enumerate(hits):
+                if h.doc_id != meta.doc_id:
+                    continue
+                if Store.BURST_HEADING not in (meta.heading, h.heading):
+                    continue
+                ht = _squash(h.text)
+                if mt in ht:
+                    nested = True
+                    break
+                if ht in mt:
+                    meta.score = h.score
+                    hits[i] = meta
+                    nested = True
+                    break
+        if nested:
             continue
         if per_doc.get(meta.doc_id, 0) >= cap:
             continue
@@ -688,6 +743,54 @@ def _idf_weight(lex: dict, token: str) -> float:
     return 1.0 / (1.0 + math.log1p(c))
 
 
+def _canonicalize_nested_leg(
+    store: Store, hits: list[tuple[int, float]],
+    alias_cache: dict[int, int] | None = None,
+) -> list[tuple[int, float]]:
+    """Rewrite focused burst chunks to their packed superset chunk within a
+    retrieval leg, keeping each canonical chunk's best rank.
+
+    Why aliasing and not dropping: two earlier designs measurably failed.
+    Leaving both granularities in a leg double-counts the doc in RRF and
+    flips razor-thin fusion margins (clean-RoleMemQA long-type, 0.0404 vs
+    0.0398). Per-leg dropping picks DIFFERENT survivors per leg (vector
+    keeps the focused chunk, BM25 the packed one), splitting one doc's
+    fusion mass across two chunk ids — doc@8 collapsed across every chat
+    bench. Aliasing makes fusion run on exactly the pre-burst chunk set:
+    a focused chunk that out-ranks its sibling IMPROVES the sibling's rank,
+    and nothing else changes. No-op unless burst chunks are in the list."""
+    if not hits:
+        return hits
+    metas = store.get_chunks([cid for cid, _ in hits])
+    bursts = [cid for cid, m in metas.items()
+              if m.heading == Store.BURST_HEADING]
+    if not bursts:
+        return hits
+    alias = alias_cache if alias_cache is not None else {}
+    by_doc: dict[int, list[int]] = {}
+    for cid in bursts:
+        if cid not in alias:
+            by_doc.setdefault(metas[cid].doc_id, []).append(cid)
+    for doc_id, cids in by_doc.items():
+        dmeta = store.get_chunks(store.doc_chunk_ids(doc_id))
+        packed = [(pid, "".join(m.text.split())) for pid, m in dmeta.items()
+                  if m.heading not in (Store.BURST_HEADING, Store.ENRICH_HEADING)]
+        for cid in cids:
+            sq = "".join(metas[cid].text.split())
+            # a hard-split long burst can span two packed chunks — then no
+            # superset exists and the chunk stays its own canonical id
+            alias[cid] = next((pid for pid, pt in packed if sq in pt), cid)
+    out: list[tuple[int, float]] = []
+    seen: set[int] = set()
+    for cid, s in hits:  # rank order — best rank per canonical id wins
+        c = alias.get(cid, cid)
+        if c in seen:
+            continue
+        seen.add(c)
+        out.append((c, s))
+    return out
+
+
 def _bm25_coverage(store: Store, query: str,
                    bm25_hits: list[tuple[int, float]],
                    rec: tuple | None = None,
@@ -730,12 +833,44 @@ def _bm25_coverage(store: Store, query: str,
     stems = {t: (_to_jamo(t, drop_last_tail=True)
                  if has_hangul and _HANGUL_RE.search(t) and len(t) >= 2 else "")
              for t in q_tokens}
-    # top-8, not top-3: a masked-entity query's identifier often sits in the
-    # rank-4..8 chunk (that being the problem the pin exists to fix) — a
-    # 3-chunk window couldn't see the evidence that should open the gate
-    meta = store.get_chunks([cid for cid, _ in bm25_hits[:8]])
+    # AUTHORITY window: the first 8 candidates in BM25 order, counted after
+    # same-doc nested dedupe — the pin gate opens only on evidence near the
+    # top (a masked-entity identifier often sits at rank 4..8; that is the
+    # problem the pin exists to fix). On single-granularity corpora nothing
+    # nests, so this is byte-for-byte the old top-8-chunks window (verified:
+    # widening it to 8 distinct docs cost KorQuAD r@1 0.94 → 0.9325).
+    # Multi-granularity chat notes put a focused burst chunk inside its
+    # packed sibling; counting both wastes window slots on one note.
+    # CHOICE window: under vague-recency intent ONLY, floor-passing
+    # candidates are scanned deeper (top-24) — template-heavy chat corpora
+    # put eight near-identical OLD statements of a fact ahead of the newest
+    # one, and the recency-weighted choice must be able to see it (measured:
+    # clean-RoleMemQA update doc@1 1.0 → 0.0 when the gold update sat at
+    # rank 8 behind eight template twins). The gate ('best', what callers
+    # compare to verbatim thresholds) still comes from the authority window.
+    scan_n = 24 if rec is not None else 8
+    chunk_doc = store.get_chunks([cid for cid, _ in bm25_hits[:max(scan_n, 16)]])
+    auth_ids: set[int] = set()
+    doc_texts: dict[int, list[tuple[str, bool]]] = {}
+    for cid, _ in bm25_hits[:16]:
+        m = chunk_doc.get(cid)
+        if m is None or len(auth_ids) >= 8:
+            continue
+        burst = m.heading == Store.BURST_HEADING
+        sq = "".join(m.text.split())
+        seen = doc_texts.setdefault(m.doc_id, [])
+        # nested-twin skip applies only to burst-involved pairs — incidental
+        # overlap-suffix containment between ordinary chunks predates burst
+        # chunking and must not change the window on classic corpora
+        if any((burst or b) and (sq in t or t in sq) for t, b in seen):
+            continue
+        seen.append((sq, burst))
+        auth_ids.add(cid)
     scored: list[tuple[float, float, int]] = []  # (cover, recency_weighted, cid)
-    for cid, m in meta.items():
+    for cid, _ in bm25_hits[:scan_n]:
+        m = chunk_doc.get(cid)
+        if m is None:
+            continue
         text = (m.text + " " + m.title).lower()
         text_jamo = _to_jamo(text) if has_hangul else ""
         hit = sum(w for t, w in weights.items()
@@ -750,7 +885,9 @@ def _bm25_coverage(store: Store, query: str,
         scored.append((cover, weighted, cid))
     if not scored:
         return 0.0, None
-    best = max(c for c, _, _ in scored)
+    best = max((c for c, _, cid in scored if cid in auth_ids), default=0.0)
+    if best <= 0:
+        return 0.0, None
     # recency may only choose among AUTHORITATIVE candidates: anything at or
     # above the pin gate is, by the pin's own definition, verbatim enough to
     # be pinned — among those, the newest statement of the fact wins (a

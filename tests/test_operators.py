@@ -61,3 +61,41 @@ def test_bare_filter_lists_scope(engine):
 def test_unmatched_filter_returns_empty(engine):
     engine.index()
     assert engine.search("tag:없는태그 pricing", k=5) == []
+
+
+def test_default_scope_applies_to_unscoped_queries(engine):
+    engine.index()
+    engine.cfg.default_scope = "tag:project"
+    try:
+        hits = engine.search("pricing", k=5)
+        assert hits and all(h.title == "Mercury Initiative" for h in hits)
+    finally:
+        engine.cfg.default_scope = ""
+
+
+def test_default_scope_query_operators_win(engine):
+    engine.index()
+    engine.cfg.default_scope = "tag:project"
+    try:
+        hits = engine.search("tag:log pricing", k=5)
+        assert hits and all(h.title == "Weekly Log" for h in hits)
+    finally:
+        engine.cfg.default_scope = ""
+
+
+def test_default_scope_scope_all_bypasses_once(engine):
+    engine.index()
+    engine.cfg.default_scope = "tag:project"
+    try:
+        titles = {h.title for h in engine.search("scope:all pricing", k=8)}
+        assert "Weekly Log" in titles  # outside the default scope
+        titles_ko = {h.title for h in engine.search("전체: pricing", k=8)}
+        assert "Weekly Log" in titles_ko
+    finally:
+        engine.cfg.default_scope = ""
+
+
+def test_empty_default_scope_is_noop(engine):
+    engine.index()
+    assert engine.cfg.default_scope == ""
+    assert {h.title for h in engine.search("pricing", k=8)} >= {"Mercury Initiative", "Weekly Log"}

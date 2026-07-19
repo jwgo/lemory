@@ -548,6 +548,37 @@ def import_chats(
         console.print("새로 추가된 대화가 없습니다 (이미 가져왔거나 빈 내보내기).")
 
 
+@app.command("connect")
+def connect_cmd(
+    script: Path = typer.Argument(..., help="커넥터 파이썬 파일 (pull(state) 또는 fetch() 정의)"),
+    folder: str = typer.Option("", help="노트를 쓸 볼트 폴더 (기본: 가져옴/<이름>)"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """커넥터 스크립트를 실행해 외부 소스를 볼트 노트로 가져옵니다.
+
+    커넥터는 사용자가 소유한 파이썬 파일이며 결과물은 평범한 마크다운
+    노트입니다 — 검색·수정·삭제 모두 다른 노트와 동일. pull(state)를
+    정의하면 커서가 저장돼 증분 수집이 됩니다. 재실행은 멱등(같은 id는
+    같은 파일을 덮어씀)이고 삭제는 절대 하지 않습니다."""
+    from ..ingestion.connectors import run_connector
+
+    if not script.is_file():
+        console.print(f"[red]파일이 없습니다:[/red] {script}")
+        raise typer.Exit(1)
+    eng = _engine(vault)
+    rep = run_connector(eng, script, folder=folder)
+    if rep.written:
+        console.print(f"[green]{len(rep.written)}개 노트[/green]를 가져와 색인했습니다:")
+        for rel in rep.written[:10]:
+            console.print(f"  {rel}")
+        if len(rep.written) > 10:
+            console.print(f"  … +{len(rep.written) - 10}")
+    else:
+        console.print("가져올 항목이 없습니다.")
+    if rep.skipped:
+        console.print(f"[yellow]{rep.skipped}개 항목 건너뜀[/yellow] (title/body 누락 또는 경로 이탈)")
+
+
 @app.command()
 def hook(
     agent: str = typer.Argument(..., help="Hook source: claude-code"),
@@ -658,11 +689,12 @@ def ask(
     question: str,
     k: int = typer.Option(8),
     vault: Optional[Path] = typer.Option(None),
+    deep: bool = typer.Option(False, "--deep", help="다단계 검색: 질문을 하위 질문으로 분해해 각각 검색 후 통합 (LLM 1회 추가)"),
 ):
     """Ask a question; the answer is grounded in your notes with citations."""
     eng = _engine(vault)
     try:
-        ans = eng.ask(question, k=k, record=True, client="cli")
+        ans = eng.ask(question, k=k, record=True, client="cli", deep=deep)
     except RuntimeError as e:
         # keyless / local search-only mode: no generator. Degrade to search
         # instead of dumping a traceback — the evidence is still useful.
@@ -679,6 +711,150 @@ def ask(
         raise typer.Exit(1)
     console.print(ans.text)
     console.print("\n[dim]" + ans.render_sources() + "[/dim]")
+
+
+@app.command("doctor")
+def doctor_cmd(vault: Optional[Path] = typer.Option(None)):
+    """설치 진단: 뭔가 이상할 때 제일 먼저 돌려볼 명령.
+
+    볼트/인덱스/임베더/생성기/FTS5를 점검하고 각 항목을 ✔/✘로 보고합니다.
+    이슈를 열 때 이 출력이 있으면 재현 문답이 절반으로 줄어듭니다."""
+    import sqlite3
+    import time as _time
+
+    rows: list[tuple[bool, str]] = []
+
+    def check(ok: bool, label: str):
+        rows.append((ok, label))
+
+    from ..config import load_config
+
+    cfg = load_config(vault=vault)
+    try:
+        v = cfg.resolved_vault()
+        n_md = sum(1 for _ in v.rglob("*.md"))
+        check(v.is_dir(), f"vault: {v} ({n_md} .md)")
+    except Exception as e:
+        check(False, f"vault: {e}")
+        v = None
+
+    try:
+        db = cfg.resolved_data_dir() / "lemory.db"
+        if db.exists():
+            c = sqlite3.connect(db)
+            integrity = c.execute("PRAGMA integrity_check").fetchone()[0]
+            n_docs = c.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+            c.close()
+            check(integrity == "ok",
+                  f"index: {db} ({n_docs} docs, integrity={integrity}, "
+                  f"{db.stat().st_size // 1024 // 1024}MB)")
+        else:
+            check(True, f"index: not built yet ({db}) — run `lemory index`")
+    except Exception as e:
+        check(False, f"index: {e}")
+
+    try:
+        c = sqlite3.connect(":memory:")
+        c.execute("CREATE VIRTUAL TABLE t USING fts5(x)")
+        c.close()
+        check(True, "sqlite FTS5 available")
+    except Exception as e:
+        check(False, f"sqlite FTS5 missing: {e}")
+
+    try:
+        from ..providers import create_client
+
+        client = create_client(cfg)
+        t0 = _time.monotonic()
+        vec = client.embed(["doctor smoke test"])
+        ms = (_time.monotonic() - t0) * 1000
+        check(vec.shape[-1] == cfg.active_embed_dim(),
+              f"embedder: {cfg.active_embed_model()} ({vec.shape[-1]}d, first embed {ms:.0f}ms)")
+        try:
+            client.generate("ping", max_output_tokens=1)
+            check(True, f"generator: {cfg.active_llm_model()}")
+        except Exception as e:
+            check(True, f"generator: 없음 (검색은 됨, ask는 불가) — {str(e)[:60]}")
+        client.close()
+    except Exception as e:
+        check(False, f"embedder: {e}")
+
+    ok_all = True
+    for ok, label in rows:
+        console.print(("[green]✔[/green] " if ok else "[red]✘[/red] ") + label)
+        ok_all = ok_all and ok
+    if not ok_all:
+        raise typer.Exit(1)
+
+
+@app.command("backup")
+def backup_cmd(
+    out: Optional[Path] = typer.Argument(None, help="Output .tar.gz (default: lemory-backup-<date>.tar.gz)"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """인덱스·설정·사용기록 백업 (.tar.gz).
+
+    노트 자체는 이미 당신의 파일이니 여기 안 담습니다 — 담는 것은 노트가
+    아닌 상태들: 검색 인덱스(임베딩 캐시 포함), lemory.toml, note_hits,
+    이벤트 타임라인. SQLite 온라인 백업 API로 서버가 켜져 있어도 안전."""
+    import sqlite3
+    import tarfile
+    import tempfile
+    from datetime import datetime
+
+    eng = _engine(vault)
+    data_dir = eng.cfg.resolved_data_dir()
+    out = out or Path(f"lemory-backup-{datetime.now().date().isoformat()}.tar.gz")
+    with tempfile.TemporaryDirectory() as td:
+        snap = Path(td) / "lemory.db"
+        src = sqlite3.connect(eng.store.db_path)
+        dst = sqlite3.connect(snap)
+        with dst:
+            src.backup(dst)
+        src.close(); dst.close()
+        with tarfile.open(out, "w:gz") as tar:
+            tar.add(snap, arcname="lemory.db")
+            for extra in data_dir.glob("*.toml"):
+                tar.add(extra, arcname=extra.name)
+            vault_toml = eng.cfg.resolved_vault() / "lemory.toml"
+            if vault_toml.exists():
+                tar.add(vault_toml, arcname="vault-lemory.toml")
+    console.print(f"[green]backed up[/green] {out} ({out.stat().st_size//1024} KB)")
+
+
+@app.command("restore")
+def restore_cmd(
+    archive: Path = typer.Argument(..., help="Backup .tar.gz from `lemory backup`"),
+    vault: Optional[Path] = typer.Option(None),
+    force: bool = typer.Option(False, "--force", help="기존 인덱스 덮어쓰기"),
+):
+    """백업 복원. 기존 lemory.db가 있으면 --force 필요."""
+    import tarfile
+
+    from ..config import load_config
+
+    # config-only path resolution: instantiating the engine would CREATE an
+    # empty lemory.db and defeat the pre-existing-index check below
+    cfg = load_config(vault=vault)
+    data_dir = cfg.resolved_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    db = data_dir / "lemory.db"
+    if db.exists() and not force:
+        console.print("[red]기존 인덱스가 있습니다[/red] — 덮어쓰려면 --force")
+        raise typer.Exit(1)
+    with tarfile.open(archive, "r:gz") as tar:
+        names = tar.getnames()
+        if "lemory.db" not in names:
+            console.print("[red]잘못된 백업 파일[/red] (lemory.db 없음)")
+            raise typer.Exit(1)
+        for m in tar.getmembers():
+            # flat archive only — refuse traversal
+            if "/" in m.name or m.name.startswith("."):
+                continue
+            if m.name == "vault-lemory.toml":
+                continue  # vault config is the user's file; never clobber silently
+            tar.extract(m, data_dir)
+    console.print(f"[green]restored[/green] → {data_dir} (노트 파일은 건드리지 않음)")
 
 
 @app.command()
@@ -702,10 +878,15 @@ def serve(
 
     from .http import build_app
 
-    if host not in ("127.0.0.1", "localhost", "::1"):
-        console.print(f"[yellow]![/yellow] {host}로 바인딩합니다 — 이 API는 인증이 없어 "
-                      "네트워크의 누구나 볼트를 읽고 쓸 수 있습니다. 신뢰된 네트워크에서만 쓰세요.")
     eng = _engine(vault)
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        if eng.cfg.api_token:
+            console.print(f"[yellow]![/yellow] {host} 바인딩 — 원격 요청은 "
+                          "Authorization: Bearer <api_token> 필요 (모바일 셋업: docs/GUIDE)")
+        else:
+            console.print(f"[yellow]![/yellow] {host} 바인딩인데 api_token이 없습니다 — "
+                          "원격 요청은 전부 403으로 거부됩니다. lemory.toml에 "
+                          "api_token = \"...\" 을 설정하세요.")
     uvicorn.run(build_app(eng, watch=watch), host=host, port=port)
 
 

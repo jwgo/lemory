@@ -62,6 +62,7 @@ async function loadNotes(force = false) {
 const routes = {
   overview: renderOverview,
   knowledge: renderKnowledge,
+  health: renderHealth,
   search: renderSearch,
   assistant: renderAssistant,
   settings: renderSettings,
@@ -470,6 +471,88 @@ async function drawNoteDetail(path) {
   });
 }
 
+/* ----------------------------------------------------------------- health */
+async function renderHealth() {
+  const m = $("#main");
+  m.innerHTML = `<div class="view">
+    <div class="view-head"><div class="view-title">건강</div>
+      <div class="view-sub">기억 vs 기억(모순) · 기억 vs 현실(드리프트) · AI 쓰기 승인 · 링크 제안 — 전부 로컬, LLM 0회</div></div>
+    <div class="card"><div class="card-head">승인 대기 <span class="spacer"></span><span class="chip" id="pendCount"></span></div>
+      <div id="pendBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
+    <div class="card"><div class="card-head">모순 (기억 vs 기억) <span class="spacer"></span><span class="chip" id="confCount"></span></div>
+      <div id="confBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
+    <div class="card"><div class="card-head">드리프트 (기억 vs 현실) <span class="spacer"></span><span class="chip" id="driftCount"></span></div>
+      <div id="driftBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
+    <div class="card"><div class="card-head">링크 제안 <span class="spacer"></span><span class="chip" id="sugCount"></span></div>
+      <div id="sugBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
+  </div>`;
+
+  const empty = (t) => `<div class="empty">${t}</div>`;
+
+  // 승인 대기 (memory_approval mode)
+  const drawPending = async () => {
+    try {
+      const rows = await api("/api/pending");
+      $("#pendCount").textContent = rows.length ? `${rows.length}건` : "";
+      $("#pendBody").innerHTML = rows.length ? rows.map(r => `
+        <div class="hl-row">
+          <div class="hl-main"><b>${esc(r.title)}</b><span class="hl-dim">${esc(r.path)}</span></div>
+          <button class="btn sm primary" data-approve="${esc(r.path)}">승인</button>
+          <button class="btn sm" data-reject="${esc(r.path)}">거절</button>
+        </div>`).join("") : empty("승인 대기 없음 — memory_approval을 켜면 AI 쓰기가 여기서 대기합니다");
+      $$("#pendBody [data-approve]").forEach(b => b.onclick = async () => {
+        await jpost("/memory/approve", { path: b.dataset.approve }); drawPending();
+      });
+      $$("#pendBody [data-reject]").forEach(b => b.onclick = async () => {
+        await jpost("/memory/trash", { path: b.dataset.reject }); drawPending();
+      });
+    } catch (e) { $("#pendBody").innerHTML = empty(esc(e.message)); }
+  };
+
+  const drawConflicts = async () => {
+    try {
+      const rows = await api("/api/conflicts?threshold=0.75&limit=20");
+      const label = { number: "숫자 불일치", negation: "부정 충돌", duplicate: "중복 후보" };
+      $("#confCount").textContent = rows.length ? `${rows.length}건` : "";
+      $("#confBody").innerHTML = rows.length ? rows.map(c => `
+        <div class="hl-row col">
+          <div><span class="chip ${c.kind === "duplicate" ? "" : "warn"}">${label[c.kind]}</span>
+            <span class="hl-dim">sim ${c.similarity}</span>
+            ${c.detail ? `<span class="hl-dim">· ${esc(c.detail)}</span>` : ""}</div>
+          <div class="hl-pair"><b>${esc(c.a.title)}</b> ↔ <b>${esc(c.b.title)}</b></div>
+        </div>`).join("") : empty("모순 없음 — 노트들이 서로 일치합니다");
+    } catch (e) { $("#confBody").innerHTML = empty(esc(e.message)); }
+  };
+
+  const drawDrift = async () => {
+    try {
+      const d = await api("/api/drift");
+      const kinds = [["broken_wikilinks", "깨진 위키링크"], ["missing_file_links", "없는 파일 링크"],
+                     ["unresolved_duplicates", "미해소 중복 플래그"]];
+      const total = kinds.reduce((s, [k]) => s + (d[k] || []).length, 0);
+      $("#driftCount").textContent = total ? `${total}건` : "";
+      $("#driftBody").innerHTML = total ? kinds.filter(([k]) => (d[k] || []).length).map(([k, lab]) => `
+        <div class="hl-row col"><div><span class="chip warn">${lab}</span></div>
+          ${(d[k]).slice(0, 8).map(r => `<div class="hl-dim">${esc(r.note)} → ${esc(r.target || r.duplicate_of || "")}</div>`).join("")}
+        </div>`).join("") : empty(`드리프트 없음 — 노트 ${d.notes_scanned ?? "?"}개 검사`);
+    } catch (e) { $("#driftBody").innerHTML = empty(esc(e.message)); }
+  };
+
+  const drawSuggest = async () => {
+    try {
+      const rows = await api("/api/suggest_links?k=10");
+      $("#sugCount").textContent = rows.length ? `${rows.length}건` : "";
+      $("#sugBody").innerHTML = rows.length ? rows.map(s => `
+        <div class="hl-row col">
+          <div><b>${esc(s.from_title)}</b> → ${esc(s.suggestion)}</div>
+          ${s.snippet ? `<div class="hl-dim">"${esc(s.snippet)}"</div>` : ""}
+        </div>`).join("") : empty("연결 안 된 언급 없음");
+    } catch (e) { $("#sugBody").innerHTML = empty(esc(e.message)); }
+  };
+
+  drawPending(); drawConflicts(); drawDrift(); drawSuggest();
+}
+
 /* ----------------------------------------------------------------- search */
 // what people actually ask their vault — rotated so the empty state teaches range
 const EXAMPLE_QUERIES = [
@@ -501,7 +584,7 @@ async function renderSearch() {
     </div>
     <div class="search-ctl">
       <div class="grp"><span>모드</span><div class="seg" id="segMode">
-        <button data-v="hybrid">하이브리드</button><button data-v="vector">벡터</button><button data-v="bm25">BM25</button></div></div>
+        <button data-v="hybrid">하이브리드</button><button data-v="fast">즉답</button><button data-v="vector">벡터</button><button data-v="bm25">BM25</button></div></div>
       <div class="grp"><span>그래프 확장</span><span class="switch ${Q.graph ? "on" : ""}" id="swGraph"></span></div>
       <div class="grp"><span>결과 수</span><div class="seg" id="segK">
         <button data-v="4">4</button><button data-v="8">8</button><button data-v="16">16</button></div></div>
@@ -527,6 +610,30 @@ async function renderSearch() {
   input.addEventListener("keydown", e => { if (e.key === "Enter") doAsk(); });
   $("#btnAsk").onclick = doAsk;
   $("#btnSearch").onclick = doSearch;
+
+  // as-you-type instant results: every keystroke fires a mode=fast query
+  // (lexical-only, no embedding — a few ms server-side), debounced just
+  // enough to skip intermediate frames. Enter/버튼 still run the full
+  // hybrid/ask paths; typing never does.
+  let instantTimer = 0, instantSeq = 0;
+  input.addEventListener("input", () => {
+    clearTimeout(instantTimer);
+    const q = input.value.trim();
+    if (q.length < 2) return;
+    instantTimer = setTimeout(async () => {
+      const seq = ++instantSeq;
+      const t0 = performance.now();
+      try {
+        const hits = await api(`/search?q=${encodeURIComponent(q)}&k=${Q.k}&mode=fast`);
+        if (seq !== instantSeq || input.value.trim() !== q) return; // stale
+        const ms = performance.now() - t0;
+        $("#answerBox").innerHTML = "";
+        $("#lat").hidden = false;
+        $("#lat").textContent = `${hits.length}건 · ${ms.toFixed(0)}ms · 즉답(fast) — Enter로 정밀 검색`;
+        drawHits(hits);
+      } catch (_) { /* instant path is best-effort; Enter still works */ }
+    }, 140);
+  });
 
   async function doSearch() {
     Q.q = input.value.trim(); if (!Q.q) return;
@@ -593,7 +700,7 @@ async function renderAssistant() {
       <div id="asstStatus" class="asst-status"></div>
       <div class="asst-input">
         <button class="btn asst-mic" id="asstMic" title="대화 모드 — 그냥 말하면 됩니다 (로컬 음성인식)" hidden>🎙</button>
-        <textarea id="asstIn" rows="1" placeholder="볼트에 대해 물어보세요… (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
+        <textarea id="asstIn" rows="1" placeholder="물어보거나, '…기억해줘'로 저장 — /검색 /기억 /최근 명령도 됩니다"></textarea>
         <button class="btn primary" id="asstSend">전송</button>
       </div>
     </div></div>`;
@@ -652,7 +759,7 @@ async function renderAssistant() {
   const log = $("#asstLog"), input = $("#asstIn"), send = $("#asstSend");
   ASSIST.history.forEach(msg => appendBubble(log, msg.role, msg.content, msg.sources));
   if (!ASSIST.history.length)
-    log.innerHTML = `<div class="asst-empty">무엇이든 물어보세요. 답변은 볼트의 노트에 근거하고, 아래에 출처를 답니다.<br><span style="color:var(--text-3)">예: "지난주에 정리한 결제 정책 요약해줘"</span></div>`;
+    log.innerHTML = `<div class="asst-empty">무엇이든 물어보세요. 답변은 볼트의 노트에 근거하고, 아래에 출처를 답니다.<br><span style="color:var(--text-3)">예: "지난주에 정리한 결제 정책 요약해줘" · "환불은 비동기 큐로 하기로 했다고 기억해줘"</span></div>`;
 
   input.oninput = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; };
   input.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } };
@@ -780,6 +887,30 @@ async function renderAssistant() {
     if (!text || ASSIST.busy) return;
     input.value = ""; input.style.height = "auto";
     if (!ASSIST.history.length) log.innerHTML = "";
+
+    // slash commands — instant local actions, no LLM round-trip
+    if (text.startsWith("/")) {
+      appendBubble(log, "user", text);
+      const reply = (html) => { const b = appendBubble(log, "assistant", ""); b.querySelector(".asst-text").innerHTML = html; log.scrollTop = log.scrollHeight; };
+      try {
+        if (text.startsWith("/검색 ") || text.startsWith("/s ")) {
+          const q = text.replace(/^\/(검색|s)\s+/, "");
+          const hits = await api(`/search?q=${encodeURIComponent(q)}&k=5&mode=fast`);
+          reply(hits.length ? hits.map(h => `<div><b>${esc(h.title)}</b> <span style="color:var(--text-3)">${esc(h.text.slice(0, 110))}…</span></div>`).join("")
+                            : "검색 결과 없음");
+        } else if (text.startsWith("/기억 ")) {
+          const r = await jpost("/memory", { content: text.slice(4).trim() });
+          reply(`기억했습니다 → <code>${esc(r.saved)}</code>`);
+        } else if (text === "/최근" || text === "/컨텍스트") {
+          const r = await api("/context?max_chars=1200");
+          reply(`<pre style="white-space:pre-wrap;margin:0">${esc(r.context)}</pre>`);
+        } else {
+          reply("명령: <code>/검색 질의</code> · <code>/기억 내용</code> · <code>/최근</code>");
+        }
+      } catch (e) { reply("실패: " + esc(e.message)); }
+      return;
+    }
+
     ASSIST.busy = true; send.disabled = true; ttsBuf = ""; ttsQ.length = 0;
     if (convo) setStatus("생각 중…");
     ASSIST.history.push({ role: "user", content: text });
@@ -918,6 +1049,11 @@ const SETTINGS_META = [
   ]],
   ["검색 품질", [
     ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
+    ["memory_approval", "AI 쓰기 승인제", "AI가 쓴 기억을 사람이 승인해야 검색에 편입됩니다 (건강 탭에서 승인)", "bool"],
+    ["semantic_links", "시맨틱 폴백 링크", "링크 없는 노트에 유사도 엣지 부여 — 실측에서 이득 없음이 확인돼 기본 꺼짐 (BENCHMARKS §12c)", "bool"],
+    ["context_neighbors", "이웃 청크 복원", "랭킹 확정 후 앞뒤 청크의 꼬리/머리를 붙여 잘린 전제·주의를 복원 (Cerebras KB 방식) — 검색 지표엔 영향 없음", "bool"],
+    ["usage_prior", "사용 이력 부스트", "자주 인용/열람한 노트가 동점을 이깁니다 (0=끔, 0.05-0.15 권장)", "float"],
+    ["default_scope", "기본 검색 범위", "예: folder:프로젝트A tag:업무 — 명시 연산자 없는 모든 질의에 적용, scope:all 로 1회 해제, 비우면 전체", "str"],
     ["event_log", "미들웨어 타임라인", "질의·AI 쓰기 기록 (이 기기 SQLite에만 저장, 외부 전송 없음)", "bool"],
     ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 — 높을수록 연결 노트가 잘 올라옵니다", "float"],
     ["graph_sim_floor", "그래프 유사도 하한", "질의와 이 유사도 미만인 이웃은 무시 (노이즈 차단)", "float"],
@@ -943,6 +1079,7 @@ const SETTINGS_META = [
     ["enrich_entities", "LLM 개체 추출", "cognee식 개체 그래프 보강 — LLM 쿼터 소모", "bool"],
     ["chunk_chars", "청크 크기(자)", "재색인 후 적용", "int"],
     ["chunk_overlap", "청크 겹침(자)", "재색인 후 적용", "int"],
+    ["chat_burst_chunking", "대화 버스트 청킹", "채팅 노트를 화자 버스트 단위로 색인 — 재색인 후 적용", "bool"],
   ]],
 ];
 
@@ -976,6 +1113,7 @@ async function renderSettings() {
       if (type === "bool") ctl = `<span class="switch ${v ? "on" : ""}" data-key="${key}"></span>`;
       else if (type === "select") ctl = `<select data-key="${key}">${options.map(o =>
         `<option ${o === v ? "selected" : ""}>${o}</option>`).join("")}</select>`;
+      else if (type === "str") ctl = `<input type="text" data-key="${key}" value="${esc(v ?? "")}" placeholder="비움 = 전체" spellcheck="false">`;
       else ctl = `<input type="number" data-key="${key}" value="${v}" step="${type === "float" ? "0.05" : "1"}">`;
       html += `<div class="set-row"><div class="set-info">
         <div class="set-name">${name} <span style="color:var(--text-3);font-size:11px;font-family:ui-monospace,monospace">${key}</span></div>

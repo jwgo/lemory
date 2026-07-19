@@ -89,14 +89,41 @@ def active_globs(cfg) -> list[str]:
     globs = list(cfg.include_globs)
     if getattr(cfg, "index_pdf", False) and "**/*.pdf" not in globs:
         globs.append("**/*.pdf")
+    if getattr(cfg, "index_docx", False) and "**/*.docx" not in globs:
+        globs.append("**/*.docx")
     return globs
+
+
+_DOCX_TAG = re.compile(rb"<[^>]+>")
+
+
+def _read_docx(f: Path) -> str:
+    """Word text extraction with the stdlib only: a .docx is a zip whose
+    word/document.xml holds every paragraph as <w:p>…</w:p>. Paragraph tags
+    become newlines, remaining tags are stripped, entities unescaped. No
+    python-docx dependency — formatting is irrelevant to retrieval."""
+    import html
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(f) as z:
+            xml = z.read("word/document.xml")
+    except (zipfile.BadZipFile, KeyError, OSError) as e:
+        raise OSError(f"unreadable docx: {e}")
+    xml = xml.replace(b"</w:p>", b"\n").replace(b"<w:tab/>", b"\t")
+    text = _DOCX_TAG.sub(b"", xml).decode("utf-8", errors="replace")
+    return html.unescape(text).strip()
 
 
 def read_note_text(f: Path) -> str:
     """File → indexable text. Markdown is read verbatim; PDFs (opt-in via
-    cfg.index_pdf) go through pypdf text extraction. Raises OSError on
+    cfg.index_pdf) go through pypdf text extraction; .docx (opt-in via
+    cfg.index_docx) through a stdlib zip/XML reader. Raises OSError on
     unreadable files so callers' existing error paths apply."""
-    if f.suffix.lower() != ".pdf":
+    suffix = f.suffix.lower()
+    if suffix == ".docx":
+        return _read_docx(f)
+    if suffix != ".pdf":
         return f.read_text(encoding="utf-8", errors="replace")
     try:
         from pypdf import PdfReader
@@ -122,7 +149,7 @@ class Indexer:
         dry-run estimate and the real sync can never disagree on chunk counts."""
         chunks = chunk_note(
             note.body, self.cfg.chunk_chars, self.cfg.chunk_overlap,
-            self.cfg.min_chunk_chars,
+            self.cfg.min_chunk_chars, chat_bursts=self.cfg.chat_burst_chunking,
         )
         if not chunks:
             plain = render_plain(note.body)
@@ -309,6 +336,8 @@ class Indexer:
                 full=bool(titles_changed or full),
             )
             self.store.set_meta("title_set_hash", title_hash)
+            if self.cfg.semantic_links:
+                self._semantic_fallback_links()
 
         # runs on change, and once on upgrade (pre-enrichment indexes)
         if self.cfg.stub_enrichment and (
@@ -341,6 +370,41 @@ class Indexer:
                 if (dst, "wiki") not in merged:
                     merged[(dst, "mention")] = w
             self.store.replace_links(doc_id, [(dst, kind, w) for (dst, kind), w in merged.items()])
+
+    def _semantic_fallback_links(self) -> None:
+        """The linkless-vault answer: a note with ZERO outgoing edges gets up
+        to k cosine-nearest neighbor edges (kind='sem') so graph expansion has
+        something to walk. Notes with any real edge are untouched — linked
+        vaults (and every published benchmark) stay byte-identical. Purely
+        vector math over the existing index; no LLM, nothing new stored
+        besides the edges themselves."""
+        import numpy as np
+
+        cfg = self.cfg
+        vecs, doc_ids = self.store.doc_mean_vectors()
+        if vecs.shape[0] < 2:
+            return
+        out_counts = self.store.outgoing_link_counts()
+        # 'sem' edges don't count as real links — they must be replaceable on
+        # every rebuild, and must never suppress themselves on the next sync
+        sem_only = {
+            d for d, n in out_counts.items()
+            if n == self.store.sem_only_out_count(d)
+        }
+        linkless_idx = [i for i, d in enumerate(doc_ids)
+                        if out_counts.get(int(d), 0) == 0 or int(d) in sem_only]
+        if not linkless_idx:
+            return
+        sims = vecs[linkless_idx] @ vecs.T  # (m, n)
+        for row, i in zip(sims, linkless_idx):
+            src = int(doc_ids[i])
+            row[i] = -1.0  # not self
+            top = np.argsort(-row)[: cfg.semantic_links_k]
+            edges = [
+                (int(doc_ids[j]), "sem", float(row[j]) * cfg.semantic_links_weight)
+                for j in top if row[j] >= cfg.semantic_links_floor
+            ]
+            self.store.replace_links(src, edges)
 
     # -------------------------------------------------------- stub enrichment
     _SENT_SPLIT = re.compile(r"(?<=[.!?다요음됨])\s+|\n+")

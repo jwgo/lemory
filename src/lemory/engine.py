@@ -183,10 +183,10 @@ class Engine:
         return hits
 
     def ask(self, question: str, k: int = 8, record: bool = False,
-            client: str = "") -> "Answer":
+            client: str = "", deep: bool = False) -> "Answer":
         from .retrieval import answer
 
-        ans = answer(self, question, k=k)
+        ans = answer(self, question, k=k, deep=deep)
         if record and ans.sources:
             self.store.record_hits([h.doc_id for h in ans.sources])
         if record and self.cfg.event_log:

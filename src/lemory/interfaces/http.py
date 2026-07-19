@@ -46,6 +46,9 @@ TUNABLE_FIELDS: dict[str, type] = {
     "local_embed_backend": str,  # auto | llamacpp | fastembed
     "event_log": bool,
     "memory_approval": bool,
+    "semantic_links": bool,
+    "context_neighbors": bool,
+    "usage_prior": float,
     "assistant_log_sessions": bool,
     "graph_expansion": bool,
     "mention_links": bool,
@@ -65,6 +68,8 @@ TUNABLE_FIELDS: dict[str, type] = {
     "k_bm25": int,
     "chunk_chars": int,
     "chunk_overlap": int,
+    "chat_burst_chunking": bool,
+    "default_scope": str,
 }
 
 ACTIVITY_KEY = "console_activity"
@@ -101,6 +106,24 @@ class TrashBody(BaseModel):
     path: str
 
 
+def remote_auth_error(client_host: str, auth_header: str,
+                      api_token: str) -> tuple[str, int] | None:
+    """Remote access (the mobile story): non-localhost CLIENTS must present
+    the configured Bearer token. Localhost stays tokenless so the desktop
+    dashboard/plugin work with zero setup; with no token configured,
+    non-localhost requests are refused outright (never silently open).
+    ('testclient' is starlette's TestClient pseudo-host — local by
+    definition, never seen by a real socket.)"""
+    if client_host in ("127.0.0.1", "::1", "localhost", "testclient", ""):
+        return None
+    if not api_token:
+        return ("remote access disabled: set api_token in lemory.toml "
+                "and send 'Authorization: Bearer <token>'", 403)
+    if auth_header != f"Bearer {api_token}":
+        return ("invalid token", 401)
+    return None
+
+
 def _client(request: "Request") -> str:
     """Client attribution for the middleware timeline. Callers self-identify
     with the X-Lemory-Client header (the Obsidian plugin, scripts, agents);
@@ -126,6 +149,42 @@ def _log_activity(engine: Engine, kind: str, rep) -> None:
         engine.store.set_meta(ACTIVITY_KEY, json.dumps(items[-ACTIVITY_MAX:]))
     except Exception:  # activity log must never break indexing
         log.exception("failed to record activity")
+
+
+def _remember_intent(text: str) -> str | None:
+    """Chat-native write path: '기억해줘: 환불은 큐로' / '…라고 기억해' →
+    the content to save, else None. Rule-based on purpose — works with a
+    small on-device brain that can't be trusted with tool-calling."""
+    import re as _re
+
+    t = text.strip()
+    m = _re.match(r"^(?:기억해\s*줘?|저장해\s*줘?|메모해\s*줘?|remember)\s*[:,]?\s*(.+)$", t,
+                  _re.IGNORECASE | _re.DOTALL)
+    if m and len(m.group(1).strip()) >= 4:
+        return m.group(1).strip()
+    m = _re.match(r"^(.+?)\s*(?:이?라고|고|을|를)?\s*(?:기억해\s*줘?|저장해\s*줘?|메모해\s*줘?)\.?$", t,
+                  _re.DOTALL)
+    if m and len(m.group(1).strip()) >= 8:
+        return m.group(1).strip()
+    return None
+
+
+_ANAPHORA = ("그거", "그건", "그때", "그게", "그 ", "이거", "이건", "아까", "방금",
+             "걔", "쟤", "거기", "it ", "that ", "this ")
+
+
+def _contextual_query(question: str, msgs: list[dict]) -> str:
+    """Follow-up repair: retrieval on '그건 언제였지?' alone finds nothing —
+    when the turn is short or anaphoric, retrieve on the previous user turn
+    plus this one. Generation still sees the raw turn (history covers it)."""
+    q = question.strip()
+    anaphoric = len(q) <= 12 or any(q.startswith(a) or f" {a}" in f" {q}" for a in _ANAPHORA)
+    if not anaphoric:
+        return question
+    prev = [m for m in msgs[:-1] if m.get("role") == "user"]
+    if not prev:
+        return question
+    return f"{str(prev[-1]['content'])[:200]} {question}"
 
 
 def build_app(engine: Engine, watch: bool = True) -> FastAPI:
@@ -167,7 +226,9 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     # while letting real localhost clients (browser console, Obsidian) through.
     from starlette.responses import PlainTextResponse
 
-    _ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
+    _ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1", ""} | {
+        h.strip().lower() for h in engine.cfg.allowed_hosts if h.strip()
+    }
 
     @app.middleware("http")
     async def _host_guard(request, call_next):
@@ -175,10 +236,15 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         # strip port: "127.0.0.1:8377" -> "127.0.0.1", "[::1]:8377" -> "::1"
         hostname = host.rsplit(":", 1)[0] if ":" in host and not host.endswith("]") \
             else host
-        hostname = hostname.strip("[]")
+        hostname = hostname.strip("[]").lower()
         if hostname not in _ALLOWED_HOSTS:
             return PlainTextResponse(
                 "host not allowed (DNS-rebinding guard)", status_code=421)
+        client_host = request.client.host if request.client else ""
+        err = remote_auth_error(client_host, request.headers.get("authorization", ""),
+                                engine.cfg.api_token)
+        if err:
+            return PlainTextResponse(err[0], status_code=err[1])
         return await call_next(request)
 
     # allow the Obsidian app (and local tools) to call this API directly
@@ -344,9 +410,51 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         if not msgs or msgs[-1]["role"] != "user":
             raise HTTPException(400, "마지막 메시지는 사용자 메시지여야 합니다")
         question = str(msgs[-1]["content"])
-        hits = engine.search(question, k=cfg.assistant_k)
-        context = build_context(hits) if hits else "(관련 노트를 찾지 못했습니다.)"
+
+        # chat-native write path: "…기억해줘" saves a real vault note (with
+        # the same consolidation/approval pipeline as every other AI write)
+        # and confirms — no LLM round-trip, no tool-calling needed.
+        mem = _remember_intent(question)
+        if mem is not None:
+            from ..ingestion.memory import save_memory
+
+            try:
+                path = save_memory(engine, mem, client=_client(request) or "assistant")
+                related = getattr(path, "related", [])
+                lines = [f"기억했습니다 → `{path}`"]
+                if engine.cfg.memory_approval:
+                    lines.append("(승인 대기 — 건강 탭에서 승인하면 검색에 편입됩니다)")
+                for r in related:
+                    flag = " · 중복일 수 있음" if r.get("near_duplicate") else ""
+                    lines.append(f"관련 기억: [[{r['title']}]]{flag}")
+                confirm = "\n".join(lines)
+            except ValueError as e:
+                confirm = f"저장 실패: {e}"
+
+            def gen_mem():
+                yield "data: " + json.dumps({"sources": []}, ensure_ascii=False) + "\n\n"
+                yield "data: " + json.dumps({"delta": confirm}, ensure_ascii=False) + "\n\n"
+                yield "data: " + json.dumps({"done": True}, ensure_ascii=False) + "\n\n"
+
+            return StreamingResponse(gen_mem(), media_type="text/event-stream")
+
+        retrieval_q = _contextual_query(question, msgs)
+        hits = engine.search(retrieval_q, k=cfg.assistant_k)
+        context = build_context(
+            hits, store=engine.store,
+            neighbor_chars=cfg.context_neighbor_chars,
+        ) if hits else "(관련 노트를 찾지 못했습니다.)"
         system = (SYSTEM + "\n\nNOTES (cite as [n]):\n" + context)
+        # first turn of a session: fold in situational vault context
+        # (Zep-style) so "요새 나 뭐 하고 있었지?" answers without retrieval luck
+        if not [m for m in msgs[:-1] if m.get("role") == "assistant"]:
+            from ..ingestion.memory import context_block
+
+            try:
+                system += "\n\nVAULT CONTEXT (배경 상황, 필요할 때만 활용):\n" + \
+                    context_block(engine, max_chars=1600)
+            except Exception:
+                pass
         history = [{"role": m["role"], "content": str(m["content"])} for m in msgs[:-1][-6:]]
         sources = [{"n": i + 1, "title": h.title, "path": h.path,
                     "snippet": h.text[:180]} for i, h in enumerate(hits)]
@@ -438,6 +546,21 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         from ..ingestion.memory import list_pending
 
         return list_pending(engine)
+
+    @app.get("/api/drift")
+    def api_drift():
+        """Memory-vs-reality scan: broken wikilinks, dead file links,
+        unresolved duplicate flags (same engine as `lemory drift`)."""
+        from ..retrieval.drift import detect_drift
+
+        return detect_drift(engine)
+
+    @app.get("/api/suggest_links")
+    def api_suggest_links(path: str = "", k: int = 12):
+        """Unlinked mentions as [[link]] proposals with sentence evidence."""
+        from ..retrieval.links import suggest_links
+
+        return suggest_links(engine, path=path or None, k=k)
 
     @app.post("/memory/approve")
     def memory_approve(request: Request, body: TrashBody):

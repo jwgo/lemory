@@ -105,24 +105,123 @@ def split_sections(body: str) -> list[Section]:
     return sections
 
 
+# chat-import layout: '**나**: ...' / '**아리**: ...' paragraphs. Matched on
+# the PLAIN rendering (render_plain strips the **), so the name group must not
+# cross a colon or newline and stays short — prose with a colon mid-sentence
+# ("결론: ...") can match one line, which is why layout detection requires a
+# MAJORITY of paragraphs to match, never a single one.
+CHAT_SPEAKER_RE = re.compile(r"^([^:：\n]{1,24})\s*[:：]\s*\S")
+
+# Quality gate for burst chunking: a burst this short and digit-free is chat
+# filler ("헐 대박", "고마워!") — real facts are longer or carry a number.
+# Filler is still indexed (packed together), it just never stands alone.
+_BURST_MIN_CONTENT = 25
+
+# Heading marker for focused burst chunks (mirrors Store.ENRICH_HEADING's
+# role; Store.BURST_HEADING must stay equal — storage can't import ingestion
+# without a cycle, a test pins the two literals together). Burst chunks are
+# VECTOR-ONLY: lexically they add nothing (the packed sibling contains every
+# token) and their short length distorts BM25 normalization — measured on
+# clean RoleMemQA long-type, a focused template chunk flooded the lexical
+# leg above the gold note.
+BURST_HEADING = "↔ 발췌"
+
+
+def _is_chat_section(paras: list[str]) -> bool:
+    if len(paras) < 4:
+        return False
+    hits = sum(1 for p in paras if CHAT_SPEAKER_RE.match(p))
+    return hits / len(paras) >= 0.6
+
+
+def _chat_burst_chunks(
+    paras: list[str], chunk_chars: int, overlap: int
+) -> list[str]:
+    """Focused burst chunks for a chat-layout section (Cerebras-style).
+
+    Uniform packing dilutes a fact line's embedding with the filler around
+    it — measured messy-chat doc@1 dropped 16pt vs clean notes. Consecutive
+    same-speaker messages form a burst; a burst that carries signal (the
+    quality gate: enough content or a number) becomes its own chunk,
+    prefixed with the previous turn when that turn was weak (a question or
+    reaction — the antecedent a reply needs; duplicating a STRONG previous
+    burst instead double-counts it in rank fusion, which measurably let old
+    values outrank newer ones on update questions).
+
+    These are ADDITIONAL granularity: callers index them alongside the
+    normal packed chunks, which keep doc-level keyword aggregation (two
+    weak mentions in one note still add up) — dropping the packed layer
+    measurably broke exactly that."""
+    bursts: list[str] = []
+    speaker = None
+    for p in paras:
+        m = CHAT_SPEAKER_RE.match(p)
+        who = m.group(1).strip() if m else speaker
+        if bursts and who == speaker:
+            bursts[-1] += "\n" + p
+        else:
+            bursts.append(p)
+        speaker = who
+
+    def content_len(burst: str) -> int:
+        # signal length = text minus the speaker tags
+        return sum(
+            len(CHAT_SPEAKER_RE.sub("", line, count=1).strip())
+            for line in burst.splitlines()
+        )
+
+    chunks: list[str] = []
+    prev_tail = ""
+    prev_strong = False
+    for b in bursts:
+        strong = content_len(b) >= _BURST_MIN_CONTENT or any(
+            c.isdigit() for c in b)
+        if not strong:
+            # filler never gets a focused chunk — it lives in the packed
+            # layer the caller indexes anyway
+            prev_tail, prev_strong = b, False
+            continue
+        carry = prev_tail if (prev_tail and not prev_strong) else ""
+        text = f"{carry[-overlap:]}\n{b}" if carry and overlap > 0 else b
+        # a single huge burst still respects the size cap via hard splits
+        while len(text) > chunk_chars * 1.5:
+            cut = text.rfind(" ", max(chunk_chars - 200, 1), chunk_chars)
+            cut = cut if cut > 0 else chunk_chars
+            chunks.append(text[:cut].strip())
+            text = text[cut - min(overlap, cut // 2):]
+        chunks.append(text.strip())
+        prev_tail, prev_strong = b, True
+    return [c for c in chunks if c]
+
+
 def chunk_note(
-    body: str, chunk_chars: int = 882, overlap: int = 180, min_chars: int = 120
+    body: str, chunk_chars: int = 882, overlap: int = 180, min_chars: int = 120,
+    chat_bursts: bool = True,
 ) -> list[tuple[str, str]]:
     """Heading-aware chunking. Returns [(heading_breadcrumb, chunk_text)].
 
     Each chunk stays within one section; long sections are split on paragraph
     boundaries with overlap. Tiny trailing pieces merge into the previous
     chunk. Title context is added later by embed_text_for_chunk, not here.
+    Chat-layout sections (speaker-prefixed paragraphs, e.g. chat imports)
+    additionally get focused speaker-burst chunks on top of the packed ones
+    — multi-granularity, see _chat_burst_chunks.
     """
     chunks: list[tuple[str, str]] = []
     for sec in split_sections(body):
         plain = render_plain(sec.text)
         if not plain:
             continue
+        sec_paras = re.split(r"\n\n+", plain)
+        if chat_bursts and _is_chat_section(sec_paras):
+            chunks.extend(
+                (BURST_HEADING, t)
+                for t in _chat_burst_chunks(sec_paras, chunk_chars, overlap))
+            # fall through: the packed layer is still indexed below
         if len(plain) <= chunk_chars:
             chunks.append((sec.heading, plain))
             continue
-        paras = re.split(r"\n\n+", plain)
+        paras = sec_paras
         buf = ""
         for p in paras:
             if buf and len(buf) + len(p) + 2 > chunk_chars:

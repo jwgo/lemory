@@ -829,6 +829,46 @@ class Store:
         top = top[np.argsort(-sims[top])]
         return [(int(ids[i]), float(sims[i])) for i in top]
 
+    def doc_mean_vectors(self) -> tuple[np.ndarray, np.ndarray]:
+        """(matrix[n_docs, dim], doc_ids) — L2-normalized mean chunk vector per
+        doc. Feeds the semantic-fallback link builder; derived from the
+        existing chunk matrix, nothing stored."""
+        matrix, ids, _pos = self._ensure_matrix()
+        if matrix.shape[0] == 0:
+            return np.zeros((0, 1), dtype=np.float32), np.zeros((0,), dtype=np.int64)
+        doc_of = {
+            r["id"]: r["doc_id"] for r in self.conn().execute("SELECT id, doc_id FROM chunks")
+        }
+        sums: dict[int, np.ndarray] = {}
+        counts: dict[int, int] = {}
+        for row, cid in zip(matrix, ids):
+            d = doc_of.get(int(cid))
+            if d is None:
+                continue
+            if d in sums:
+                sums[d] = sums[d] + row
+                counts[d] += 1
+            else:
+                sums[d] = row.copy()
+                counts[d] = 1
+        doc_ids = np.array(sorted(sums), dtype=np.int64)
+        out = np.vstack([sums[int(d)] / counts[int(d)] for d in doc_ids])
+        norms = np.linalg.norm(out, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        return (out / norms).astype(np.float32), doc_ids
+
+    def outgoing_link_counts(self) -> dict[int, int]:
+        return {
+            r["src_doc"]: r["n"] for r in self.conn().execute(
+                "SELECT src_doc, COUNT(*) AS n FROM links GROUP BY src_doc")
+        }
+
+    def sem_only_out_count(self, doc_id: int) -> int:
+        row = self.conn().execute(
+            "SELECT COUNT(*) AS n FROM links WHERE src_doc=? AND kind='sem'",
+            (doc_id,)).fetchone()
+        return row["n"]
+
     def similar_cross_doc_pairs(
         self, threshold: float, cap: int = 2000, block: int = 512
     ) -> list[tuple[int, int, float]]:
@@ -859,7 +899,30 @@ class Store:
         pairs.sort(key=lambda p: -p[2])
         return pairs[:cap]
 
+    def adjacent_chunks(self, chunk_id: int) -> tuple[Optional[str], Optional[str]]:
+        """(prev_text, next_text) by ord within the same doc — the context a
+        chunk boundary cut away (Cerebras-style post-ranking expansion).
+        Enrichment pseudo-chunks are skipped."""
+        c = self.conn()
+        row = c.execute("SELECT doc_id, ord FROM chunks WHERE id=?", (chunk_id,)).fetchone()
+        if not row:
+            return None, None
+        out = [None, None]
+        for i, (op, order) in enumerate((("<", "DESC"), (">", "ASC"))):
+            r = c.execute(
+                f"SELECT text FROM chunks WHERE doc_id=? AND ord {op} ? "
+                f"AND heading NOT IN (?, ?) "
+                f"ORDER BY ord {order} LIMIT 1",
+                (row["doc_id"], row["ord"], self.ENRICH_HEADING,
+                 self.BURST_HEADING)).fetchone()
+            out[i] = r["text"] if r else None
+        return out[0], out[1]
+
     ENRICH_HEADING = "↩ context"  # marker for index-time enrichment pseudo-chunks
+    # focused chat-burst chunks (vector-only granularity; excluded from FTS —
+    # their packed sibling carries the lexical signal). Must equal
+    # ingestion.markdown.BURST_HEADING; a test pins the literals together.
+    BURST_HEADING = "↔ 발췌"
 
     def replace_enrichment_chunk(self, doc_id: int, title: str, text: str,
                                  vec: Optional[np.ndarray]) -> None:

@@ -1,43 +1,19 @@
 {
   "questions": 470,
-  "lemory_recall@5": 0.8574,
-  "lemory_any@5": 0.9723,
-  "lemory_recall@10": 0.8787,
-  "lemory_any@10": 0.9872,
-  "vector_recall@5": 0.8085,
-  "vector_any@5": 0.9638,
-  "vector_recall@10": 0.8191,
-  "vector_any@10": 0.966,
-  "by_type": {
-    "knowledge-update": {
-      "strict@5": 0.972,
-      "any@5": 1.0,
-      "n": 72
-    },
-    "multi-session": {
-      "strict@5": 0.785,
-      "any@5": 0.992,
-      "n": 121
-    },
-    "single-session-assistant": {
-      "strict@5": 0.964,
-      "any@5": 0.964,
-      "n": 56
-    },
-    "single-session-preference": {
-      "strict@5": 0.933,
-      "any@5": 0.933,
-      "n": 30
-    },
-    "single-session-user": {
-      "strict@5": 0.969,
-      "any@5": 0.969,
-      "n": 64
-    },
-    "temporal-reasoning": {
-      "strict@5": 0.74,
-      "any@5": 0.953,
-      "n": 127
-    }
+  "lemory_recall@5": 0.9042553191489362,
+  "lemory_any@5": 0.9829787234042553,
+  "lemory_recall@10": 0.9234042553191489,
+  "lemory_any@10": 0.9872340425531915,
+  "vector_recall@5": 0.8553191489361702,
+  "vector_any@5": 0.9787234042553191,
+  "vector_recall@10": 0.8574468085106383,
+  "vector_any@10": 0.9808510638297873,
+  "lemory_recall@5_by_type": {
+    "single-session-user": 1.0,
+    "multi-session": 0.8512396694214877,
+    "single-session-preference": 0.8666666666666667,
+    "temporal-reasoning": 0.8346456692913385,
+    "knowledge-update": 0.9861111111111112,
+    "single-session-assistant": 0.9821428571428571
   }
 }
