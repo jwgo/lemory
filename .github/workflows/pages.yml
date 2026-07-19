@@ -1,5 +1,9 @@
 name: Deploy docs site to GitHub Pages
 
+# The Actions-native Pages deploy (actions/deploy-pages) needs the Pages
+# site to already exist, and GITHUB_TOKEN may not CREATE one ("Resource not
+# accessible by integration"). Publishing a gh-pages branch instead uses
+# GitHub's classic auto-publish path, which needs no settings change at all.
 on:
   push:
     branches: [main]
@@ -9,27 +13,24 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Push docs/ to gh-pages
+        run: |
+          cd docs
+          touch .nojekyll
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Pages site from docs/ @ ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
