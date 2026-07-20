@@ -471,6 +471,55 @@ def skill_cmd(
         console.print("  Claude Code가 다음 세션부터 자동으로 로드합니다.")
 
 
+@app.command("agents")
+def agents_cmd(
+    action: str = typer.Argument("status", help="status | install | refresh"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """어떤 AI 에이전트든 이 볼트를 기억으로 쓰게 만듭니다.
+
+    `install`은 볼트 루트에 표준 AGENTS.md(+ CLAUDE.md/GEMINI.md 심)를
+    생성합니다 — Codex, Copilot, OpenCode, Gemini CLI 등 2026 에이전트
+    물결이 읽는 파일이라, 설치만 하면 에이전트가 검색부터 하고 기억을
+    저장합니다. 사용자가 직접 작성한 파일(custom)은 절대 건드리지 않고,
+    빠졌거나 깨진 관리 파일만 복구합니다. `status`는 감지된 에이전트
+    CLI와 각각의 MCP 연결 한 줄 명령도 보여줍니다."""
+    from .agents import detect_agents, guidance_status, install_guidance
+
+    if action not in ("status", "install", "refresh"):
+        console.print(f"[red]알 수 없는 동작:[/red] {action} (status | install | refresh)")
+        raise typer.Exit(2)
+    eng = _engine(vault)
+    v = eng.cfg.resolved_vault()
+
+    if action in ("install", "refresh"):
+        acts = install_guidance(v, refresh=(action == "refresh"))
+        icon = {"written": "[green]✔ 생성[/green]", "refreshed": "[green]⟳ 갱신[/green]",
+                "current": "[dim]· 최신[/dim]", "kept": "[yellow]∙ 사용자 파일 — 그대로 둠[/yellow]"}
+        for name, a in acts.items():
+            console.print(f"  {icon[a]}  {name}")
+        console.print()
+
+    st = guidance_status(v)
+    icon = {"managed": "[green]managed[/green]", "missing": "[red]missing[/red]",
+            "broken": "[red]broken[/red]", "custom": "[yellow]custom[/yellow]"}
+    console.print("[bold]가이던스 파일[/bold] (볼트 루트)")
+    for name, s in st.items():
+        console.print(f"  {icon[s]:<10}  {name}")
+    if any(s in ("missing", "broken") for s in st.values()) and action == "status":
+        console.print("[dim]  → lemory agents install 로 생성/복구[/dim]")
+
+    console.print("\n[bold]감지된 에이전트 CLI[/bold]")
+    found = 0
+    for a in detect_agents(v):
+        if a.installed:
+            found += 1
+            console.print(f"  [green]✔[/green] {a.label}")
+            console.print(f"     [dim]{a.hookup}[/dim]")
+    if not found:
+        console.print("  [dim](설치된 에이전트 CLI를 찾지 못했습니다)[/dim]")
+
+
 @app.command("drift")
 def drift_cmd(
     vault: Optional[Path] = typer.Option(None),

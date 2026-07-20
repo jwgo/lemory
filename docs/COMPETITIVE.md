@@ -201,3 +201,65 @@ KorQuAD 실문단 113개 · 인간 작성 질문 120개 · 문단 recall@1 · en
 > 벤치를 공개한 곳도 없다.** 그 두 빈칸이 Lemory의 자리다: 같은 코퍼스에서
 > 한국어 recall@1 0.967(vs FTS 0.867, 인지-벡터 0.217)을, 재현 가능한 스크립트로
 > 보여준다. 유통은 아직 뒤지지만, 정직한 실측과 한국어에서 이긴다.
+
+---
+
+# Tolaria (refactoringhq, 2026-04~) — AI 시대의 옵시디언
+
+[Tolaria](https://github.com/refactoringhq/tolaria)는 Luca Rossi(Refactoring)의
+마크다운 지식베이스 **데스크톱 앱**이다 (Tauri/React, AGPL). 1차 자료(README,
+docs/ABSTRACTIONS.md, docs/ARCHITECTURE.md, AGENTS.md — 3,200줄)를 정독하고
+판정한다.
+
+## 카테고리가 다르다 — 그래서 비교 축을 정직하게 나눈다
+
+Tolaria는 **편집기/관리자**다: 리치 에디터(BlockNote), 타입 시스템, Saved
+Views, git 퍼스트 볼트, 그리고 앱 안에서 CLI 에이전트 8종(Claude Code, Codex,
+Copilot, OpenCode, Pi, Antigravity, Kiro, Hermes)을 spawn해 MCP를 자동
+배선하는 AI 워크스페이스. Lemory는 **메모리 미들웨어**다: 검색·기억·통합·
+감사가 본업이고 편집기는 아예 없다.
+
+## Tolaria가 이기는 축 (그대로 인정)
+
+- **에이전트 온보딩 UX**: 앱을 깔면 에이전트 감지→MCP 배선→권한 모드
+  (safe/power_user)까지 자동. 이건 진짜 잘 만들었다.
+- **관리형 AGENTS.md**: 표준 가이던스 파일을 앱이 소유하고
+  (managed/missing/broken/custom 상태 감지 + 복구), 사용자 작성 파일은
+  불가침으로 존중한다.
+- **편집기 그 자체**: 우리는 경쟁 자체를 안 한다 — Lemory는 옵시디언/아무
+  편집기와 공존하는 미들웨어다.
+
+## Lemory가 이기는 축 (1차 자료 근거)
+
+- **검색이 카테고리가 다르다.** Tolaria의 검색은 자체 문서 기준
+  "keyword-based search scans all vault .md files" — walkdir 스캔 + 인메모리
+  키워드 인덱스가 전부다. 시맨틱도, 하이브리드 융합도, 오타 교정도, 시간
+  인지도, 멀티홉 그래프 확장도 없다. 우리가 전 벤치에서 실측해온 그 축이
+  통째로 비어 있다 (KorQuAD r@1 0.930 vs 키워드-only의 구조적 한계는 §5e
+  Omnisearch 0.148에서 이미 측정된 계열).
+- **기억 미들웨어 기능 부재**: 중복 통합, 승인 게이트, 드리프트/모순 감지,
+  클라이언트 출처 표시, 되돌리기 타임라인, 세션 자동 기억 — 없음.
+- **한국어**: 언급 자체가 없다.
+- **벤치마크**: 검색 품질 측정을 공개하지 않는다 (편집기니까 당연하다 —
+  그래서 "대비 좋은 게 없다"는 평은 검색·기억 축에선 성립하지 않는다).
+
+## 흡수한 것 (이번 라운드 구현)
+
+| Tolaria의 강점 | Lemory 이식 | 구현 |
+|---|---|---|
+| 관리형 AGENTS.md + 심 + 상태 감지/복구 | `lemory agents install` | 볼트 루트에 AGENTS.md(+CLAUDE.md/GEMINI.md 심)를 관리 마커와 함께 생성. managed/missing/broken/custom 판정, custom(사용자 작성)은 불가침, 깨진 관리 파일만 복구 |
+| 에이전트 CLI 감지 + 셋업 | `lemory agents status` | claude/codex/gemini/copilot/opencode/cursor 감지(PATH + GUI 실행이 놓치는 표준 설치 경로) + 각각의 MCP 연결 한 줄 명령 출력 |
+| git 퍼스트 (AutoGit 체크포인트) | `git_autocommit` 설정 (opt-in) | 볼트가 git 저장소면 AI 쓰기(save_memory/append)마다 자동 커밋 — 대시보드 되돌리기 위에 진짜 diff·revert가 얹힌다. 실패해도 쓰기를 막지 않는 best-effort |
+
+이식하지 **않은** 것: 리치 에디터, 타입/Views/Neighborhood(편집기 UI —
+콘솔 '지식' 탭의 로컬 그래프·관련 노트가 우리 몫의 대응), 앱 내 에이전트
+spawn(우리는 미들웨어라 에이전트를 소유하지 않는다 — MCP로 연결될 뿐).
+
+## 한 줄
+
+> Tolaria는 "AI 시대의 옵시디언"이고, 잘 만든 편집기다. 하지만 검색은
+> 키워드 스캔이 전부라, 기억·검색 축에서는 비교 자체가 성립하지 않는다.
+> 우리가 배울 것은 에이전트 온보딩이었고 — AGENTS.md 관리, 에이전트 감지,
+> git 체크포인트로 — 가져왔다. 이제 Lemory 볼트도 깔면 어떤 에이전트든
+> 바로 기억으로 쓴다. 편집은 계속 옵시디언(또는 Tolaria!)에서 하면 된다 —
+> 우리는 그 옆의 미들웨어다.

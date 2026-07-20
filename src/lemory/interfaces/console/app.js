@@ -1050,6 +1050,7 @@ const SETTINGS_META = [
   ["검색 품질", [
     ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
     ["memory_approval", "AI 쓰기 승인제", "AI가 쓴 기억을 사람이 승인해야 검색에 편입됩니다 (건강 탭에서 승인)", "bool"],
+    ["git_autocommit", "AI 쓰기 git 체크포인트", "볼트가 git 저장소면 AI가 쓴 노트마다 자동 커밋 — diff·되돌리기가 git 히스토리에 남아요", "bool"],
     ["semantic_links", "시맨틱 폴백 링크", "링크 없는 노트에 유사도 엣지 부여 — 실측에서 이득 없음이 확인돼 기본 꺼짐 (BENCHMARKS §12c)", "bool"],
     ["context_neighbors", "이웃 청크 복원", "랭킹 확정 후 앞뒤 청크의 꼬리/머리를 붙여 잘린 전제·주의를 복원 (Cerebras KB 방식) — 검색 지표엔 영향 없음", "bool"],
     ["usage_prior", "사용 이력 부스트", "자주 인용/열람한 노트가 동점을 이깁니다 (0=끔, 0.05-0.15 권장)", "float"],

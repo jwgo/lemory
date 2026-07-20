@@ -15,12 +15,45 @@ Safety rules:
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from datetime import datetime
 from pathlib import Path
 
 _SLUG_BAD = re.compile(r'[\\/:*?"<>|#^\[\]]+')
+
+log = logging.getLogger("lemory.memory")
+
+
+def _git_checkpoint(engine, rel: str, client: str, action: str) -> None:
+    """Opt-in (cfg.git_autocommit): commit an AI write to the vault's git
+    history so every machine edit is a reviewable, revertable commit —
+    complementing the dashboard's move-to-trash undo with real diffs
+    (Tolaria-style git-first vaults, absorbed; see docs/COMPETITIVE.md).
+
+    Strictly best-effort: not a git repo → silently skip; any git failure is
+    logged and never blocks the write itself."""
+    if not getattr(engine.cfg, "git_autocommit", False):
+        return
+    vault = engine.cfg.resolved_vault()
+    if not (vault / ".git").exists():
+        return
+    import subprocess
+
+    try:
+        subprocess.run(["git", "add", "--", rel], cwd=vault, capture_output=True,
+                       timeout=15, check=True)
+        msg = f"lemory: {action} by {client or 'ai'} — {rel}"
+        r = subprocess.run(["git", "commit", "-m", msg, "--", rel], cwd=vault,
+                           capture_output=True, timeout=15)
+        # "nothing to commit" (unchanged content) is fine — only log real errors
+        if r.returncode not in (0, 1):
+            log.warning("git autocommit failed for %s: %s", rel,
+                        r.stderr.decode("utf-8", "ignore")[:200])
+    except Exception as e:
+        log.warning("git autocommit skipped for %s: %s", rel, e)
+
 
 
 def _slug(text: str, fallback: str) -> str:
@@ -185,6 +218,7 @@ def save_memory(
         if related_public:
             detail["related"] = related_public
         engine.store.log_event("memory", client=client, path=rel, detail=detail)
+    _git_checkpoint(engine, rel, client, "memory")
     out = SavedMemory(rel)
     out.related = related_public
     return out
@@ -216,6 +250,7 @@ def append_to_note(engine, path: str, content: str, client: str = "") -> str:
     if engine.cfg.event_log:
         engine.store.log_event("append", client=client, path=rel,
                                detail={"chars": len(content)})
+    _git_checkpoint(engine, rel, client, "append")
     return rel
 
 
