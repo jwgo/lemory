@@ -5,7 +5,7 @@ verified."""
 from __future__ import annotations
 
 import json
-import tomllib
+from lemory.config import tomllib  # 3.10-safe (tomli fallback)
 
 import pytest
 from typer.testing import CliRunner
@@ -107,7 +107,7 @@ def test_persist_config_preserves_list_and_special_values(tmp_path):
     """A Settings/model-switch write must not corrupt list keys (include_globs)
     or special chars in the vault's lemory.toml — regression for the naive
     f-string TOML writer that turned lists into repr strings and broke reload."""
-    import tomllib
+    from lemory.config import tomllib  # 3.10-safe
 
     from lemory.config import LemoryConfig
     from lemory.engine import Engine

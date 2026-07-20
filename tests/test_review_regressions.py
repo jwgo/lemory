@@ -2,7 +2,7 @@
 
 import json
 import threading
-import tomllib
+from lemory.config import tomllib  # 3.10-safe (tomli fallback)
 
 import numpy as np
 import pytest
