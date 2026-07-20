@@ -14,7 +14,11 @@ environment and a vault path, everything else has working defaults.
 from __future__ import annotations
 
 import os
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10: stdlib tomllib arrived in 3.11
+    import tomli as tomllib  # type: ignore[no-redef]
 from pathlib import Path
 from typing import Any, Optional
 

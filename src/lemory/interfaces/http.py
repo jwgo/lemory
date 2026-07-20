@@ -729,7 +729,7 @@ def _persist_config(engine: Engine, changed: dict[str, Any]) -> None:
     path = vault / "lemory.toml"
     existing: dict[str, Any] = {}
     if path.is_file():
-        import tomllib
+        from ..config import tomllib  # 3.10-safe (tomli fallback)
         try:
             with open(path, "rb") as fh:
                 data = tomllib.load(fh)
