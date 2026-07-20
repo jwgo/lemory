@@ -191,10 +191,14 @@ replays real pipeline output. Two optional layers on top:
 The general-agent side is measured too: **AgentMemQA** ([§7f](BENCHMARKS.md)) - 12 weeks of work-assistant sessions (mixed Korean/English tech talk, code blocks, error traces) with scored reversed-decision traps. Keyless hybrid doc@1 **0.978** with **zero** reversed-decision traps, beating both its own legs; and an honest counter-finding: a cross-encoder reranker is temporally blind and UNDOES recency on updated facts (decision 0.80 -> 0.50), one more reason it ships off.
 
 Retrieval under real chat mess is measured, not assumed: RoleMemQA-messy
-plants retracted facts, joke-fakes, and vocabulary-poisoning small talk -
-overall doc@1 0.836 vs 0.977 clean, with the full win/regression ledger of
-the Cerebras-inspired burst chunking that got it there published in
-[§7e](BENCHMARKS.md).
+plants retracted facts, joke-fakes, and vocabulary-poisoning small talk.
+Overall doc@8 0.977; episodic-recall doc@8 0.875 (0.792 before the
+informativeness prior). Episodic questions ("what did we promise?") carry
+zero lexical discrimination, so on exactly those the vector leg is re-ranked
+by rare-content informativeness, lifting the real fact over filler that
+quotes the query's own words ("noted, promise!"). Reference-QA queries
+(KorQuAD, AgentMemQA) never trip the gate, so their numbers are bit-identical.
+Full win/regression ledger in [§7e](BENCHMARKS.md).
 
 ## A second brain, not a log file
 

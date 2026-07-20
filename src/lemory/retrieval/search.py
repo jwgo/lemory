@@ -282,6 +282,20 @@ def hybrid_search(
         for variant in expand_query(engine, query, cfg.expansion_variants):
             queries.append((variant, 0.6, "both"))
 
+    # two boilerplate gates, computed once. all_common (strict: every token
+    # indexed AND common) drives the BM25 damp below. The informativeness
+    # re-rank of the vector leg uses the looser gate (unindexed paraphrase
+    # tokens allowed), since it only breaks near-ties by rare content and a
+    # missing-from-index token can't discriminate the vector leg either way.
+    all_common = mode == "hybrid" and _all_tokens_common(store, lex_query)
+    info_gate = mode == "hybrid" and (
+        all_common or _no_discriminative_indexed_token(store, lex_query))
+    info_prior = cfg.informativeness_prior if info_gate else 0.0
+    info_term_doc = store.chunk_doc_freq() if info_prior > 0 else {}
+    # rare = a term in at most ~0.8% of chunks (a specific event, not a topic);
+    # floor 2 keeps tiny vaults from calling everything rare.
+    info_ceiling = max(2.0, 0.008 * max(1, store.chunk_count()))
+
     qv = None
     tagged_lists: list[tuple[str, list[tuple[int, float]], float]] = []
     vec_hits: list[tuple[int, float]] = []
@@ -306,6 +320,12 @@ def hybrid_search(
                 v_hits = store.vector_search(v, cfg.k_vector * depth)
         if mode in ("hybrid", "fast", "bm25"):
             b_hits = store.bm25_search(q_text, cfg.k_bm25 * depth)
+        # informativeness re-rank runs on the RAW vector leg (before burst
+        # chunks are aliased away), so a fact-bearing burst rises and carries
+        # its packed sibling up through canonicalization.
+        if info_prior > 0 and v_hits:
+            v_hits = _apply_informativeness(
+                store, v_hits, info_prior, info_term_doc, info_ceiling)
         # multi-granularity: focused burst chunks act as rank boosters for
         # their packed sibling, never as extra fusion tickets — see
         # _canonicalize_nested_leg for the measured failure modes of the
@@ -363,7 +383,7 @@ def hybrid_search(
                                           pin_gate=cfg.verbatim_pin_gate)
             if cov >= cfg.verbatim_gate:
                 kw_boost = cfg.keyword_bm25_boost
-            elif vec_hits and _all_tokens_common(store, lex_query):
+            elif vec_hits and all_common:
                 # every content token is corpus-boilerplate: the lexical
                 # ranking is small-talk noise (measured on RoleMemQA chat
                 # logs), so fusion leans on the semantic leg. Only when a
@@ -725,6 +745,69 @@ def _all_tokens_common(store: Store, query: str) -> bool:
         return df
 
     return all(_df(t) > floor for t in q_tokens)
+
+
+def _no_discriminative_indexed_token(store: Store, query: str) -> bool:
+    """Looser cousin of _all_tokens_common used only to gate the vector-leg
+    informativeness prior. True when the query has no INDEXED discriminative
+    token: every content token is either corpus-common OR absent from the index
+    (a paraphrase the notes phrase differently, e.g. the query says '지어준'
+    where the note says '정했어'). Unlike the BM25-damp gate, an unindexed
+    token does NOT keep the query out — it can't discriminate the vector leg's
+    near-ties either way, so the rare-content tie-break still applies. Two-char
+    조사 stripping folds '지훈에게'→'지훈', '리안이랑'→'리안' before the lookup."""
+    q_tokens = _coverage_tokens(query)
+    if not q_tokens:
+        return False
+    n_chunks = max(1, store.chunk_count())
+    floor = max(_COMMON_RATE * n_chunks, 4.0)
+
+    def _df(t: str) -> int:
+        df = store.token_chunk_df(t)
+        if len(t) >= 3:
+            df = max(df, store.token_chunk_df(t[:-1]))
+        if len(t) >= 4:
+            df = max(df, store.token_chunk_df(t[:-2]))
+        return df
+
+    dfs = [d for d in (_df(t) for t in q_tokens) if d > 0]
+    if not dfs:
+        return False  # nothing indexed at all: not a boilerplate-recall case
+    return all(d > floor for d in dfs)
+
+
+def _rare_content_frac(text: str, term_doc: dict[str, int], ceiling: float) -> float:
+    """Fraction of a chunk's distinct content words that are rare in the corpus
+    (chunk-df <= ceiling). A real fact line ("장마 끝나면 자전거 여행 가기")
+    scores high; pure chat filler ("기억해 둘게, 약속!") scores 0. Used only to
+    break ties on all-boilerplate queries, where the semantic leg alone can't
+    separate the fact from the filler that quotes the query's own words."""
+    toks = {t for t in _WORD_RE.findall(text.lower()) if len(t) > 1 and not t.isdigit()}
+    if not toks:
+        return 0.0
+    rare = sum(1 for t in toks if term_doc.get(t, 0) <= ceiling)
+    return rare / len(toks)
+
+
+def _apply_informativeness(
+    store: Store, hits: list[tuple[int, float]], prior: float,
+    term_doc: dict[str, int], ceiling: float,
+) -> list[tuple[int, float]]:
+    """Re-rank one retrieval leg by rare-content informativeness. Multiplicative
+    on the leg's own score (cosine), so it re-orders near-ties without letting a
+    high-content but off-topic chunk leap a decisively closer one. Applied to the
+    RAW leg (burst chunks still present) so a fact-bearing burst rises and lifts
+    its packed sibling through canonicalization."""
+    if not hits:
+        return hits
+    metas = store.get_chunks([cid for cid, _ in hits])
+    rescored = [
+        (cid, s * (1.0 + prior * _rare_content_frac(
+            metas[cid].text if cid in metas else "", term_doc, ceiling)))
+        for cid, s in hits
+    ]
+    rescored.sort(key=lambda x: -x[1])
+    return rescored
 
 
 def _idf_weight(lex: dict, token: str) -> float:
