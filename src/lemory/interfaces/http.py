@@ -70,6 +70,7 @@ TUNABLE_FIELDS: dict[str, type] = {
     "chunk_overlap": int,
     "chat_burst_chunking": bool,
     "default_scope": str,
+    "git_autocommit": bool,
     "answer_n_ctx": int,
     "answer_gpu_layers": int,
 }

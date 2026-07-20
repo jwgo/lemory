@@ -132,6 +132,12 @@ class LemoryConfig(BaseSettings):
     # in a query bypasses it once. Empty = whole vault (default).
     default_scope: str = ""
 
+    # --- AI-write git checkpoints (Tolaria-style git-first, opt-in) ---
+    # when the vault is a git repo, every save_memory/append lands as its own
+    # commit so machine edits get real diffs and revert on top of the
+    # dashboard undo. Best-effort: non-repo vaults / git failures never block.
+    git_autocommit: bool = False
+
     # --- vector index scale-out ---
     # below the threshold: exact float32 scan (zero accuracy loss). Above it:
     # int8 IVF index — 4× less RAM, sublinear query time. 0 disables ANN.

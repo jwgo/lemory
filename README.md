@@ -403,6 +403,7 @@ $ lemory search "tag:회의록 folder:2026 예산"   # 범위 연산자, 전 모
 $ lemory remember "VPN 갱신은 매년 3월, 담당 김하늘" --tags ops   # CLI에서 기억 남기기
 $ lemory import-chats conversations.json        # ChatGPT/Claude 대화 → 검색되는 노트
 $ lemory connect ./my_source.py                 # 커넥터 SDK: 어떤 소스든 → 볼트 노트
+$ lemory agents install                         # AGENTS.md 생성 — 어떤 에이전트든 볼트를 기억으로
 $ lemory graph --open                           # 볼트 전체를 인터랙티브 그래프로
 $ lemory context                                # 에이전트용 볼트 요약 한 번에
 ```
@@ -537,6 +538,7 @@ REST는 `lemory serve`에: `GET /search` · `POST /ask` · `GET /context` ·
 - [x] PDF 색인 · [x] 100만 청크 볼트용 ANN 인덱스
 - [x] 채팅 가져오기 (ChatGPT/Claude) · [x] KorMapleQA 벤치마크
 - [x] 커넥터 SDK (`lemory connect`) · [x] 기본 검색 범위 (`default_scope`)
+- [x] 에이전트 온보딩 (`lemory agents`: AGENTS.md + 감지) · [x] AI 쓰기 git 체크포인트
 - [ ] 이미지 OCR / 오디오 전사 · [ ] 웹 클리퍼
 - [ ] 멀티 볼트 프로필
 
