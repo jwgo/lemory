@@ -348,7 +348,7 @@ class LemoryConfig(BaseSettings):
 
     def resolved_local_backend(self) -> str:
         """Which in-process local embedder to use: 'fastembed' (e5-small-ko-v2,
-        the default) or 'llamacpp' (Harrier). 'auto' picks e5-small-ko-v2 — it
+        the default) or 'llamacpp' (Harrier). 'auto' picks e5-small-ko-v2 · it
         measured higher hybrid doc@8 than Harrier (0.879 vs 0.853 on KorMapleQA)
         while being lighter, faster, and needing no native compile; set
         'llamacpp' explicitly to use the 1024-d Harrier instead."""
@@ -382,7 +382,7 @@ class LemoryConfig(BaseSettings):
             return self.openai_llm_model
         if p == "local":
             return (f"{self.llm_model} (answers)" if self.resolved_gemini_key()
-                    else "none — local search-only")
+                    else "none · local search-only")
         return self.llm_model
 
     def resolved_api_key(self) -> str:
@@ -400,7 +400,7 @@ GLOBAL_ENV_FILE = Path.home() / ".lemory" / "env"
 
 def _global_env() -> dict[str, str]:
     """Machine-global credentials written by `lemory setup` (~/.lemory/env,
-    mode 0600) — so GUI apps like Obsidian, which don't inherit a shell
+    mode 0600) · so GUI apps like Obsidian, which don't inherit a shell
     environment, still find the key."""
     out: dict[str, str] = {}
     try:

@@ -15,7 +15,7 @@ from rich.table import Table
 from ..engine import create_engine
 
 app = typer.Typer(
-    help="Lemory — 당신의 마크다운을 위한 로컬 메모리 미들웨어 (local memory middleware for your Markdown).",
+    help="Lemory · 당신의 마크다운을 위한 로컬 메모리 미들웨어 (local memory middleware for your Markdown).",
     invoke_without_command=True)
 console = Console()
 
@@ -36,7 +36,7 @@ def _welcome(ctx: typer.Context):
     full command dump, so a first run is never a guessing game."""
     if ctx.invoked_subcommand is not None:
         return
-    console.print("[bold]🍋 Lemory[/bold] — 로컬 메모리 미들웨어\n")
+    console.print("[bold]🍋 Lemory[/bold] · 로컬 메모리 미들웨어\n")
     if (Path.cwd() / "lemory.toml").exists():
         console.print(
             "설정이 있습니다. 바로 쓰세요:\n"
@@ -64,25 +64,25 @@ def _engine(vault: Optional[Path]):
 def init(vault: Path = typer.Argument(..., help="Obsidian 볼트 경로")):
     """(deprecated) `lemory init`은 `lemory up`으로 통합됐습니다."""
     console.print("[yellow]ℹ[/yellow]  `lemory init`은 [bold]`lemory up`[/bold]으로 통합됐어요 "
-                  "— config만 쓰고 넘어갑니다.\n")
+                  "· config만 쓰고 넘어갑니다.\n")
     _start(vault, serve_after=False, index_now=False)
 
 
 @app.command()
 def up(
     vault: Optional[Path] = typer.Argument(None, help="Obsidian 볼트 경로 (생략하면 물어봅니다)"),
-    key: Optional[str] = typer.Option(None, "--key", help="Gemini API 키 (선택 — 넣으면 클라우드 답변·임베딩)"),
+    key: Optional[str] = typer.Option(None, "--key", help="Gemini API 키 (선택 · 넣으면 클라우드 답변·임베딩)"),
     port: int = typer.Option(8377),
     serve_after: bool = typer.Option(True, "--serve/--no-serve", help="색인 후 웹 서버 실행"),
     index_now: bool = typer.Option(True, "--index/--no-index", help="첫 색인 실행"),
 ):
-    """🍋 Lemory 시작 — 이 명령 하나면 됩니다.
+    """🍋 Lemory 시작 · 이 명령 하나면 됩니다.
 
     볼트를 가리키면 최적 모드를 자동으로 잡고(키 있으면 클라우드, 없으면 온디바이스
     e5-small-ko-v2 임베딩 + Gemma 4 답변), 첫 색인 후 대시보드까지 띄웁니다. 모델·검색
     설정은 이후 대시보드의 '설정'에서 바꿉니다.
 
-      lemory up                       대화형 — 볼트를 물어봅니다
+      lemory up                       대화형 · 볼트를 물어봅니다
       lemory up ~/Obsidian/Vault      질문 없이 진행 (스크립트/CI)
       lemory up ~/Vault --key <KEY>   Gemini 클라우드 모드
     """
@@ -99,7 +99,7 @@ def _start(vault: Optional[Path], key: Optional[str] = None, port: int = 8377,
     # 1) vault — argument, or prompt when run bare
     interactive = vault is None
     if interactive:
-        console.print("[bold]🍋 Lemory[/bold] — 볼트만 있으면 바로 시작합니다.\n")
+        console.print("[bold]🍋 Lemory[/bold] · 볼트만 있으면 바로 시작합니다.\n")
         vault = Path(typer.prompt("Obsidian 볼트 경로 (예: ~/Obsidian/MyVault)"))
     v = vault.expanduser().resolve()
     if not v.is_dir():
@@ -115,13 +115,13 @@ def _start(vault: Optional[Path], key: Optional[str] = None, port: int = 8377,
     # 3) pick the best available mode — no menu, just detect
     extra = ""
     if key or load_config().resolved_gemini_key():
-        mode_desc = "Gemini (키 감지 — 답변·클라우드 임베딩)"
+        mode_desc = "Gemini (키 감지 · 답변·클라우드 임베딩)"
     elif _has_module("llama_cpp"):
         extra = 'provider = "local"\n'
         mode_desc = "온디바이스 e5-small-ko-v2 임베딩 + Gemma 4 답변 (키 0)"
         ram = _machine_ram_gb()
         if 0 < ram < 8:
-            console.print(f"[yellow]![/yellow] RAM {ram:.0f}GB — Gemma 4 E4B는 8GB+ 권장. "
+            console.print(f"[yellow]![/yellow] RAM {ram:.0f}GB · Gemma 4 E4B는 8GB+ 권장. "
                           "대시보드 '설정 › 모델'에서 E2B로 낮출 수 있어요.")
     elif _has_module("fastembed"):
         extra = 'provider = "local"\n'
@@ -139,12 +139,12 @@ def _start(vault: Optional[Path], key: Optional[str] = None, port: int = 8377,
             if r.returncode == 0 and _has_module("llama_cpp"):
                 mode_desc = "온디바이스 e5-small-ko-v2 임베딩 + Gemma 4 답변 (키 0)"
             else:
-                console.print('[yellow]![/yellow] 설치 실패 — 수동: pip install "lemory[llama]"')
+                console.print('[yellow]![/yellow] 설치 실패 · 수동: pip install "lemory[llama]"')
                 mode_desc = "온디바이스 e5-small-ko-v2 임베딩 (384d, 키 0 · 답변은 lemory[llama])"
         else:
             mode_desc = "온디바이스 e5-small-ko-v2 임베딩 (384d, 키 0 · 답변은 pip install \"lemory[llama]\")"
     else:
-        mode_desc = "키 0 — BM25+링크 그래프 (pip install \"lemory[local]\"로 시맨틱)"
+        mode_desc = "키 0 · BM25+링크 그래프 (pip install \"lemory[local]\"로 시맨틱)"
 
     # 4) write config
     cfg_file = v / "lemory.toml"
@@ -184,7 +184,7 @@ def setup(
 ):
     """(deprecated) `lemory setup`은 `lemory up`으로 통합됐습니다."""
     console.print("[yellow]ℹ[/yellow]  `lemory setup`은 이제 [bold]`lemory up`[/bold] 하나로 통합됐어요 "
-                  "— 그걸 실행합니다.\n")
+                  "· 그걸 실행합니다.\n")
     _start(vault, key=key, serve_after=False, index_now=index_now)
 
 
@@ -204,7 +204,7 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
 
     def check(label: str, passed: bool, detail: str = "") -> bool:
         mark = "[green]✔[/green]" if passed else "[red]✘[/red]"
-        console.print(f" {mark} {label}" + (f" — {detail}" if detail else ""))
+        console.print(f" {mark} {label}" + (f" · {detail}" if detail else ""))
         return passed
 
     cfg = load_config(vault=vault)
@@ -246,7 +246,7 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
                 cfg.resolved_gemini_key() or cfg.resolved_openai_key()) else "사용 가능"
             check("답변 생성 (ask)", True, detail)
         else:
-            console.print(' [yellow]⚠[/yellow] 답변 생성 (ask) — 검색은 되지만 ask는 답변 모델이 필요합니다: '
+            console.print(' [yellow]⚠[/yellow] 답변 생성 (ask) · 검색은 되지만 ask는 답변 모델이 필요합니다: '
                           '온디바이스 Gemma 4(pip install "lemory[llama]") 또는 GEMINI_API_KEY(무료)')
         # upgrade hint: on the light local tier, Harrier is a keyless win
         if "e5" in model.lower() or "minilm" in model.lower() or "multilingual" in model.lower():
@@ -254,7 +254,7 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
                           "(Harrier 1024d, 데몬 없음) 후 lemory index[/dim]")
     except RuntimeError:
         console.print(
-            " [yellow]⚠[/yellow] provider — 로컬 임베더 없음(희귀): 렉시컬 모드로 동작 중 "
+            " [yellow]⚠[/yellow] provider · 로컬 임베더 없음(희귀): 렉시컬 모드로 동작 중 "
             "(BM25+링크 그래프). 시맨틱 검색을 켜려면 [bold]pip install \"lemory[local]\"[/bold] "
             "(또는 [bold]lemory[llama][/bold]) 후 다음 색인에서 자동 활성화")
 
@@ -282,13 +282,13 @@ def doctor(vault: Optional[Path] = typer.Option(None, help="Vault path to check"
                 hits = eng.search(probe, k=1)
                 ok &= check("search", bool(hits), f"returned {len(hits)} hit(s) for '{probe}'")
             else:
-                console.print(" [yellow]⚠[/yellow] index — empty, run [bold]lemory index[/bold] to build it")
+                console.print(" [yellow]⚠[/yellow] index · empty, run [bold]lemory index[/bold] to build it")
         except Exception as e:
             ok = check("index", False, str(e)[:120])
 
     console.print()
     if ok:
-        console.print("[green]all good[/green] — try: [bold]lemory ask \"요새 내가 뭐 했지?\"[/bold]")
+        console.print("[green]all good[/green] · try: [bold]lemory ask \"요새 내가 뭐 했지?\"[/bold]")
     else:
         console.print("[yellow]fix the ✘ items above and re-run[/yellow] [bold]lemory doctor[/bold]")
         raise typer.Exit(1)
@@ -321,7 +321,7 @@ def context(
     vault: Optional[Path] = typer.Option(None),
     max_chars: int = typer.Option(2400, help="Budget for the context block"),
 ):
-    """Pre-assembled vault context (stats, recent, hot, hubs, tags) — pipe
+    """Pre-assembled vault context (stats, recent, hot, hubs, tags) · pipe
     this into any agent for instant situational awareness."""
     from ..ingestion.memory import context_block
 
@@ -369,8 +369,8 @@ def pending_cmd(vault: Optional[Path] = typer.Option(None)):
     for r in rows:
         table.add_row(r["path"], r["title"])
     console.print(table)
-    console.print("[dim]" + _t(f"{len(rows)}건 대기 — lemory approve <path> 로 승인",
-                               f"{len(rows)} pending — approve with lemory approve <path>") + "[/dim]")
+    console.print("[dim]" + _t(f"{len(rows)}건 대기 · lemory approve <path> 로 승인",
+                               f"{len(rows)} pending · approve with lemory approve <path>") + "[/dim]")
 
 
 @app.command("approve")
@@ -383,7 +383,7 @@ def approve_cmd(
 
     eng = _engine(vault)
     rel = approve_memory(eng, path, client="cli")
-    console.print(f"[green]approved[/green] {rel} — 검색 가능해졌습니다")
+    console.print(f"[green]approved[/green] {rel} · 검색 가능해졌습니다")
 
 
 @app.command("suggest-links")
@@ -392,7 +392,7 @@ def suggest_links_cmd(
     k: int = typer.Option(12, help="Max suggestions"),
     vault: Optional[Path] = typer.Option(None),
 ):
-    """Unlinked mentions as [[link]] suggestions — notes that reference each
+    """Unlinked mentions as [[link]] suggestions · notes that reference each
     other in text but were never linked. Zero LLM; reads the existing graph."""
     from ..retrieval.links import suggest_links
 
@@ -404,7 +404,7 @@ def suggest_links_cmd(
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
     if not rows:
-        console.print("[dim]제안할 링크가 없습니다 — 언급되지만 연결 안 된 노트가 없어요.[/dim]")
+        console.print("[dim]제안할 링크가 없습니다 · 언급되지만 연결 안 된 노트가 없어요.[/dim]")
         return
     table = Table(title=f"link suggestions ({len(rows)})")
     table.add_column("from")
@@ -423,7 +423,7 @@ def graph_cmd(
 ):
     """볼트 지식그래프를 자체완결 인터랙티브 HTML 한 파일로 내보낸다.
 
-    LLM 0회 — 위키링크·멘션 그래프는 인덱스에 이미 있다. Graphify류가
+    LLM 0회 · 위키링크·멘션 그래프는 인덱스에 이미 있다. Graphify류가
     LLM 파이프라인으로 몇 분 걸려 만드는 graph.html을 밀리초에 만든다."""
     from .graph_html import render_graph_html
 
@@ -450,7 +450,7 @@ def skill_cmd(
     """AI 어시스턴트에 Lemory 스킬을 설치한다 (Graphify/qmd 스타일 원커맨드).
 
     스킬은 어시스턴트에게 lemory CLI/MCP 사용법(검색 연산자, 기억 저장
-    에티켓, 링크 제안)을 가르치는 마크다운 — 설치 후 어시스턴트가 볼트를
+    에티켓, 링크 제안)을 가르치는 마크다운 · 설치 후 어시스턴트가 볼트를
     기억처럼 다룬다."""
     from .skills import render_skill, skill_target
 
@@ -479,7 +479,7 @@ def agents_cmd(
     """어떤 AI 에이전트든 이 볼트를 기억으로 쓰게 만듭니다.
 
     `install`은 볼트 루트에 표준 AGENTS.md(+ CLAUDE.md/GEMINI.md 심)를
-    생성합니다 — Codex, Copilot, OpenCode, Gemini CLI 등 2026 에이전트
+    생성합니다 · Codex, Copilot, OpenCode, Gemini CLI 등 2026 에이전트
     물결이 읽는 파일이라, 설치만 하면 에이전트가 검색부터 하고 기억을
     저장합니다. 사용자가 직접 작성한 파일(custom)은 절대 건드리지 않고,
     빠졌거나 깨진 관리 파일만 복구합니다. `status`는 감지된 에이전트
@@ -495,7 +495,7 @@ def agents_cmd(
     if action in ("install", "refresh"):
         acts = install_guidance(v, refresh=(action == "refresh"))
         icon = {"written": "[green]✔ 생성[/green]", "refreshed": "[green]⟳ 갱신[/green]",
-                "current": "[dim]· 최신[/dim]", "kept": "[yellow]∙ 사용자 파일 — 그대로 둠[/yellow]"}
+                "current": "[dim]· 최신[/dim]", "kept": "[yellow]∙ 사용자 파일 · 그대로 둠[/yellow]"}
         for name, a in acts.items():
             console.print(f"  {icon[a]}  {name}")
         console.print()
@@ -540,8 +540,8 @@ def drift_cmd(
         return
     total = sum(len(v) for k, v in findings.items() if isinstance(v, list))
     if total == 0:
-        console.print(_t(f"[green]✔ 드리프트 없음[/green] — 노트 {findings['notes_scanned']}개 검사",
-                         f"[green]✔ no drift[/green] — {findings['notes_scanned']} notes scanned"))
+        console.print(_t(f"[green]✔ 드리프트 없음[/green] · 노트 {findings['notes_scanned']}개 검사",
+                         f"[green]✔ no drift[/green] · {findings['notes_scanned']} notes scanned"))
         return
     for kind, label in (("broken_wikilinks", _t("깨진 위키링크", "broken wikilinks")),
                         ("missing_file_links", _t("없는 파일로 가는 링크", "links to missing files")),
@@ -574,8 +574,8 @@ def conflicts_cmd(
     eng.index()
     found = eng.conflicts(threshold=threshold, limit=limit)
     if not found:
-        console.print(_t("[green]✔ 모순 없음[/green] — 충돌하는 노트 쌍이 없습니다",
-                         "[green]✔ no conflicts[/green] — no disagreeing note pairs"))
+        console.print(_t("[green]✔ 모순 없음[/green] · 충돌하는 노트 쌍이 없습니다",
+                         "[green]✔ no conflicts[/green] · no disagreeing note pairs"))
         return
     labels = {"number": _t("숫자 불일치", "number"),
               "negation": _t("부정 충돌", "negation"),
@@ -603,7 +603,7 @@ def import_chats(
     vault: Optional[Path] = typer.Option(None),
 ):
     """Import a ChatGPT/Claude conversation export as vault notes (searchable,
-    dated, idempotent — re-running on a newer export only adds new chats)."""
+    dated, idempotent · re-running on a newer export only adds new chats)."""
     from ..ingestion.chat_import import import_conversations
 
     eng = _engine(vault)
@@ -623,7 +623,7 @@ def connect_cmd(
     """커넥터 스크립트를 실행해 외부 소스를 볼트 노트로 가져옵니다.
 
     커넥터는 사용자가 소유한 파이썬 파일이며 결과물은 평범한 마크다운
-    노트입니다 — 검색·수정·삭제 모두 다른 노트와 동일. pull(state)를
+    노트입니다 · 검색·수정·삭제 모두 다른 노트와 동일. pull(state)를
     정의하면 커서가 저장돼 증분 수집이 됩니다. 재실행은 멱등(같은 id는
     같은 파일을 덮어씀)이고 삭제는 절대 하지 않습니다."""
     from ..ingestion.connectors import run_connector
@@ -650,7 +650,7 @@ def hook(
     agent: str = typer.Argument(..., help="Hook source: claude-code"),
     vault: Optional[Path] = typer.Option(None),
 ):
-    """(internal) Lifecycle hook entry — reads the hook event JSON from stdin.
+    """(internal) Lifecycle hook entry · reads the hook event JSON from stdin.
     Registered automatically by `lemory hooks install`."""
     from .hooks import run_hook
 
@@ -704,7 +704,7 @@ def index(
             f" · 예상 시간: [bold]{plan.human_eta()}[/bold] ({src} {plan.rate_chunks_per_s:.0f}청크/s)"
         )
     else:
-        console.print("변경 없음 — 색인이 이미 최신입니다.")
+        console.print("변경 없음 · 색인이 이미 최신입니다.")
     with console.status("indexing..."):
         rep = eng.index(full=full, progress=lambda m: console.log(m))
     console.print(
@@ -719,7 +719,7 @@ def index(
 def watch(vault: Optional[Path] = typer.Option(None)):
     """Index, then keep syncing as the vault changes (Ctrl-C to stop)."""
     eng = _engine(vault)
-    console.print("[green]watching[/green] — edit your vault, Lemory keeps up. Ctrl-C to stop.")
+    console.print("[green]watching[/green] · edit your vault, Lemory keeps up. Ctrl-C to stop.")
     eng.watch()
 
 
@@ -772,7 +772,7 @@ def ask(
             for i, h in enumerate(hits, 1):
                 sub = h.subheading()
                 loc = h.title + (f" › {sub}" if sub else "")
-                console.print(f"  {i}. [cyan]{loc}[/cyan] — "
+                console.print(f"  {i}. [cyan]{loc}[/cyan] · "
                               + h.text[:140].replace("\n", " "))
         raise typer.Exit(1)
     console.print(ans.text)
@@ -815,7 +815,7 @@ def doctor_cmd(vault: Optional[Path] = typer.Option(None)):
                   f"index: {db} ({n_docs} docs, integrity={integrity}, "
                   f"{db.stat().st_size // 1024 // 1024}MB)")
         else:
-            check(True, f"index: not built yet ({db}) — run `lemory index`")
+            check(True, f"index: not built yet ({db}) · run `lemory index`")
     except Exception as e:
         check(False, f"index: {e}")
 
@@ -840,7 +840,7 @@ def doctor_cmd(vault: Optional[Path] = typer.Option(None)):
             client.generate("ping", max_output_tokens=1)
             check(True, f"generator: {cfg.active_llm_model()}")
         except Exception as e:
-            check(True, f"generator: 없음 (검색은 됨, ask는 불가) — {str(e)[:60]}")
+            check(True, f"generator: 없음 (검색은 됨, ask는 불가) · {str(e)[:60]}")
         client.close()
     except Exception as e:
         check(False, f"embedder: {e}")
@@ -860,7 +860,7 @@ def backup_cmd(
 ):
     """인덱스·설정·사용기록 백업 (.tar.gz).
 
-    노트 자체는 이미 당신의 파일이니 여기 안 담습니다 — 담는 것은 노트가
+    노트 자체는 이미 당신의 파일이니 여기 안 담습니다 · 담는 것은 노트가
     아닌 상태들: 검색 인덱스(임베딩 캐시 포함), lemory.toml, note_hits,
     이벤트 타임라인. SQLite 온라인 백업 API로 서버가 켜져 있어도 안전."""
     import sqlite3
@@ -906,7 +906,7 @@ def restore_cmd(
     data_dir.mkdir(parents=True, exist_ok=True)
     db = data_dir / "lemory.db"
     if db.exists() and not force:
-        console.print("[red]기존 인덱스가 있습니다[/red] — 덮어쓰려면 --force")
+        console.print("[red]기존 인덱스가 있습니다[/red] · 덮어쓰려면 --force")
         raise typer.Exit(1)
     with tarfile.open(archive, "r:gz") as tar:
         names = tar.getnames()
@@ -926,8 +926,16 @@ def restore_cmd(
 @app.command()
 def status(vault: Optional[Path] = typer.Option(None)):
     """Show index statistics."""
+    from datetime import datetime
+
     eng = _engine(vault)
-    console.print_json(json.dumps(eng.status()))
+    st = eng.status()
+    if st.get("last_sync"):
+        try:
+            st["last_sync"] = datetime.fromtimestamp(float(st["last_sync"])).strftime("%Y-%m-%d %H:%M:%S")
+        except (ValueError, TypeError):
+            pass
+    console.print_json(json.dumps(st))
 
 
 @app.command()
@@ -938,7 +946,7 @@ def serve(
     port: int = typer.Option(8377),
     watch: bool = typer.Option(True, help="Keep the index live while serving"),
 ):
-    """서버만 실행 (웹 UI + Obsidian/Claude 백엔드). 이미 색인돼 있을 때 씀 —
+    """서버만 실행 (웹 UI + Obsidian/Claude 백엔드). 이미 색인돼 있을 때 씀 ·
     처음이면 대신 `lemory up`. Run the HTTP API + vault watcher."""
     import uvicorn
 
@@ -947,10 +955,10 @@ def serve(
     eng = _engine(vault)
     if host not in ("127.0.0.1", "localhost", "::1"):
         if eng.cfg.api_token:
-            console.print(f"[yellow]![/yellow] {host} 바인딩 — 원격 요청은 "
+            console.print(f"[yellow]![/yellow] {host} 바인딩 · 원격 요청은 "
                           "Authorization: Bearer <api_token> 필요 (모바일 셋업: docs/GUIDE)")
         else:
-            console.print(f"[yellow]![/yellow] {host} 바인딩인데 api_token이 없습니다 — "
+            console.print(f"[yellow]![/yellow] {host} 바인딩인데 api_token이 없습니다 · "
                           "원격 요청은 전부 403으로 거부됩니다. lemory.toml에 "
                           "api_token = \"...\" 을 설정하세요.")
     uvicorn.run(build_app(eng, watch=watch), host=host, port=port)
@@ -987,7 +995,7 @@ def distill(
 ):
     """대화 세션 노트를 팩트시트 노트로 증류합니다 (옵트인, 사후 배치).
 
-    출력은 볼트 안의 평범한 마크다운 노트 — 다른 노트처럼 검색되고, 열어보고,
+    출력은 볼트 안의 평범한 마크다운 노트 · 다른 노트처럼 검색되고, 열어보고,
     지울 수 있습니다. 원본 세션은 절대 수정하지 않으며 출처를 [[위키링크]]로
     남깁니다. 키가 없으면 온디바이스 Gemma로 돕니다."""
     from ..ingestion.distill import distill as _distill

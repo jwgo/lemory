@@ -1,5 +1,5 @@
 """On-device speech-to-text via faster-whisper (CTranslate2, no torch, no
-cloud), so the assistant's voice input is transcribed locally — the browser's
+cloud), so the assistant's voice input is transcribed locally · the browser's
 mic audio never leaves the machine, unlike the browser Web Speech API. The
 model auto-downloads once and is cached; loaded lazily."""
 from __future__ import annotations

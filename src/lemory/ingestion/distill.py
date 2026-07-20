@@ -3,7 +3,7 @@
 The read half of the memory loop retrieves raw session notes well until small
 talk poisons the vocabulary (measured: RoleMemQA-messy episodic doc@1 0.458
 vs 0.938 clean). Distillation writes what a person would: a short fact sheet
-per conversation group — "지훈의 여동생 이름은 김보람" — which is exactly the
+per conversation group · "지훈의 여동생 이름은 김보람" · which is exactly the
 clean text retrieval ranks best.
 
 Boundaries that keep this from rotting the architecture:
@@ -29,7 +29,7 @@ _PROMPT = (
     "- 형식: 각 줄 '- <사실 진술문>'. 진술문에는 이름·제목·가게명 같은 "
     "고유한 값을 원문 그대로 포함하라 (값을 빼먹은 요약은 쓸모없다).\n"
     "- 대상: 선호, 인물(이름), 반려동물, 알레르기, 사건, 별명, 바뀐 사실"
-    "(가장 최신 값만), 그리고 **둘이 함께 정한 것들 — 약속, 노래, 계획, "
+    "(가장 최신 값만), 그리고 **둘이 함께 정한 것들 · 약속, 노래, 계획, "
     "주고받은 선물과 그 출처** (관계의 기억이 가장 중요하다).\n"
     "- 농담/번복 주의: '농담이고', '뻥이야', '사실은' 뒤에 나오는 값이 진짜다. "
     "가짜 값은 적지 마라.\n"
@@ -54,7 +54,7 @@ def _chat_docs(engine, folder: str) -> list:
 
 
 def _group_key(doc) -> tuple[str, str]:
-    """(parent folder, YYYY-MM) — one digest per conversation group per month."""
+    """(parent folder, YYYY-MM) · one digest per conversation group per month."""
     parent = doc.path.rsplit("/", 1)[0] if "/" in doc.path else ""
     m = re.search(r"(\d{4}-\d{2})", doc.path) or re.search(r"(\d{4}-\d{2})", doc.title)
     month = m.group(1) if m else "undated"
@@ -70,7 +70,7 @@ def distill(engine, folder: str = "", out_folder: str = "기억요약",
             batch_chars: int = 4000) -> list[str]:
     """Distill chat-session notes into fact-sheet notes. Returns the
     vault-relative paths written. Overwrites each group's digest (the digest
-    is derived data — the sessions stay the source of truth)."""
+    is derived data · the sessions stay the source of truth)."""
     docs = _chat_docs(engine, folder)
     if not docs:
         return []

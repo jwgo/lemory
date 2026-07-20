@@ -1,7 +1,7 @@
-"""IVF-flat ANN index over int8-quantized unit vectors — numpy only.
+"""IVF-flat ANN index over int8-quantized unit vectors · numpy only.
 
 Why this exists: the exact path (`matrix @ q` over float32) is perfect up to
-tens of thousands of chunks, but it is memory-bandwidth bound — at 1M chunks
+tens of thousands of chunks, but it is memory-bandwidth bound · at 1M chunks
 every query streams ~3 GB. This index keeps vectors int8 at rest (4× smaller)
 and only scans the clusters nearest the query (IVF), so latency stays in the
 tens of milliseconds while recall vs exact search stays high at sane nprobe
@@ -9,13 +9,13 @@ tens of milliseconds while recall vs exact search stays high at sane nprobe
 
 Design constraints, in order:
   1. zero new dependencies (numpy only, like the rest of Lemory)
-  2. exact-search behaviour below the threshold — small vaults never pay
+  2. exact-search behaviour below the threshold · small vaults never pay
      any accuracy tax; the store switches to IVF only above ann_threshold
   3. deterministic builds (seeded k-means) so benchmarks are reproducible
 
 Layout: vectors are stored grouped by cluster (one contiguous int8 block per
 cluster) so a probe is a slice, not a gather. Quantization is symmetric with
-one global scale — quantized dot products are proportional to true dots, so
+one global scale · quantized dot products are proportional to true dots, so
 ranking survives; residual error only reorders near-ties.
 """
 
@@ -88,18 +88,18 @@ class IVFFlatIndex:
         centroids: Optional[np.ndarray] = None,
         scale: Optional[float] = None,
     ) -> "IVFFlatIndex":
-        """Build from (float32_block, id_block) chunks streamed out of SQLite —
+        """Build from (float32_block, id_block) chunks streamed out of SQLite ·
         the full n×d float matrix is never materialized (that's the whole point
         of switching to ANN at scale).
 
         `blocks` may be an iterable OR a zero-arg factory returning a fresh
         iterable. When training needs two passes, a factory streams each pass
         independently; a plain iterable is materialized once (fine for the
-        small in-memory callers — tests, benchmarks). The store passes its
+        small in-memory callers · tests, benchmarks). The store passes its
         cursor factory, so the 1M-chunk build peaks at one block, not 3 GB.
 
         Pass `centroids` (+ its `scale`) from a previous build for an
-        assignment-only rebuild — the cheap path when the vault grew a bit."""
+        assignment-only rebuild · the cheap path when the vault grew a bit."""
         if total <= 0:
             return cls(centroids=np.zeros((0, dim), dtype=np.float32),
                        offsets=np.zeros(1, dtype=np.int64),
@@ -211,7 +211,7 @@ class IVFFlatIndex:
 
     @classmethod
     def load_any(cls, path: Path) -> Optional["IVFFlatIndex"]:
-        """Load ignoring the fingerprint — used to salvage trained centroids
+        """Load ignoring the fingerprint · used to salvage trained centroids
         for an assignment-only rebuild after the corpus drifted."""
         try:
             with np.load(path) as z:

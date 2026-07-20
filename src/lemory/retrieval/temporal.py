@@ -1,12 +1,12 @@
 """Temporal awareness: note dates + recency intent in queries (KR/EN).
 
-Everything here is rule-based and local — no LLM, no API. Two jobs:
+Everything here is rule-based and local · no LLM, no API. Two jobs:
 
-1. `doc_date(...)` — when was a note "about"? Priority: frontmatter date
+1. `doc_date(...)` · when was a note "about"? Priority: frontmatter date
    (date/created/day/updated) > a date in the filename/title (daily notes:
    `2026-07-08.md`, `2026.07.08`, `20260708`) > file mtime.
 
-2. `parse_temporal(query, now)` — does the query care about time?
+2. `parse_temporal(query, now)` · does the query care about time?
    * vague recency: 요새/요즘/최근/얼마 전/recently/lately/these days …
      → exponential recency boost, no hard range
    * explicit ranges: 오늘/어제/그저께/이번 주/지난주/이번 달/지난달/N일 전/
@@ -189,7 +189,7 @@ def recency_weight(doc_ts: float, now: float, half_life_days: float) -> float:
     """Exponential decay in [0, 1]: 1.0 for 'right now', 0.5 at one half-life.
 
     Age is quantized to week bands: to a person, "요새/최근" doesn't
-    distinguish today from five days ago — within a band, relevance must
+    distinguish today from five days ago · within a band, relevance must
     decide the order; across bands, recency does.
     """
     age_days = max(0.0, (now - doc_ts) / 86400.0)

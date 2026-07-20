@@ -85,7 +85,7 @@ class Engine:
 
     @property
     def keyless(self) -> bool:
-        """True when no embedding provider is available — Lemory still runs
+        """True when no embedding provider is available · Lemory still runs
         (BM25 + typo repair + boosts + operators), just without the vector leg.
         Adding a key later upgrades in place: the next index embeds everything."""
         try:

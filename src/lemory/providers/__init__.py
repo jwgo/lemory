@@ -1,5 +1,5 @@
 """LLM/embedding providers. `create_client(cfg)` is the single seam the
-engine uses — provider choice lives in config, construction lives here."""
+engine uses · provider choice lives in config, construction lives here."""
 
 from __future__ import annotations
 

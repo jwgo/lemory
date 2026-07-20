@@ -149,12 +149,12 @@ _SINGLE_PARTICLES = set("의은는이가를을에와과도만로써서던고기�
 def hangul_bigrams(text: str) -> list[str]:
     """Character unigrams + bigrams of every Hangul run (CJK-analyzer style).
 
-    Korean is agglutinative — '윤하준가'(name+조사) never token-matches
+    Korean is agglutinative · '윤하준가'(name+조사) never token-matches
     '윤하준' under unicode61. Indexing and querying Hangul as overlapping
     bigrams ('윤하 하준 준가') restores lexical matching without a
     morphology dictionary. Unigrams are included too because single-syllable
     words are common ('책', '집', '차') and would otherwise never match their
-    particle-suffixed forms ('책은') — BM25's IDF keeps frequent single
+    particle-suffixed forms ('책은') · BM25's IDF keeps frequent single
     syllables from dominating.
     """
     grams: list[str] = []
@@ -214,7 +214,7 @@ def _fts_escape(query: str) -> str:
 
 
 def _loads_or(raw, default):
-    """json.loads that returns `default` on any malformed value — the index is
+    """json.loads that returns `default` on any malformed value · the index is
     derived data, so a corrupt cell must degrade gracefully, never crash a read."""
     try:
         return json.loads(raw)
@@ -500,7 +500,7 @@ class Store:
         return out
 
     def all_links(self) -> list[tuple[int, int, str, float]]:
-        """Every graph edge (src, dst, kind, weight) — the `lemory graph`
+        """Every graph edge (src, dst, kind, weight) · the `lemory graph`
         export and any future whole-graph consumer."""
         return [(r["src_doc"], r["dst_doc"], r["kind"], r["weight"])
                 for r in self.conn().execute(
@@ -703,7 +703,7 @@ class Store:
             "SELECT COUNT(*) AS n FROM chunks WHERE vec IS NOT NULL").fetchone()["n"]
 
     def unembedded_chunk_count(self) -> int:
-        """Chunks with no vector — left over from a keyless index. Non-zero
+        """Chunks with no vector · left over from a keyless index. Non-zero
         means vector search is silently blind to those notes."""
         return self.conn().execute(
             "SELECT COUNT(*) AS n FROM chunks WHERE vec IS NULL").fetchone()["n"]
@@ -723,7 +723,7 @@ class Store:
         Persisted next to the DB and fingerprinted against the chunk table, so
         restarts skip the k-means build. When the corpus drifted (incremental
         sync), centroids from the previous build are reused and only the
-        assignment pass reruns — the expensive training is a rare event."""
+        assignment pass reruns · the expensive training is a rare event."""
         from .ann import IVFFlatIndex
 
         # fast path: already built, or below threshold — the only work under
@@ -794,7 +794,7 @@ class Store:
                    np.array([r["id"] for r in rows], dtype=np.int64))
 
     def vector_index_kind(self) -> str:
-        """'ivf-int8' | 'exact' — what the next vector query will use."""
+        """'ivf-int8' | 'exact' · what the next vector query will use."""
         if self._ann is not None or self._embedded_count() >= self.ann_threshold:
             return "ivf-int8"
         return "exact"
@@ -830,7 +830,7 @@ class Store:
         return [(int(ids[i]), float(sims[i])) for i in top]
 
     def doc_mean_vectors(self) -> tuple[np.ndarray, np.ndarray]:
-        """(matrix[n_docs, dim], doc_ids) — L2-normalized mean chunk vector per
+        """(matrix[n_docs, dim], doc_ids) · L2-normalized mean chunk vector per
         doc. Feeds the semantic-fallback link builder; derived from the
         existing chunk matrix, nothing stored."""
         matrix, ids, _pos = self._ensure_matrix()
@@ -874,7 +874,7 @@ class Store:
     ) -> list[tuple[int, int, float]]:
         """Chunk pairs from DIFFERENT notes with cosine >= threshold, sorted by
         similarity desc. Feeds the conflict/duplicate scan. Blockwise matmul
-        over the existing in-memory matrix — no extra storage, no API."""
+        over the existing in-memory matrix · no extra storage, no API."""
         matrix, ids, _pos = self._ensure_matrix()
         n = matrix.shape[0]
         if n == 0:
@@ -900,7 +900,7 @@ class Store:
         return pairs[:cap]
 
     def adjacent_chunks(self, chunk_id: int) -> tuple[Optional[str], Optional[str]]:
-        """(prev_text, next_text) by ord within the same doc — the context a
+        """(prev_text, next_text) by ord within the same doc · the context a
         chunk boundary cut away (Cerebras-style post-ranking expansion).
         Enrichment pseudo-chunks are skipped."""
         c = self.conn()
@@ -955,7 +955,7 @@ class Store:
     def record_hits(self, doc_ids: list[int]) -> None:
         """Count real retrievals per note (console 'working knowledge' stats).
 
-        Only interface layers (server/CLI) record — library calls and
+        Only interface layers (server/CLI) record · library calls and
         benchmarks never pollute the numbers."""
         if not doc_ids:
             return
@@ -1014,7 +1014,7 @@ class Store:
         return out
 
     def client_stats(self, days: float = 7.0) -> list[dict]:
-        """Per-client event counts in the window — who is using this memory."""
+        """Per-client event counts in the window · who is using this memory."""
         import time as _t
 
         cutoff = _t.time() - days * 86400
@@ -1040,7 +1040,7 @@ class Store:
         """Raw stored vectors for specific chunks (unit-norm rows of the matrix).
 
         In ANN mode the float32 matrix is never materialized (that's the whole
-        point) — rows come dequantized from the int8 index instead."""
+        point) · rows come dequantized from the int8 index instead."""
         ann = self._ensure_ann()
         if ann is not None:
             return ann.rows_for(chunk_ids)
@@ -1140,7 +1140,7 @@ class Store:
         """Surface-form vocabulary of the indexed text (word -> frequency),
         cached until the index changes. Unstemmed on purpose: typo correction
         compares the user's raw word against real words, then FTS stems the
-        replacement normally. Pure local scan — no API involved."""
+        replacement normally. Pure local scan · no API involved."""
         with self._matrix_lock:
             lex = self._lexicon
         if lex is not None:
@@ -1158,7 +1158,7 @@ class Store:
         return counts
 
     def lexicon_buckets(self) -> dict[str, list[tuple[str, int]]]:
-        """lexicon() grouped by first AND second character — the typo scan's
+        """lexicon() grouped by first AND second character · the typo scan's
         candidate filter becomes an O(bucket) lookup instead of a 350k-term
         linear scan. Second-char buckets (prefixed '\x02') let a typo in the
         FIRST syllable ('메이플' typed '매이플/이메플') still find its word:
@@ -1191,7 +1191,7 @@ class Store:
         return row is not None
 
     def token_chunk_df(self, token: str) -> int:
-        """How many CHUNKS contain the token — true document frequency, unlike
+        """How many CHUNKS contain the token · true document frequency, unlike
         lexicon()'s occurrence counts (which one note repeating a term, or the
         per-chunk title join, can inflate). Used by the boilerplate gate:
         'common' must mean spread across the corpus, not merely repeated in

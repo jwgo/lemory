@@ -69,6 +69,19 @@ def test_note_title_and_iter(tmp_path):
     assert note_title(v / "sub" / "Note.md") == "Note"
 
 
+def test_agent_instruction_files_not_indexed(tmp_path):
+    # root AGENTS.md/CLAUDE.md/GEMINI.md are agent config (lemory agents
+    # install), not vault knowledge — indexing them pollutes drift/conflicts
+    v = tmp_path / "v"
+    (v / "sub").mkdir(parents=True)
+    for name in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
+        (v / name).write_text("agent instructions")
+    (v / "real.md").write_text("knowledge")
+    (v / "sub" / "AGENTS.md").write_text("a note that happens to share the name")
+    files = iter_vault_files(v, ["**/*.md"], [])
+    assert {str(f.relative_to(v)) for f in files} == {"real.md", "sub/AGENTS.md"}
+
+
 def test_self_mention_not_linked(engine, vault):
     # a note that mentions its own title must not self-link
     engine.index()

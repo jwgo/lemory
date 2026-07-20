@@ -35,7 +35,7 @@ def _tokens(s: str) -> set[str]:
 
 
 def _covers(title_tokens: set[str], q_tokens: set[str]) -> bool:
-    """Every title token appears in the query — allowing a short trailing
+    """Every title token appears in the query · allowing a short trailing
     suffix on the query side so Korean 조사 ('김지수가') still matches the
     title token ('김지수')."""
     return all(
@@ -116,7 +116,7 @@ def _edit_distance_capped(a: str, b: str, cap: int) -> int:
 def _dl_distance_capped(a: str, b: str, cap: int) -> int:
     """Damerau-Levenshtein (adjacent transposition = 1 op) with cap exit.
 
-    For Hangul the unit is the SYLLABLE — a fat-finger swap ('메이플' →
+    For Hangul the unit is the SYLLABLE · a fat-finger swap ('메이플' →
     '메플이') is one operation, matching how Korean typos actually happen;
     plain Levenshtein would charge 2 and push real typos past the cap."""
     if abs(len(a) - len(b)) > cap:
@@ -141,13 +141,13 @@ def _dl_distance_capped(a: str, b: str, cap: int) -> int:
 
 def correct_typos(store: Store, query: str) -> str:
     """Local did-you-mean: replace query words that match nothing in the index
-    with the closest indexed term. Purely lexical and offline — the vector leg
+    with the closest indexed term. Purely lexical and offline · the vector leg
     is left on the raw query, which embeddings already handle; this repairs
     the BM25/title-boost legs.
 
     ASCII words: Levenshtein (distance 1, or 2 for longer words).
-    Hangul words: syllable-level Damerau-Levenshtein — an adjacent-syllable
-    swap ('메이플스토리' 오타 '메이플스퇴리/메이플스토리' 류) is 1 op — over
+    Hangul words: syllable-level Damerau-Levenshtein · an adjacent-syllable
+    swap ('메이플스토리' 오타 '메이플스퇴리/메이플스토리' 류) is 1 op · over
     the indexed Hangul vocabulary. Both paths only ever touch words the index
     has never seen, so correct queries are never rewritten.
 
@@ -229,8 +229,8 @@ def hybrid_search(
     rerank: bool | None = None,
 ) -> SearchResult:
     """mode='fast' is the production lexical path (EchoVault-class latency):
-    every zero-cost ranking signal — operators, typo repair, Hangul-bigram
-    BM25, recency, title boost, usage prior, per-doc diversity — but no query
+    every zero-cost ranking signal · operators, typo repair, Hangul-bigram
+    BM25, recency, title boost, usage prior, per-doc diversity · but no query
     embedding, no graph walk, no reranker. Sub-millisecond, for as-you-type
     search surfaces. 'vector'/'bm25' remain pure single-leg ablations."""
     cfg: "LemoryConfig" = engine.cfg
@@ -545,7 +545,7 @@ def hybrid_search(
 
 
 def related_notes(engine: "Engine", path: str, k: int = 8) -> list[dict]:
-    """reor-style related notes: the note itself is the query — zero LLM calls,
+    """reor-style related notes: the note itself is the query · zero LLM calls,
     zero embedding calls (its chunk vectors are already in the index).
 
     Score = best chunk-to-chunk cosine against the target note's centroid,
@@ -590,7 +590,7 @@ def related_notes(engine: "Engine", path: str, k: int = 8) -> list[dict]:
 
 def _filtered_listing(store: Store, allowed: set[int], k: int) -> SearchResult:
     """A bare scope filter with no residual query ('tag:회의록') lists the
-    scope's notes newest-first — one representative chunk per note."""
+    scope's notes newest-first · one representative chunk per note."""
     dates = store.doc_dates()
     hits: list[ChunkHit] = []
     for did in sorted(allowed, key=lambda d: -dates.get(d, 0.0))[:k]:
@@ -703,11 +703,11 @@ _COMMON_RATE = 0.05
 
 
 def _all_tokens_common(store: Store, query: str) -> bool:
-    """True when every content token of the query is corpus-boilerplate —
+    """True when every content token of the query is corpus-boilerplate ·
     present in more than _COMMON_RATE of all chunks (true chunk-level
     document frequency via FTS, so a rare entity repeated many times inside
     its one home note still counts as discriminative). Such a query carries
-    no lexically discriminative evidence — its BM25 ranking is driven by
+    no lexically discriminative evidence · its BM25 ranking is driven by
     repeated small talk (chat greetings/reactions), so verbatim machinery
     abstains and fusion leans on the semantic leg."""
     q_tokens = _coverage_tokens(query)
@@ -731,7 +731,7 @@ def _idf_weight(lex: dict, token: str) -> float:
     """Rarity weight for coverage: a quoted identifier ('문브릿지') should
     dominate the gate while question furniture ('보스', 'mp') barely counts.
     Uses the typo lexicon's surface-form counts; unseen surfaces (numbers,
-    mixed-script runs the lexicon regex skips) are treated as rare — they
+    mixed-script runs the lexicon regex skips) are treated as rare · they
     are discriminative exactly because the vocabulary never saw them."""
     import math
 
@@ -755,7 +755,7 @@ def _canonicalize_nested_leg(
     flips razor-thin fusion margins (clean-RoleMemQA long-type, 0.0404 vs
     0.0398). Per-leg dropping picks DIFFERENT survivors per leg (vector
     keeps the focused chunk, BM25 the packed one), splitting one doc's
-    fusion mass across two chunk ids — doc@8 collapsed across every chat
+    fusion mass across two chunk ids · doc@8 collapsed across every chat
     bench. Aliasing makes fusion run on exactly the pre-burst chunk set:
     a focused chunk that out-ranks its sibling IMPROVES the sibling's rank,
     and nothing else changes. No-op unless burst chunks are in the list."""
@@ -802,13 +802,13 @@ def _bm25_coverage(store: Store, query: str,
     `rec` = (doc_dates, anchor_ts, half_life_days, boost) when the query has
     vague-recency intent ("요즘"): the returned COVERAGE stays pure (gates
     must not open on recency alone), but the CHOICE of best chunk is weighted
-    by recency — among comparably-covering candidates the newest note wins,
+    by recency · among comparably-covering candidates the newest note wins,
     while a decisively better-covering old note still takes the pin.
 
     Count-based coverage under-fired on entity-masked questions: "위치가
     '문브릿지 : 공허의 눈'인 보스의 MP는?" quotes a unique identifier, but
     rare tokens were outvoted by unmatched common ones and the pin never
-    fired — measured as hybrid 0.461 vs its own BM25 leg 0.735 on KorMapleQA
+    fired · measured as hybrid 0.461 vs its own BM25 leg 0.735 on KorMapleQA
     masked. Weighting by rarity lets the identifier carry the gate while
     paraphrases (which avoid rare exact tokens by construction) stay below."""
     q_tokens = _coverage_tokens(query)
@@ -978,7 +978,7 @@ def _dedicated_rerank(
     The in-process Qwen3-Reranker-0.6B (llama.cpp) returns a continuous
     relevance score P("yes") per candidate. We reorder the top `rerank_top`
     fused candidates by that score, all lifted above the fused range (best
-    first), so the reranker only reorders what retrieval already surfaced —
+    first), so the reranker only reorders what retrieval already surfaced ·
     it never invents a ranking for chunks retrieval missed."""
     cfg = engine.cfg
     top = sorted(fused.items(), key=lambda x: -x[1])[: cfg.rerank_top]

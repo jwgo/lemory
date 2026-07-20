@@ -1,14 +1,14 @@
 """Conflict scan: where does the vault disagree with itself?
 
 Ported from Vestige's flagship idea (trust-weighted contradiction pairs) but
-done Lemory-style: pure local math over the chunk matrix that already exists —
+done Lemory-style: pure local math over the chunk matrix that already exists ·
 no LLM, no API, no extra storage. Two notes that say ALMOST the same thing
 (high cosine) but differ on a concrete detail are exactly the pairs a human
 wants surfaced:
 
-- 'number'    — same claim, different figures ("가격은 $0.04" vs "$0.05")
-- 'negation'  — one side negates what the other asserts
-- 'duplicate' — near-identical content in two notes (dedup candidates)
+- 'number'    · same claim, different figures ("가격은 $0.04" vs "$0.05")
+- 'negation'  · one side negates what the other asserts
+- 'duplicate' · near-identical content in two notes (dedup candidates)
 
 High similarity is what makes the lexical signals meaningful: a number diff
 between two UNRELATED chunks is noise, between two 0.85-cosine chunks it's a
@@ -68,7 +68,7 @@ def _classify(a_text: str, b_text: str) -> tuple[str, str]:
     if na and nb and na != nb:
         only_a, only_b = sorted(na - nb), sorted(nb - na)
         if only_a or only_b:
-            return "number", f"{'/'.join(only_a) or '—'} vs {'/'.join(only_b) or '—'}"
+            return "number", f"{'/'.join(only_a) or '·'} vs {'/'.join(only_b) or '·'}"
     if _has_negation(a_text) != _has_negation(b_text):
         return "negation", ("one side negates the claim" if _EN else "한쪽이 주장을 부정함")
     return "duplicate", ("near-identical content" if _EN else "내용이 거의 동일함")

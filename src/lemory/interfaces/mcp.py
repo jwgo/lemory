@@ -9,7 +9,7 @@ Claude Desktop config:
 Read tools: search_notes, ask_notes, recent_notes, read_note, list_notes,
 vault_status, vault_context (pre-assembled session context).
 Write tools: save_memory (new Markdown note, never overwrites), append_note
-(append-only). Memories live as plain Markdown in the user's vault — visible
+(append-only). Memories live as plain Markdown in the user's vault · visible
 in Obsidian, versionable, no lock-in. The index refreshes incrementally
 before each call if the vault changed, so results are always live.
 """
@@ -61,7 +61,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
 
     @mcp.tool(annotations=RO)
     def recent_notes(days: int = 7, limit: int = 20) -> str:
-        """Notes the user touched in the last N days, newest first — for
+        """Notes the user touched in the last N days, newest first · for
         '요새 내가 뭐 했지?' style questions about recent activity."""
         from datetime import datetime
 
@@ -96,7 +96,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
 
     @mcp.tool(annotations=RO)
     def list_notes(folder: str = "", limit: int = 100) -> str:
-        """List note paths (optionally under a folder), newest-modified first —
+        """List note paths (optionally under a folder), newest-modified first ·
         browse the vault like a filesystem."""
         from ..ingestion.memory import _safe_target
 
@@ -160,7 +160,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
             out["related_existing"] = related
             dup = next((r["title"] for r in related if r["near_duplicate"]), None)
             if dup:
-                out["note"] = (f"possible duplicate of existing memory '{dup}' — "
+                out["note"] = (f"possible duplicate of existing memory '{dup}' · "
                                "both are now linked via frontmatter")
         return json.dumps(out, ensure_ascii=False)
 
@@ -183,7 +183,7 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
     def append_note(path: str, content: str) -> str:
         """Append a timestamped section to an existing vault note (running
         logs, decision records). Creates the note if missing. Cannot modify
-        existing content — append-only by design."""
+        existing content · append-only by design."""
         from ..ingestion.memory import append_to_note
 
         try:

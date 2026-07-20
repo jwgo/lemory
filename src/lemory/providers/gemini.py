@@ -2,7 +2,7 @@
 
 Built for the free tier: sliding-window RPM throttling, honest 429/503 retry
 with server-advised delays, model fallback, and JSON-mode generation.
-No SDK dependency — a single httpx client against generativelanguage.googleapis.com.
+No SDK dependency · a single httpx client against generativelanguage.googleapis.com.
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ class GeminiClient:
         max_tries: int = 6, max_rate_limit_tries: int = 20,
     ) -> dict:
         """POST with retries. Rate limits (429) get their own, more patient
-        budget: they are transient per-minute windows, not real failures —
+        budget: they are transient per-minute windows, not real failures ·
         free-tier keys can sit at the TPM ceiling for several minutes."""
         last_err: Exception | None = None
         attempt = 0

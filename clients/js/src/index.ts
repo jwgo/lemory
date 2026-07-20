@@ -1,5 +1,5 @@
 /**
- * Lemory TypeScript client — zero-dependency wrapper over the local REST API.
+ * Lemory TypeScript client · zero-dependency wrapper over the local REST API.
  *
  *   import { Lemory } from "lemory-client";
  *   const mem = new Lemory({ client: "my-agent" });
@@ -7,14 +7,14 @@
  *   await mem.remember("환불은 비동기 큐로 처리하기로 결정", { title: "환불 결정" });
  *
  * Works against `lemory serve` (default http://127.0.0.1:8377). For remote
- * use (mobile/tailnet) pass { baseUrl, token } — the server requires
+ * use (mobile/tailnet) pass { baseUrl, token } · the server requires
  * `Authorization: Bearer <api_token>` for non-localhost clients.
  * Uses the global fetch (Node 18+, Bun, Deno, browsers).
  */
 
 export interface LemoryOptions {
   baseUrl?: string;
-  /** Shown in the dashboard's per-client usage — identify your agent. */
+  /** Shown in the dashboard's per-client usage · identify your agent. */
   client?: string;
   /** api_token from lemory.toml; required for non-localhost access. */
   token?: string;

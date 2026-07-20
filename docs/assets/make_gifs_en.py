@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""English demo GIFs — the *_en.gif variants used by README.en.md and the
+"""English demo GIFs · the *_en.gif variants used by README.en.md and the
 English docs site (docs/en.html).
 
 Every output block is a REAL capture of the actual CLI (LEMORY_LANG=en) run on
 a small English demo vault (payments module / sprint meeting / pricing notes),
-exactly like make_gifs.py does for Korean — nothing is mocked, the animation
+exactly like make_gifs.py does for Korean · nothing is mocked, the animation
 re-types what the terminal actually printed. To re-capture, build the vault
 described in the block comments and run, with LEMORY_LANG=en set:
 
@@ -69,7 +69,7 @@ PENDING = """\
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━┩
 │ memories/Retry policy decision.md │ Retry policy decision │
 └───────────────────────────────────┴───────────────────────┘
-1 pending — approve with lemory approve <path>"""
+1 pending · approve with lemory approve <path>"""
 
 APPROVED = """\
 ┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -147,7 +147,7 @@ RECALL = """\
 
 def main(outdir: Path):
     # hero — a real English search, no key needed
-    t = Term("lemory — instant search (fast: 0 embeddings)", 15)
+    t = Term("lemory · instant search (fast: 0 embeddings)", 15)
     t.type_cmd('lemory search "payment refund" --fast')
     t.out(HERO, per_frame=3)
     t.out("3.8 ms · no query embedding · KorQuAD recall@1 0.975",
@@ -156,7 +156,7 @@ def main(outdir: Path):
     t.save(outdir / "demo1_en.gif")
 
     # fast
-    t = Term("lemory — instant search (fast: 0 embeddings)", 15)
+    t = Term("lemory · instant search (fast: 0 embeddings)", 15)
     t.type_cmd('lemory search "payment refund" --fast')
     t.out(FAST, per_frame=3)
     t.out("3.8 ms · no query embedding · KorQuAD recall@1 0.975 (113-para harness)",
@@ -165,14 +165,14 @@ def main(outdir: Path):
     t.save(outdir / "demo5_en.gif")
 
     # conflicts
-    t = Term("lemory — conflict scan (memory vs memory, 0 LLM)", 20)
+    t = Term("lemory · conflict scan (memory vs memory, 0 LLM)", 20)
     t.type_cmd("lemory conflicts --threshold 0.7")
     t.out(CONFLICTS, per_frame=3, color_map={"number": YELLOW, "negation": RED})
     t.hold()
     t.save(outdir / "demo6_en.gif")
 
     # approval
-    t = Term("lemory — AI-write approval gate (memory_approval)", 20)
+    t = Term("lemory · AI-write approval gate (memory_approval)", 20)
     t.type_cmd('lemory remember "Refund retries: exponential backoff, 3 attempts" --title "Retry policy decision"')
     t.out("saved memories/Retry policy decision.md\n  related: [[payments module]] sim=0.625",
           color_map={"saved": GREEN, "related": DIM})
@@ -181,7 +181,7 @@ def main(outdir: Path):
     t.out(PENDING, per_frame=3, color_map={"1 pending": YELLOW})
     t.blank()
     t.type_cmd('lemory approve "memories/Retry policy decision.md"')
-    t.out("approved memories/Retry policy decision.md — now searchable",
+    t.out("approved memories/Retry policy decision.md · now searchable",
           color_map={"approved": GREEN})
     t.blank()
     t.type_cmd('lemory search "what did we decide for retries?" --fast')
@@ -190,14 +190,14 @@ def main(outdir: Path):
     t.save(outdir / "demo7_en.gif")
 
     # drift
-    t = Term("lemory — drift detection (memory vs reality)", 10)
+    t = Term("lemory · drift detection (memory vs reality)", 10)
     t.type_cmd("lemory drift")
     t.out(DRIFT, per_frame=2, color_map={"broken wikilinks": RED, "to fix": DIM})
     t.hold()
     t.save(outdir / "demo8_en.gif")
 
     # operators
-    t = Term("lemory — scope operators (tag: / folder: / path:)", 12)
+    t = Term("lemory · scope operators (tag: / folder: / path:)", 12)
     t.type_cmd('lemory search "tag:backend async queue" --fast')
     t.out(OPERATORS, per_frame=3)
     t.out("scoped to the backend tag before ranking",
@@ -206,7 +206,7 @@ def main(outdir: Path):
     t.save(outdir / "demo9_en.gif")
 
     # temporal
-    t = Term("lemory — time-aware search", 10)
+    t = Term("lemory · time-aware search", 10)
     t.type_cmd('lemory search "the payment decision I was working on lately" --fast')
     t.out(TEMPORAL, per_frame=3)
     t.out('understands "lately" and ranks the latest decision (7/14) first',
@@ -215,7 +215,7 @@ def main(outdir: Path):
     t.save(outdir / "demo10_en.gif")
 
     # scale
-    t = Term("KorQuAD at full scale — 9,663 paras × 60,407 Q, keyless local", 12)
+    t = Term("KorQuAD at full scale · 9,663 paras × 60,407 Q, keyless local", 12)
     t.type_cmd("python benchmarks/run_korquad_full.py")
     t.out(SCALE, per_frame=1, ms=350,
           color_map={"recall@1=0.8584": GREEN, "recall@1=0.8309": CYAN})
@@ -223,7 +223,7 @@ def main(outdir: Path):
     t.save(outdir / "demo11_en.gif")
 
     # typo
-    t = Term("lemory — typo repair (local did-you-mean)", 10)
+    t = Term("lemory · typo repair (local did-you-mean)", 10)
     t.type_cmd('lemory search "FoundatoinDB" --fast')
     t.out(TYPO, per_frame=3)
     t.out("FoundatoinDB → FoundationDB auto-corrected, 0 API calls",
@@ -232,7 +232,7 @@ def main(outdir: Path):
     t.save(outdir / "demo12_en.gif")
 
     # write — an AI writes a memory; it lands as a plain .md with related links
-    t = Term("lemory — AI writes a memory (plain .md, attributed)", 8)
+    t = Term("lemory · AI writes a memory (plain .md, attributed)", 8)
     t.type_cmd('lemory remember "Jisoo Kim is the payments backend lead, FoundationDB fan" --title "Jisoo Kim"')
     t.out("saved memories/Jisoo Kim.md\n  related: [[payments module]] sim=0.803",
           color_map={"saved": GREEN, "related": DIM})
@@ -240,16 +240,16 @@ def main(outdir: Path):
     t.save(outdir / "demo-write_en.gif")
 
     # second brain — consolidation: unlinked mentions become link suggestions
-    t = Term("lemory — a second brain, not a log file", 10)
+    t = Term("lemory · a second brain, not a log file", 10)
     t.type_cmd("lemory suggest-links")
     t.out(SUGGEST, per_frame=2, color_map={"[[Jisoo Kim]]": CYAN})
-    t.out("0 LLM — it reads the graph the index already built",
+    t.out("0 LLM · it reads the graph the index already built",
           color_map={"LLM": DIM})
     t.hold()
     t.save(outdir / "demo3_en.gif")
 
     # memory loop — say it once, recall it later in ms with a citation
-    t = Term("lemory — say it once, it's remembered", 12)
+    t = Term("lemory · say it once, it's remembered", 12)
     t.type_cmd('lemory remember "Jisoo Kim is the payments backend lead, FoundationDB fan" --title "Jisoo Kim"')
     t.out("saved memories/Jisoo Kim.md", color_map={"saved": GREEN})
     t.blank()

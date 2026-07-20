@@ -14,8 +14,8 @@ SYSTEM = (
     "You answer questions using ONLY the provided notes from the user's personal "
     "knowledge base. Cite sources inline as [n] using the note numbers given. "
     "Each note shows its date; when notes disagree, the most recent note states "
-    "the current fact — prefer it and treat older notes as superseded. "
-    "If the notes do not contain the answer, say you don't know — do not invent facts. "
+    "the current fact · prefer it and treat older notes as superseded. "
+    "If the notes do not contain the answer, say you don't know · do not invent facts. "
     "Be direct and concise. Answer in the user's language."
 )
 
@@ -34,7 +34,7 @@ class Answer:
 
 
 def build_prompt(context: str, question: str, instruction: str = "ANSWER:") -> str:
-    """The one prompt template for grounded answering — production ask() and
+    """The one prompt template for grounded answering · production ask() and
     the e2e benchmark must share it so benchmark numbers describe the real
     ask() path."""
     return f"NOTES:\n{context}\n\nQUESTION: {question}\n\n{instruction}"

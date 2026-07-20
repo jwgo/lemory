@@ -1,5 +1,5 @@
 """On-device neural TTS via Supertonic (ONNX, ~99M, 31 languages incl. Korean),
-so the console assistant speaks its answers locally — no cloud, no torch. The
+so the console assistant speaks its answers locally · no cloud, no torch. The
 model auto-downloads on first use; the Engine + voice styles are cached.
 
     pip install "lemory[assistant]"

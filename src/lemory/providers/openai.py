@@ -1,8 +1,8 @@
 """OpenAI provider (LLM + embeddings) with the same interface as GeminiClient.
 
 Lemory is provider-agnostic: set `provider = "openai"` (or just have only
-OPENAI_API_KEY in the environment) and everything — indexing, retrieval,
-ask() — runs on OpenAI models instead of Gemini.
+OPENAI_API_KEY in the environment) and everything · indexing, retrieval,
+ask() · runs on OpenAI models instead of Gemini.
 
 Note: switching embedding providers changes the vector space; run
 `lemory index --full` afterwards (cached embeddings are keyed by model,
@@ -27,7 +27,7 @@ BASE = "https://api.openai.com/v1"
 
 
 def _parse_retry_after(value: str | None) -> float | None:
-    """Retry-After may be seconds ('37') or an HTTP-date — only trust seconds."""
+    """Retry-After may be seconds ('37') or an HTTP-date · only trust seconds."""
     if not value:
         return None
     try:
@@ -66,7 +66,7 @@ class OpenAIClient:
         max_tries: int = 6, max_rate_limit_tries: int = 20,
     ) -> dict:
         """POST with retries. Like the Gemini client, 429s get their own more
-        patient budget — sitting at a rate ceiling is not a real failure."""
+        patient budget · sitting at a rate ceiling is not a real failure."""
         last_err: Exception | None = None
         attempt = 0
         rate_limited = 0

@@ -71,6 +71,12 @@ def note_title(path: Path) -> str:
     return path.stem
 
 
+# root-level agent-instruction files (lemory agents install manages these).
+# They describe HOW tools should use the vault, they are not vault knowledge —
+# indexing them floods drift/conflicts/suggest-links with template text.
+AGENT_FILES = {"AGENTS.md", "CLAUDE.md", "GEMINI.md"}
+
+
 def iter_vault_files(vault: Path, include: list[str], exclude_dirs: list[str]) -> list[Path]:
     out = []
     for pattern in include:
@@ -78,6 +84,8 @@ def iter_vault_files(vault: Path, include: list[str], exclude_dirs: list[str]) -
             if not p.is_file():
                 continue
             rel = p.relative_to(vault)
+            if len(rel.parts) == 1 and rel.name in AGENT_FILES:
+                continue
             if any(part in exclude_dirs for part in rel.parts[:-1]):
                 continue
             out.append(p)
@@ -101,7 +109,7 @@ def _read_docx(f: Path) -> str:
     """Word text extraction with the stdlib only: a .docx is a zip whose
     word/document.xml holds every paragraph as <w:p>…</w:p>. Paragraph tags
     become newlines, remaining tags are stripped, entities unescaped. No
-    python-docx dependency — formatting is irrelevant to retrieval."""
+    python-docx dependency · formatting is irrelevant to retrieval."""
     import html
     import zipfile
 
@@ -128,7 +136,7 @@ def read_note_text(f: Path) -> str:
     try:
         from pypdf import PdfReader
     except ImportError:
-        raise OSError("PDF indexing requires pypdf — pip install 'lemory[pdf]'")
+        raise OSError("PDF indexing requires pypdf · pip install 'lemory[pdf]'")
     try:
         reader = PdfReader(str(f))
         pages = [(p.extract_text() or "") for p in reader.pages]
@@ -161,7 +169,7 @@ class Indexer:
     _DEFAULT_RATES = {"gemini": 40.0, "openai": 40.0, "local": 20.0}
 
     def plan(self, full: bool = False) -> IndexPlan:
-        """Estimate what sync() would do — no writes, no API calls.
+        """Estimate what sync() would do · no writes, no API calls.
 
         Chunks changed notes locally (fast) and checks the embedding cache to
         count real API/model work, then divides by the observed embed rate
@@ -232,7 +240,7 @@ class Indexer:
         """Sync the index with the vault.
 
         With `paths` (vault-relative), only those files are read/hashed and
-        deletions are checked only among them — the fast path the watcher uses
+        deletions are checked only among them · the fast path the watcher uses
         so one edit doesn't rescan a 10k-note vault. Without it, the full
         vault is scanned (start-up, CLI `lemory index`, safety net).
         """
@@ -353,7 +361,7 @@ class Indexer:
     # ----------------------------------------------------------------- graph
     def _rebuild_links(self, changed_ids: list[int], full: bool) -> None:
         """Rebuild wiki + mention edges. `full` rebuilds every doc (needed when
-        titles were added/removed); otherwise only the changed docs — safe
+        titles were added/removed); otherwise only the changed docs · safe
         because wikilinks are persisted per doc in the documents table."""
         title_to_id = self.store.title_map()
         all_wikilinks = self.store.doc_wikilinks()
@@ -374,7 +382,7 @@ class Indexer:
     def _semantic_fallback_links(self) -> None:
         """The linkless-vault answer: a note with ZERO outgoing edges gets up
         to k cosine-nearest neighbor edges (kind='sem') so graph expansion has
-        something to walk. Notes with any real edge are untouched — linked
+        something to walk. Notes with any real edge are untouched · linked
         vaults (and every published benchmark) stay byte-identical. Purely
         vector math over the existing index; no LLM, nothing new stored
         besides the edges themselves."""
@@ -521,7 +529,7 @@ class Indexer:
     def enrich_entities(self, max_docs: int = 50) -> int:
         """cognify-style enrichment: extract entities per note, link co-mentions.
 
-        Optional (off by default) — the wikilink+mention graph is free, this
+        Optional (off by default) · the wikilink+mention graph is free, this
         spends LLM quota for extra recall on vaults with few links.
         """
         c = self.store.conn()
@@ -557,7 +565,7 @@ class Indexer:
 class _MentionAutomaton:
     """Aho-Corasick over lowercased note titles: ONE linear pass per document
     instead of one regex search per title. The old per-title loop was
-    O(text × titles) — at BEIR-fiqa scale (57k titles × 57k docs) that is
+    O(text × titles) · at BEIR-fiqa scale (57k titles × 57k docs) that is
     billions of regex scans and a first index appeared to hang for hours;
     this is O(text) per doc with the same word-boundary semantics as the
     old ``(?<!\\w)title(?!\\w)`` pattern (callers pass lowered text, matching
@@ -645,9 +653,12 @@ def watch(engine: "Engine", debounce: float = 2.0, on_sync: Optional[Callable] =
         if any(part in engine.cfg.exclude_dirs for part in pp.parts):
             return None
         try:
-            return str(pp.resolve().relative_to(vault))
+            rel = pp.resolve().relative_to(vault)
         except ValueError:
             return None
+        if len(rel.parts) == 1 and rel.name in AGENT_FILES:
+            return None
+        return str(rel)
 
     class Handler(FileSystemEventHandler):
         def on_any_event(self, event):

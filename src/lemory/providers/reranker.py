@@ -1,10 +1,10 @@
 """In-process cross-encoder reranker on the **same llama.cpp engine** as the
-embedder and the answer LLM — one runtime (Metal / CUDA / Vulkan / CPU offload),
+embedder and the answer LLM · one runtime (Metal / CUDA / Vulkan / CPU offload),
 no fastembed, no daemon.
 
 Runs **Qwen3-Reranker-0.6B** (2025 SOTA small reranker) by its official yes/no
 method: the query+document are formatted with the reranker template and the
-model's next-token distribution is read — `P("yes")` is the relevance score.
+model's next-token distribution is read · `P("yes")` is the relevance score.
 The GGUF (~600 MB) auto-downloads from HuggingFace once and is cached.
 """
 from __future__ import annotations
@@ -74,7 +74,7 @@ def _score(llm, query: str, doc: str) -> float:
 def rerank_scores(query: str, docs: list[str], repo: str = DEFAULT_REPO,
                   file: str = DEFAULT_FILE) -> list[float]:
     """Relevance scores in [0,1] (P("yes"), higher = more relevant) for each doc.
-    Serialized on one llama.cpp context — a local single user reranks a handful
+    Serialized on one llama.cpp context · a local single user reranks a handful
     of candidates per query."""
     if not docs:
         return []

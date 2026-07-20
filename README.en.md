@@ -105,7 +105,7 @@ Then just **keep `lemory serve` running**: it's the always-on backend for the
 Obsidian plugin, Claude/MCP, and the web dashboard, and it re-indexes your
 edits within seconds. One-off `lemory ask "..."` works without it. The full
 day-to-day flow (when to keep it on, when to re-index) is in the
-[guide](docs/GUIDE.md#4-how-to-use-it--set-up-once-then-keep-using-it).
+[guide](docs/GUIDE.md#4-how-to-use-it-set-up-once-then-keep-using-it).
 
 No LLM pipeline runs at ingest either way. **Indexing 1,000 notes costs 0
 LLM calls** and is searchable in seconds, not the ~45 minutes of LLM
@@ -228,15 +228,15 @@ it is searchable on the next query. The features below are for the notes
   it lives here as an idea we adopted rather than a row in our tables.)
 - **`lemory conflicts`** answers "does my memory agree with itself?": pairs
   of notes that say almost the same thing but disagree on a number, negate
-  each other, or are outright duplicates — found by cosine over the chunk
+  each other, or are outright duplicates. It runs cosine over the chunk
   matrix the index already has, classified lexically. Zero LLM. (`drift` is
   memory-vs-reality; `conflicts` is memory-vs-memory. Vestige made
-  contradiction detection its flagship — we ported the idea without the
+  contradiction detection its flagship; we ported the idea without the
   571ms/query cognitive pipeline.)
-- **`lemory search --fast`** (`/search?mode=fast`): the instant path —
+- **`lemory search --fast`** (`/search?mode=fast`): the instant path.
   Hangul-bigram BM25 + typo repair + title/recency/usage boosts, no query
   embedding. Measured 0.975 recall@1 @ 3.8ms on the KorQuAD harness (hybrid:
-  0.967 @ 21ms — hybrid stays the default because paraphrase, cross-lingual
+  0.967 @ 21ms; hybrid stays the default because paraphrase, cross-lingual
   and multi-hop questions need the vector leg). For as-you-type search boxes
   and agent polling loops.
 - **Time awareness**: "요새 내가 하던 그거 뭐였지?" ranks the current fact
@@ -251,11 +251,11 @@ nothing passes through invisibly.
 
 <img src="docs/assets/demo-write_en.gif" alt="Claude saves a memory and it appears in the feed as a Markdown file, attributed to claude-desktop, with one-click undo" width="820">
 
-## Demo gallery — every feature, really running
+## Demo gallery: every feature, really running
 
 Each clip re-types a **verbatim capture of the real CLI** on a small Korean
 demo vault (regenerate: `docs/assets/make_gifs.py`, outputs included in the
-script — nothing is mocked).
+script, nothing is mocked).
 
 | | |
 |---|---|
@@ -480,10 +480,11 @@ lemory.index()
 print(lemory.ask("what did I decide about pricing?").text)
 ```
 
-TypeScript/Node (Vercel AI SDK, LangChain.js, plain agents) — zero-dep client
+For TypeScript/Node (Vercel AI SDK, LangChain.js, plain agents) there is a
+zero-dep client
 in [`clients/js`](clients/js): `new Lemory({client: "my-agent"}).search(...)`.
 
-Python frameworks — drop the vault into an existing pipeline
+For Python frameworks, drop the vault into an existing pipeline
 (`lemory.integrations`, soft deps, tested against both):
 
 ```python
@@ -493,22 +494,22 @@ from lemory.integrations.llamaindex import LemoryLlamaRetriever  # llama-index-c
 
 Self-hosting: `docker build -t lemory . && docker run -p 127.0.0.1:8377:8377
 -v ~/vault:/vault lemory`. Something broken? `lemory doctor` checks vault,
-index integrity, FTS5, embedder and generator in one shot — paste its output
+index integrity, FTS5, embedder and generator in one shot. Paste its output
 into your issue.
 
 Adopted from [Cerebras' enterprise KB write-up](https://www.cerebras.ai/blog/how-we-built-our-knowledge-base)
-(credited, like the mex nod): **post-ranking neighbor expansion** — once
+(credited, like the mex nod): **post-ranking neighbor expansion**: once
 ranking is final, each winning chunk is re-joined with the tail/head of its
 neighboring chunks so the preconditions and caveats that chunking split
 apart aren't lost (`context_neighbors`; always on in the console assistant,
 opt-in for ask() so published e2e numbers stay exact). Their other core
-moves — hybrid lexical+vector+recency fused with RRF, per-source result
+moves (hybrid lexical+vector+recency fused with RRF, per-source result
 caps, LLM-free MCP primitives with the agent as orchestrator, thread
-distillation — are architecture Lemory already shipped and measured.
+distillation) are architecture Lemory already shipped and measured.
 
 Recent additions the gap analysis asked for: `lemory ask --deep` (LLM
 decomposes a hard question into sub-queries, retrieves each, merges the
-evidence — opt-in, one extra call); `lemory backup` / `restore` (index +
+evidence; opt-in, one extra call); `lemory backup` / `restore` (index +
 usage state; your notes are already your files); `index_docx = true` (stdlib
 Word text extraction); and the **mobile story**: `lemory serve --host 0.0.0.0`
 + `api_token` in lemory.toml → phone/tailnet clients authenticate with
@@ -516,7 +517,7 @@ Word text extraction); and the **mobile story**: `lemory serve --host 0.0.0.0`
 
 A negative result, published per policy: **semantic fallback links**
 (cosine-nearest edges for linkless notes) were built, measured on a delinked
-multihop corpus, and REFUTED — verbatim title mentions alone fully recover
+multihop corpus, and REFUTED: verbatim title mentions alone fully recover
 (1.000) while sem edges score below no-graph even when mentions can't fire
 (`benchmarks/run_linkless.py`). Shipped default-off as an opt-in; the honest
 takeaway is that Lemory's multihop already survives linkless vaults through

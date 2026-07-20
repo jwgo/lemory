@@ -1,17 +1,17 @@
-"""Curriculum ordering of retrieved evidence — CDS-inspired.
+"""Curriculum ordering of retrieved evidence · CDS-inspired.
 
 "Many-Shot CoT-ICL: Making In-Context Learning Truly Learn"
-(Chung, Liu, Yu, Yeung — ICML 2026, arXiv:2605.13511) shows that long
+(Chung, Liu, Yu, Yeung · ICML 2026, arXiv:2605.13511) shows that long
 contexts work better as a *structured curriculum* than as a relevance-sorted
 buffer, and that orderings forming a smooth trajectory in embedding space
 (low total curvature between successive items) measurably improve reasoning.
 
 Lemory's analog: the evidence chunks fed to ask(). Fusion rank is the right
-*selection* order but a poor *presentation* order — rank-adjacent chunks are
+*selection* order but a poor *presentation* order · rank-adjacent chunks are
 often topically unrelated, so the context zig-zags. This module reorders the
 selected chunks (selection unchanged) into a smooth path:
 
-  1. anchor: start at the chunk most similar to the question — the natural
+  1. anchor: start at the chunk most similar to the question · the natural
      on-topic entry point (in multi-hop cases this is the bridge note, so the
      answer note it links to follows it, reading in dependency order);
   2. greedy TSP-style walk: repeatedly step to the unvisited chunk with the
@@ -87,7 +87,7 @@ def curriculum_order(engine: "Engine", query_vec: np.ndarray | None,
 
 
 def path_smoothness(engine: "Engine", hits: list[ChunkHit]) -> float:
-    """Mean cosine between successive chunks — diagnostic/testing metric."""
+    """Mean cosine between successive chunks · diagnostic/testing metric."""
     vecs = engine.store.chunk_vectors([h.chunk_id for h in hits])
     pairs = [
         (vecs[a.chunk_id], vecs[b.chunk_id])

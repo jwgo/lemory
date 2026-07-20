@@ -7,7 +7,7 @@
 Search/index run entirely on this machine (dragonkue's Korean-tuned
 multilingual-e5-small-ko-v2, 384d, via a community ONNX export downloaded once
 from HuggingFace). ask() needs a generator LLM, so it raises with guidance
-unless a Gemini/OpenAI key is also configured — in that mixed mode, embeddings
+unless a Gemini/OpenAI key is also configured · in that mixed mode, embeddings
 stay local and only answer generation uses the API.
 """
 
@@ -78,7 +78,7 @@ def _local_generate(prompt: str, system: str | None,
 
     repo/file/n_ctx/gpu_layers come from config (the model + runtime the console
     'Models' card selects) so the search/ask path answers with the SAME model
-    and window as the assistant — not a separate hardcoded default."""
+    and window as the assistant · not a separate hardcoded default."""
     from . import gemma
 
     ok, _ = gemma.available()

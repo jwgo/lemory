@@ -3,13 +3,13 @@
 This is the 2026 table-stakes feature of every memory product (mem0 `add()`,
 basic-memory `write_note`, supermemory ingest): a conversation shouldn't be
 read-only. Lemory's twist is that a "memory" is not a row in a proprietary
-store — it is a plain Markdown note in the user's own vault, immediately
+store · it is a plain Markdown note in the user's own vault, immediately
 visible in Obsidian, versionable, and indexed by the same pipeline as
 everything else. No lock-in, full provenance.
 
 Safety rules:
   * writes never leave the vault root (path traversal is rejected)
-  * `save_memory` never overwrites — name collisions get a numeric suffix
+  * `save_memory` never overwrites · name collisions get a numeric suffix
   * `append_to_note` only appends; it cannot rewrite existing content
 """
 
@@ -28,7 +28,7 @@ log = logging.getLogger("lemory.memory")
 
 def _git_checkpoint(engine, rel: str, client: str, action: str) -> None:
     """Opt-in (cfg.git_autocommit): commit an AI write to the vault's git
-    history so every machine edit is a reviewable, revertable commit —
+    history so every machine edit is a reviewable, revertable commit ·
     complementing the dashboard's move-to-trash undo with real diffs
     (Tolaria-style git-first vaults, absorbed; see docs/COMPETITIVE.md).
 
@@ -44,7 +44,7 @@ def _git_checkpoint(engine, rel: str, client: str, action: str) -> None:
     try:
         subprocess.run(["git", "add", "--", rel], cwd=vault, capture_output=True,
                        timeout=15, check=True)
-        msg = f"lemory: {action} by {client or 'ai'} — {rel}"
+        msg = f"lemory: {action} by {client or 'ai'} · {rel}"
         r = subprocess.run(["git", "commit", "-m", msg, "--", rel], cwd=vault,
                            capture_output=True, timeout=15)
         # "nothing to commit" (unchanged content) is fine — only log real errors
@@ -91,7 +91,7 @@ _TOKEN_RE = re.compile(r"[a-z0-9가-힣]+")
 
 
 def _token_overlap(a: str, b: str) -> float:
-    """Jaccard over content tokens — the lexical confirmation for dedup."""
+    """Jaccard over content tokens · the lexical confirmation for dedup."""
     ta = {t for t in _TOKEN_RE.findall(a.lower()) if len(t) > 1}
     tb = {t for t in _TOKEN_RE.findall(b.lower()) if len(t) > 1}
     if not ta or not tb:
@@ -102,11 +102,11 @@ def _token_overlap(a: str, b: str) -> float:
 def find_related_memories(engine, content: str, exclude_rel: str = "",
                           k: int = 3) -> list[dict]:
     """The consolidation half of a second brain: what does the vault ALREADY
-    know that this new memory relates to — or repeats?
+    know that this new memory relates to · or repeats?
 
     mem0/Zep resolve this with an LLM pass that rewrites or deletes old
     facts. Lemory links instead of destroying: the new note gets `related:`
-    wikilinks and a duplicate flag, the human (or agent) decides. Zero LLM —
+    wikilinks and a duplicate flag, the human (or agent) decides. Zero LLM ·
     cosine over the existing index plus a lexical-overlap confirmation for
     the near-duplicate call (two thresholds beat one: embedder cosine scales
     vary, token overlap doesn't). Empty in keyless mode (no vectors)."""
@@ -259,11 +259,11 @@ def trash_ai_note(engine, path: str, client: str = "") -> str:
     (Obsidian's own trash folder, so it shows up in Obsidian's trash too).
 
     Guarded twice: the path must stay inside the vault, and the note's
-    frontmatter must carry `lemory_generated: true` — the machine marker
+    frontmatter must carry `lemory_generated: true` · the machine marker
     Lemory stamps on notes it CREATES (save_memory / import-chats / a hook,
-    or an append that created a fresh note). Human-authored notes — including
+    or an append that created a fresh note). Human-authored notes · including
     ones with a `source:` field, which is a common human clipping/citation
-    pattern — are refused; this endpoint can never delete something the user
+    pattern · are refused; this endpoint can never delete something the user
     wrote, and never an existing note that Lemory only appended to."""
     vault = engine.cfg.resolved_vault()
     target = _safe_target(vault, path)
@@ -300,7 +300,7 @@ _EXCLUDE_RE = re.compile(r"(?m)^lemory:\s*false\s*\n")
 def list_pending(engine) -> list[dict]:
     """AI-written notes waiting for approval (frontmatter `lemory_pending`).
 
-    Filesystem scan, head-only reads — pending notes are by definition NOT in
+    Filesystem scan, head-only reads · pending notes are by definition NOT in
     the index, so the index can't answer this."""
     vault = engine.cfg.resolved_vault()
     out = []
@@ -350,7 +350,7 @@ def context_block(engine, max_chars: int = 2400) -> str:
     lines: list[str] = []
     st = engine.status()
     lines.append(
-        f"# Vault context — {Path(st['vault']).name if st['vault'] else 'unconfigured'}"
+        f"# Vault context · {Path(st['vault']).name if st['vault'] else 'unconfigured'}"
     )
     lines.append(
         f"{st['documents']} notes, {st['chunks']} chunks, {st['links']} links "
@@ -372,7 +372,7 @@ def context_block(engine, max_chars: int = 2400) -> str:
     if hot:
         lines.append("\n## Frequently referenced")
         for h, did in hot:
-            lines.append(f"- {docs[did].title} ({docs[did].path}) — {h}×")
+            lines.append(f"- {docs[did].title} ({docs[did].path}) · {h}×")
 
     degree = store.link_degrees()
     hubs = sorted(((n, did) for did, n in degree.items() if did in docs),
@@ -380,7 +380,7 @@ def context_block(engine, max_chars: int = 2400) -> str:
     if hubs:
         lines.append("\n## Hub notes (most linked)")
         for n, did in hubs:
-            lines.append(f"- {docs[did].title} ({docs[did].path}) — {n} links")
+            lines.append(f"- {docs[did].title} ({docs[did].path}) · {n} links")
 
     tags = store.tag_counts()[:12]  # already sorted by count
     if tags:

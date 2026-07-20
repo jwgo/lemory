@@ -1,4 +1,4 @@
-/* Lemory console — vanilla JS SPA, no build step, no external deps. */
+/* Lemory console · vanilla JS SPA, no build step, no external deps. */
 "use strict";
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -25,7 +25,7 @@ function toast(msg, cls = "") {
 }
 
 function rel(ts) {
-  if (!ts) return "—";
+  if (!ts) return "-";
   const s = Date.now() / 1000 - ts;
   if (s < 60) return "방금 전";
   if (s < 3600) return `${Math.floor(s / 60)}분 전`;
@@ -37,7 +37,7 @@ const fmtBytes = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB"
   : b > 1024 ? (b / 1024).toFixed(0) + " KB" : b + " B";
 const fmtN = n => (n ?? 0).toLocaleString("ko-KR");
 // headings are stored as "Note Title > Section" breadcrumbs; showing the
-// title twice next to the note name reads as noise — strip the prefix
+// title twice next to the note name reads as noise · strip the prefix
 const subHeading = (title, heading) => {
   if (!heading || heading === title) return "";
   return heading.startsWith(title + " > ") ? heading.slice(title.length + 3) : heading;
@@ -93,7 +93,7 @@ async function renderOverview() {
     <div class="tiles" id="tiles">${'<div class="tile"><div class="skel" style="height:24px;width:70px"></div><div class="skel" style="height:12px;width:44px;margin-top:8px"></div></div>'.repeat(4)}</div>
     <div class="cols-2">
       <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="card" id="memFeedCard" hidden><div class="card-head">AI 메모리 피드 <span style="font-weight:400;color:var(--text-3)">AI가 볼트에 적은 것 — 전부 마크다운 파일</span></div><div class="act-list" id="memFeed"></div></div>
+        <div class="card" id="memFeedCard" hidden><div class="card-head">AI 메모리 피드 <span style="font-weight:400;color:var(--text-3)">AI가 볼트에 적은 것 · 전부 마크다운 파일</span></div><div class="act-list" id="memFeed"></div></div>
         <div class="card" id="qlogCard" hidden><div class="card-head">최근 질의 <span style="font-weight:400;color:var(--text-3)">이 메모리를 지나간 검색·질문</span></div><div class="act-list" id="qlog"></div></div>
         <div class="card"><div class="card-head">색인 활동</div><div class="act-list" id="acts"><div class="empty">불러오는 중…</div></div></div>
         <div class="card"><div class="card-head">최근 수정된 노트</div><div class="act-list" id="recent"></div></div>
@@ -111,7 +111,7 @@ async function renderOverview() {
 
   let o;
   try { o = await api("/api/overview"); } catch (e) {
-    m.querySelector(".view").innerHTML += `<div class="empty">서버에 연결할 수 없습니다 — ${esc(e.message)}</div>`;
+    m.querySelector(".view").innerHTML += `<div class="empty">서버에 연결할 수 없습니다 · ${esc(e.message)}</div>`;
     return;
   }
   S.overview = o;
@@ -209,14 +209,14 @@ async function renderOverview() {
   }).catch(() => {});
 
   $("#sys").innerHTML = [
-    ["프로바이더", esc(o.provider || "—")],
-    ["LLM", esc(o.llm_model || "—")],
-    ["임베딩", esc(o.embed_model || "—")],
+    ["프로바이더", esc(o.provider || "-")],
+    ["LLM", esc(o.llm_model || "-")],
+    ["임베딩", esc(o.embed_model || "-")],
     ["벡터 인덱스", o.vector_index === "ivf-int8"
       ? 'IVF-int8 <span style="color:var(--text-3)">(대규모 자동 전환)</span>'
       : '정확 검색 <span style="color:var(--text-3)">(소규모 볼트 기본)</span>'],
-    ["볼트", `<span class="kv-v mono">${esc(o.vault || "—")}</span>`],
-    ["DB", `<span class="kv-v mono">${esc(o.db || "—")}</span>`],
+    ["볼트", `<span class="kv-v mono">${esc(o.vault || "-")}</span>`],
+    ["DB", `<span class="kv-v mono">${esc(o.db || "-")}</span>`],
     ["볼트 감시", o.watcher_alive ? '<span style="color:var(--ok)">실시간 동기화 중</span>' : '<span style="color:var(--warn)">꺼짐</span>'],
     ["업타임", uptime(o.uptime_s)],
   ].map(([k, v]) => `<div class="kv-row"><span class="kv-k">${k}</span><span class="kv-v">${v}</span></div>`).join("");
@@ -238,17 +238,17 @@ async function runIndex(full) {
     if (full || plan.to_process > 0) {
       const msg = `노트 ${plan.to_process}개 · 청크 ${plan.chunks_total}개 `
         + `(임베딩 필요 ${plan.embeds_needed}개)\n예상 시간: ${plan.eta}`
-        + (plan.rate_measured ? "" : " (기본값 추정 — 첫 실행 후 실측치로 보정됩니다)");
+        + (plan.rate_measured ? "" : " (기본값 추정 · 첫 실행 후 실측치로 보정됩니다)");
       if (full && !confirm(`전체 재색인을 실행할까요?\n\n${msg}`)) {
         btn.disabled = false; btn.innerHTML = orig; return;
       }
-      if (plan.embeds_needed > 0) toast(`색인 시작 — ${plan.eta} 예상`, "");
+      if (plan.embeds_needed > 0) toast(`색인 시작 · ${plan.eta} 예상`, "");
     }
   } catch { /* plan is best-effort; indexing proceeds regardless */ }
   btn.innerHTML = `${icoRefresh("spin-ico")} 색인 중…`;
   try {
     const r = await jpost("/index", { full });
-    toast(`색인 완료 — +${r.added} ~${r.updated} −${r.removed} (${r.seconds.toFixed(1)}s)`, "ok");
+    toast(`색인 완료 · +${r.added} ~${r.updated} −${r.removed} (${r.seconds.toFixed(1)}s)`, "ok");
     S.notes = null;
     renderOverview();
   } catch (e) {
@@ -444,7 +444,7 @@ async function drawNoteDetail(path) {
         ${c.text.length > 400 ? `<div class="more">더 보기</div>` : ""}</div>`).join("")}</div>
   </div>`;
 
-  // related notes load async — content similarity, not just links
+  // related notes load async · content similarity, not just links
   api("/api/related?path=" + encodeURIComponent(path) + "&k=6").then(rel_ => {
     const sec = $("#relatedSec", pane);
     if (!sec) return;
@@ -476,7 +476,7 @@ async function renderHealth() {
   const m = $("#main");
   m.innerHTML = `<div class="view">
     <div class="view-head"><div class="view-title">건강</div>
-      <div class="view-sub">기억 vs 기억(모순) · 기억 vs 현실(드리프트) · AI 쓰기 승인 · 링크 제안 — 전부 로컬, LLM 0회</div></div>
+      <div class="view-sub">기억 vs 기억(모순) · 기억 vs 현실(드리프트) · AI 쓰기 승인 · 링크 제안 · 전부 로컬, LLM 0회</div></div>
     <div class="card"><div class="card-head">승인 대기 <span class="spacer"></span><span class="chip" id="pendCount"></span></div>
       <div id="pendBody" class="hl-body"><div class="skel" style="height:40px"></div></div></div>
     <div class="card"><div class="card-head">모순 (기억 vs 기억) <span class="spacer"></span><span class="chip" id="confCount"></span></div>
@@ -499,7 +499,7 @@ async function renderHealth() {
           <div class="hl-main"><b>${esc(r.title)}</b><span class="hl-dim">${esc(r.path)}</span></div>
           <button class="btn sm primary" data-approve="${esc(r.path)}">승인</button>
           <button class="btn sm" data-reject="${esc(r.path)}">거절</button>
-        </div>`).join("") : empty("승인 대기 없음 — memory_approval을 켜면 AI 쓰기가 여기서 대기합니다");
+        </div>`).join("") : empty("승인 대기 없음 · memory_approval을 켜면 AI 쓰기가 여기서 대기합니다");
       $$("#pendBody [data-approve]").forEach(b => b.onclick = async () => {
         await jpost("/memory/approve", { path: b.dataset.approve }); drawPending();
       });
@@ -520,7 +520,7 @@ async function renderHealth() {
             <span class="hl-dim">sim ${c.similarity}</span>
             ${c.detail ? `<span class="hl-dim">· ${esc(c.detail)}</span>` : ""}</div>
           <div class="hl-pair"><b>${esc(c.a.title)}</b> ↔ <b>${esc(c.b.title)}</b></div>
-        </div>`).join("") : empty("모순 없음 — 노트들이 서로 일치합니다");
+        </div>`).join("") : empty("모순 없음 · 노트들이 서로 일치합니다");
     } catch (e) { $("#confBody").innerHTML = empty(esc(e.message)); }
   };
 
@@ -534,7 +534,7 @@ async function renderHealth() {
       $("#driftBody").innerHTML = total ? kinds.filter(([k]) => (d[k] || []).length).map(([k, lab]) => `
         <div class="hl-row col"><div><span class="chip warn">${lab}</span></div>
           ${(d[k]).slice(0, 8).map(r => `<div class="hl-dim">${esc(r.note)} → ${esc(r.target || r.duplicate_of || "")}</div>`).join("")}
-        </div>`).join("") : empty(`드리프트 없음 — 노트 ${d.notes_scanned ?? "?"}개 검사`);
+        </div>`).join("") : empty(`드리프트 없음 · 노트 ${d.notes_scanned ?? "?"}개 검사`);
     } catch (e) { $("#driftBody").innerHTML = empty(esc(e.message)); }
   };
 
@@ -554,7 +554,7 @@ async function renderHealth() {
 }
 
 /* ----------------------------------------------------------------- search */
-// what people actually ask their vault — rotated so the empty state teaches range
+// what people actually ask their vault · rotated so the empty state teaches range
 const EXAMPLE_QUERIES = [
   "3분기 킥오프에서 예산 얼마로 잡았지?",
   "재택근무 정책, 작년이랑 지금이랑 뭐가 달라졌지?",
@@ -576,7 +576,7 @@ async function renderSearch() {
   const ph = EXAMPLE_QUERIES[Math.floor(Math.random() * EXAMPLE_QUERIES.length)];
   m.innerHTML = `<div class="view">
     <div class="view-head"><div class="view-title">검색</div>
-      <div class="view-sub">하이브리드 검색은 로컬에서 수 ms — 질문은 LLM으로 출처 달린 답변</div></div>
+      <div class="view-sub">하이브리드 검색은 로컬에서 수 ms · 질문은 LLM으로 출처 달린 답변</div></div>
     <div class="search-box">
       <input id="q" type="text" placeholder="${esc(ph)}" value="${esc(Q.q)}" autocomplete="off">
       <button class="btn primary" id="btnAsk">질문</button>
@@ -602,7 +602,7 @@ async function renderSearch() {
 
   const input = $("#q");
   input.focus();
-  // rotate example questions while the box is empty — the empty state is the tutorial
+  // rotate example questions while the box is empty · the empty state is the tutorial
   const rot = setInterval(() => {
     if (!document.body.contains(input)) { clearInterval(rot); return; }
     if (!input.value) input.placeholder = EXAMPLE_QUERIES[Math.floor(Math.random() * EXAMPLE_QUERIES.length)];
@@ -612,7 +612,7 @@ async function renderSearch() {
   $("#btnSearch").onclick = doSearch;
 
   // as-you-type instant results: every keystroke fires a mode=fast query
-  // (lexical-only, no embedding — a few ms server-side), debounced just
+  // (lexical-only, no embedding · a few ms server-side), debounced just
   // enough to skip intermediate frames. Enter/버튼 still run the full
   // hybrid/ask paths; typing never does.
   let instantTimer = 0, instantSeq = 0;
@@ -629,7 +629,7 @@ async function renderSearch() {
         const ms = performance.now() - t0;
         $("#answerBox").innerHTML = "";
         $("#lat").hidden = false;
-        $("#lat").textContent = `${hits.length}건 · ${ms.toFixed(0)}ms · 즉답(fast) — Enter로 정밀 검색`;
+        $("#lat").textContent = `${hits.length}건 · ${ms.toFixed(0)}ms · 즉답(fast) · Enter로 정밀 검색`;
         drawHits(hits);
       } catch (_) { /* instant path is best-effort; Enter still works */ }
     }, 140);
@@ -662,7 +662,7 @@ async function renderSearch() {
       drawHits(r.sources, true);
     } catch (e) {
       $("#answerBox").innerHTML = "";
-      $("#hits").innerHTML = `<div class="empty">답변 실패 — ${esc(e.message)}</div>`;
+      $("#hits").innerHTML = `<div class="empty">답변 실패 · ${esc(e.message)}</div>`;
     }
   }
 
@@ -692,15 +692,15 @@ async function renderAssistant() {
   const m = $("#main");
   m.innerHTML = `<div class="view asst">
     <div class="view-head"><div class="view-title">비서</div>
-      <div class="view-sub">지식베이스 기반 대화 — 로컬 모델로 스트리밍, 출처 인용</div>
+      <div class="view-sub">지식베이스 기반 대화 · 로컬 모델로 스트리밍, 출처 인용</div>
       <div id="asstModel" class="asst-model"></div></div>
     <div id="asstGate"></div>
     <div id="asstWrap" hidden>
       <div class="asst-log" id="asstLog"></div>
       <div id="asstStatus" class="asst-status"></div>
       <div class="asst-input">
-        <button class="btn asst-mic" id="asstMic" title="대화 모드 — 그냥 말하면 됩니다 (로컬 음성인식)" hidden>🎙</button>
-        <textarea id="asstIn" rows="1" placeholder="물어보거나, '…기억해줘'로 저장 — /검색 /기억 /최근 명령도 됩니다"></textarea>
+        <button class="btn asst-mic" id="asstMic" title="대화 모드 · 그냥 말하면 됩니다 (로컬 음성인식)" hidden>🎙</button>
+        <textarea id="asstIn" rows="1" placeholder="물어보거나, '…기억해줘'로 저장 · /검색 /기억 /최근 명령도 됩니다"></textarea>
         <button class="btn primary" id="asstSend">전송</button>
       </div>
     </div></div>`;
@@ -733,7 +733,7 @@ async function renderAssistant() {
       catch (e) { toast(e.message, "err"); }
     });
   }
-  // preload on-device models once, with visible progress — the first turn used
+  // preload on-device models once, with visible progress · the first turn used
   // to hang silently while several GB downloaded/loaded
   if (!ASSIST.warmed) {
     ASSIST.warmed = true;
@@ -766,7 +766,7 @@ async function renderAssistant() {
   send.onclick = () => doSend();
   input.focus();
 
-  /* ---- voice: natural conversation — local Whisper STT + streamed Supertonic TTS ---- */
+  /* ---- voice: natural conversation · local Whisper STT + streamed Supertonic TTS ---- */
   const mic = $("#asstMic"), statusEl = $("#asstStatus");
   const canVoice = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   let convo = false, speaking = false, recorder = null, micStream = null, audioCtx = null, vadRAF = 0;
@@ -790,7 +790,7 @@ async function renderAssistant() {
     ttsBuf += delta;
     let m;
     // speak on a sentence end, or on a clause break (comma etc.) once the chunk
-    // is long enough — starts sound sooner without being choppy/char-by-char
+    // is long enough · starts sound sooner without being choppy/char-by-char
     while ((m = ttsBuf.match(/^([\s\S]*?[.!?。…\n])/)) ||
            (ttsBuf.length > 24 && (m = ttsBuf.match(/^([\s\S]*?[,、·:;])\s/)))) {
       enqueueSpeech(m[1]); ttsBuf = ttsBuf.slice(m[1].length);
@@ -815,7 +815,7 @@ async function renderAssistant() {
       const a = new Audio(url);
       await new Promise(done => { a.onended = a.onerror = () => { URL.revokeObjectURL(url); done(); }; a.play().catch(done); });
     } catch (e) {
-      toast("음성 합성 실패: " + e.message, "err");     // Supertonic only — no browser fallback
+      toast("음성 합성 실패: " + e.message, "err");     // Supertonic only · no browser fallback
     }
     ttsBusy = false;
     if (ttsQ.length) pumpTTS();
@@ -872,7 +872,7 @@ async function renderAssistant() {
     if (!st.stt || !st.tts) mic.title = '음성엔 pip install "lemory[assistant]" 필요 (로컬 STT+TTS)';
     mic.onclick = () => {
       convo = !convo; mic.classList.toggle("on", convo);
-      if (convo) { toast("대화 모드 — 그냥 말하면 돼요, 멈추면 자동 인식", "ok"); listen(); }
+      if (convo) { toast("대화 모드 · 그냥 말하면 돼요, 멈추면 자동 인식", "ok"); listen(); }
       else {
         if (recorder) try { recorder.stop(); } catch (_) {}
         stopVAD(); ttsQ.length = 0; ttsBuf = ""; speaking = false;
@@ -888,7 +888,7 @@ async function renderAssistant() {
     input.value = ""; input.style.height = "auto";
     if (!ASSIST.history.length) log.innerHTML = "";
 
-    // slash commands — instant local actions, no LLM round-trip
+    // slash commands · instant local actions, no LLM round-trip
     if (text.startsWith("/")) {
       appendBubble(log, "user", text);
       const reply = (html) => { const b = appendBubble(log, "assistant", ""); b.querySelector(".asst-text").innerHTML = html; log.scrollTop = log.scrollHeight; };
@@ -983,7 +983,7 @@ const ANSWER_MODELS = {
   E2B: { name: "Gemma 4 · E2B", tag: "가벼움 · 저사양/8GB↓", specs: "~2B(효율) · Q4 ≈ 1.7 GB · 8K 컨텍스트" },
 };
 
-// The Models card — the one place to see & pick every model in the stack:
+// The Models card · the one place to see & pick every model in the stack:
 // the on-device answer LLM (Gemma E4B/E2B, switched live via a dedicated
 // endpoint), plus the resolved embedding and reranker identities. Answer-model
 // selection was previously buried as a tiny toggle in the assistant view.
@@ -1007,7 +1007,7 @@ async function renderModelsCard(tunable, readonly) {
   const cloud = provider === "gemini" || provider === "openai";
   const availLine = st.available
     ? `<span class="mp-ok">● llama.cpp GPU 준비됨</span>`
-    : `<span class="mp-off">● 미설치</span> <code>pip install "lemory[llama]"</code> — 검색·임베딩은 이것 없이도 동작`;
+    : `<span class="mp-off">● 미설치</span> <code>pip install "lemory[llama]"</code> · 검색·임베딩은 이것 없이도 동작`;
 
   // embedding identity
   const embName = esc(readonly.embed_model || "e5-small-ko-v2");
@@ -1016,7 +1016,7 @@ async function renderModelsCard(tunable, readonly) {
   const embDetail = cloud
     ? `${dim}d · ${esc(provider)} 클라우드`
     : backend === "llamacpp" ? `${dim}d · llama.cpp GPU` : `${dim}d · fastembed · 무컴파일`;
-  // reranker identity — the dedicated Qwen3 cross-encoder is the `reranker`
+  // reranker identity · the dedicated Qwen3 cross-encoder is the `reranker`
   // config flag (not the generic LLM `rerank` self-scoring pass)
   const rerankOn = !!readonly.reranker;
 
@@ -1050,15 +1050,15 @@ const SETTINGS_META = [
   ["검색 품질", [
     ["graph_expansion", "그래프 확장", "위키링크·언급 그래프로 1-hop 확장해 멀티홉 질문에 답합니다", "bool"],
     ["memory_approval", "AI 쓰기 승인제", "AI가 쓴 기억을 사람이 승인해야 검색에 편입됩니다 (건강 탭에서 승인)", "bool"],
-    ["git_autocommit", "AI 쓰기 git 체크포인트", "볼트가 git 저장소면 AI가 쓴 노트마다 자동 커밋 — diff·되돌리기가 git 히스토리에 남아요", "bool"],
-    ["semantic_links", "시맨틱 폴백 링크", "링크 없는 노트에 유사도 엣지 부여 — 실측에서 이득 없음이 확인돼 기본 꺼짐 (BENCHMARKS §12c)", "bool"],
-    ["context_neighbors", "이웃 청크 복원", "랭킹 확정 후 앞뒤 청크의 꼬리/머리를 붙여 잘린 전제·주의를 복원 (Cerebras KB 방식) — 검색 지표엔 영향 없음", "bool"],
+    ["git_autocommit", "AI 쓰기 git 체크포인트", "볼트가 git 저장소면 AI가 쓴 노트마다 자동 커밋 · diff·되돌리기가 git 히스토리에 남아요", "bool"],
+    ["semantic_links", "시맨틱 폴백 링크", "링크 없는 노트에 유사도 엣지 부여 · 실측에서 이득 없음이 확인돼 기본 꺼짐 (BENCHMARKS §12c)", "bool"],
+    ["context_neighbors", "이웃 청크 복원", "랭킹 확정 후 앞뒤 청크의 꼬리/머리를 붙여 잘린 전제·주의를 복원 (Cerebras KB 방식) · 검색 지표엔 영향 없음", "bool"],
     ["usage_prior", "사용 이력 부스트", "자주 인용/열람한 노트가 동점을 이깁니다 (0=끔, 0.05-0.15 권장)", "float"],
-    ["default_scope", "기본 검색 범위", "예: folder:프로젝트A tag:업무 — 명시 연산자 없는 모든 질의에 적용, scope:all 로 1회 해제, 비우면 전체", "str"],
+    ["default_scope", "기본 검색 범위", "예: folder:프로젝트A tag:업무 · 명시 연산자 없는 모든 질의에 적용, scope:all 로 1회 해제, 비우면 전체", "str"],
     ["answer_n_ctx", "답변 모델 컨텍스트(토큰)", "온디바이스 답변 창 크기. 작을수록 메모리·지연 절감(RAM 부족 시 낮추기), 클수록 근거 노트를 더 많이 담음. 기본 4096", "int"],
     ["answer_gpu_layers", "답변 모델 GPU 레이어", "-1=전부 GPU(Metal/CUDA) · 0=CPU 전용 · N=부분 오프로드(통합메모리/VRAM 부족 시)", "int"],
     ["event_log", "미들웨어 타임라인", "질의·AI 쓰기 기록 (이 기기 SQLite에만 저장, 외부 전송 없음)", "bool"],
-    ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 — 높을수록 연결 노트가 잘 올라옵니다", "float"],
+    ["graph_alpha", "그래프 강도", "이웃 노트 점수 계수 · 높을수록 연결 노트가 잘 올라옵니다", "float"],
     ["graph_sim_floor", "그래프 유사도 하한", "질의와 이 유사도 미만인 이웃은 무시 (노이즈 차단)", "float"],
     ["title_boost", "제목 부스트", "질의가 노트 제목과 겹치면 가산점", "float"],
     ["per_doc_cap", "노트당 결과 상한", "한 노트가 결과를 독점하지 않게 다양성 확보", "int"],
@@ -1067,22 +1067,22 @@ const SETTINGS_META = [
   ]],
   ["질의 처리", [
     ["typo_correction", "오타 보정", "볼트 어휘 기반 로컬 did-you-mean (API 호출 없음)", "bool"],
-    ["query_expansion", "질의 확장", "LLM으로 질의 변형 생성 — 질의당 LLM 1회 소모", "bool"],
-    ["rerank", "LLM 리랭크", "상위 후보를 LLM으로 재채점 — 정밀도↑ 지연↑", "bool"],
+    ["query_expansion", "질의 확장", "LLM으로 질의 변형 생성 · 질의당 LLM 1회 소모", "bool"],
+    ["rerank", "LLM 리랭크", "상위 후보를 LLM으로 재채점 · 정밀도↑ 지연↑", "bool"],
     ["recency_boost", "최신성 부스트", "시간성 질의(\"지난주 회의\")에서 최근 노트 가중", "float"],
     ["recency_half_life_days", "최신성 반감기(일)", "최신성 가중치가 절반이 되는 기간", "float"],
   ]],
   ["답변 생성", [
     ["context_style", "컨텍스트 스타일", "full: 청크 원문 그대로 / compact: 팩트시트 압축", "select", ["full", "compact"]],
-    ["context_order", "증거 배열 순서", "rank: 검색 점수순(기본) / curriculum: CDS식 매끄러운 궤적 순 — 실험적, KorQuAD A/B에서 이득 없음", "select", ["rank", "curriculum"]],
-    ["assistant_log_sessions", "비서 대화 기억", "비서와의 대화를 볼트의 세션 노트(chats/)로 자동 저장 — 오늘 말한 게 내일 검색됩니다. 노트는 직접 보고 지울 수 있어요", "bool"],
+    ["context_order", "증거 배열 순서", "rank: 검색 점수순(기본) / curriculum: CDS식 매끄러운 궤적 순 · 실험적, KorQuAD A/B에서 이득 없음", "select", ["rank", "curriculum"]],
+    ["assistant_log_sessions", "비서 대화 기억", "비서와의 대화를 볼트의 세션 노트(chats/)로 자동 저장 · 오늘 말한 게 내일 검색됩니다. 노트는 직접 보고 지울 수 있어요", "bool"],
   ]],
   ["색인", [
     ["mention_links", "언급 링크", "위키링크가 없어도 제목 언급을 그래프 간선으로", "bool"],
-    ["enrich_entities", "LLM 개체 추출", "cognee식 개체 그래프 보강 — LLM 쿼터 소모", "bool"],
+    ["enrich_entities", "LLM 개체 추출", "cognee식 개체 그래프 보강 · LLM 쿼터 소모", "bool"],
     ["chunk_chars", "청크 크기(자)", "재색인 후 적용", "int"],
     ["chunk_overlap", "청크 겹침(자)", "재색인 후 적용", "int"],
-    ["chat_burst_chunking", "대화 버스트 청킹", "채팅 노트를 화자 버스트 단위로 색인 — 재색인 후 적용", "bool"],
+    ["chat_burst_chunking", "대화 버스트 청킹", "채팅 노트를 화자 버스트 단위로 색인 · 재색인 후 적용", "bool"],
   ]],
 ];
 
@@ -1124,13 +1124,13 @@ async function renderSettings() {
     }
     html += `</div>`;
   }
-  html += `<div class="card"><div class="card-head">읽기 전용 — 변경은 .env / lemory.toml 수정 후 재시작</div><div class="kv">${
+  html += `<div class="card"><div class="card-head">읽기 전용 · 변경은 .env / lemory.toml 수정 후 재시작</div><div class="kv">${
     Object.entries(cfg.readonly).map(([k, v]) =>
-      `<div class="kv-row"><span class="kv-k">${esc(k)}</span><span class="kv-v mono">${esc(v ?? "—")}</span></div>`).join("")
+      `<div class="kv-row"><span class="kv-k">${esc(k)}</span><span class="kv-v mono">${esc(v ?? "-")}</span></div>`).join("")
   }</div></div>`;
   grid.innerHTML = html;
 
-  // answer-model (Gemma E4B/E2B) live switch — dedicated endpoint, persists to lemory.toml.
+  // answer-model (Gemma E4B/E2B) live switch · dedicated endpoint, persists to lemory.toml.
   // Update the picks in place rather than re-rendering the whole view, so any
   // unsaved edits in the other settings cards survive the switch.
   $$(".model-pick", grid).forEach(b => b.onclick = async () => {
@@ -1170,7 +1170,7 @@ async function renderSettings() {
     const patch = Object.fromEntries(dirty().map(k => [k, cur[k]]));
     try {
       await jpost("/api/config", patch, "PATCH");
-      toast("저장됨 — 볼트의 lemory.toml에 기록했습니다", "ok");
+      toast("저장됨 · 볼트의 lemory.toml에 기록했습니다", "ok");
       renderSettings();
     } catch (e) { toast(`저장 실패: ${e.message}`, "err"); }
   };
@@ -1210,7 +1210,7 @@ async function drawPalette(q) {
         label: n.title, ico: icoDoc, sub: n.path,
         act: () => go("#/knowledge/" + encodeURIComponent(n.path)),
       });
-  } catch { /* server down — views only */ }
+  } catch { /* server down · views only */ }
 
   palSel = Math.min(palSel, Math.max(0, palItems.length - 1));
   $("#paletteResults").innerHTML = palItems.length ? palItems.map((it, i) => `
@@ -1244,7 +1244,7 @@ document.addEventListener("keydown", e => {
 });
 
 /* ------------------------------------------------------- local ego graph */
-// Obsidian's global graph is decoration; this is the RETRIEVAL graph — the
+// Obsidian's global graph is decoration; this is the RETRIEVAL graph · the
 // edges (incl. unlinked mentions Obsidian can't see) that expansion walks.
 function localGraphSVG(d) {
   // merge by note: the same neighbor can be both an out-link and a backlink
@@ -1285,9 +1285,9 @@ function localGraphSVG(d) {
   return `<div class="nd-sec"><div class="nd-sec-title">로컬 그래프 · 검색이 실제로 걷는 간선</div>
     <div class="local-graph card" style="padding:6px">
       <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">${edges}${center}${nodes}</svg>
-      <div class="lg-legend"><span style="color:#7ea6ff">— 위키링크</span>
+      <div class="lg-legend"><span style="color:#7ea6ff">· 위키링크</span>
         <span style="color:#c6a5ff">┄ 언급(옵시디언엔 없음)</span>
-        <span style="color:#7fd8c3">— 개체</span>
+        <span style="color:#7fd8c3">· 개체</span>
         <span style="color:var(--text-3)">화살표 = 들어오는 링크</span></div>
     </div></div>`;
 }

@@ -9,7 +9,7 @@ problem.
 ## Trust model
 
 - **The vault is the source of truth.** The SQLite index is derived and
-  disposable — delete `<vault>/.lemory/` (or your `data_dir`) and re-index.
+  disposable: delete `<vault>/.lemory/` (or your `data_dir`) and re-index.
 - **Writes never leave the vault.** `save_memory`, `append_note`, and the
   chat/PDF importers only ever create or append Markdown files inside the
   vault root. Path traversal (`..`, absolute paths, prefix-sibling
@@ -17,16 +17,16 @@ problem.
 - **Deletion is guarded and recoverable.** `POST /memory/trash` (and the
   console's undo button) moves a note to `<vault>/.trash` (Obsidian's own
   trash) rather than deleting it, and refuses any note that does not carry
-  the `lemory_generated: true` marker Lemory stamps on notes it creates — so
+  the `lemory_generated: true` marker Lemory stamps on notes it creates, so
   a human-authored note can never be trashed through this path, even one that
   happens to have a `source:` field.
 - **Privacy is a file property.** Add `lemory: false` to any note's
   frontmatter and it is never indexed, never retrieved, and never sent to any
-  model — retroactively removed from the index if it was there before.
+  model; it is retroactively removed from the index if it was there before.
 
 ## The local HTTP server
 
-`lemory serve` binds `127.0.0.1` and has **no authentication** — it is meant
+`lemory serve` binds `127.0.0.1` and has **no authentication**; it is meant
 for a single local user, like most localhost dev servers. Two guards limit
 the blast radius of a hostile web page in the same browser:
 
@@ -43,7 +43,7 @@ Tailscale) rather than binding a public interface.
 
 ## Keys
 
-API keys live in `~/.lemory/env` (owner-only, `600`) or your environment —
+API keys live in `~/.lemory/env` (owner-only, `600`) or your environment:
 never in the vault, never in the SQLite index, never committed. `lemory
 doctor` and error messages redact them.
 

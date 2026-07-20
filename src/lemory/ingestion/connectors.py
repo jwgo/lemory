@@ -3,7 +3,7 @@
 Cerebras' knowledge base feeds on connectors (Slack, Drive, e-mail …); the
 Lemory equivalent keeps the local-first invariant: a connector is just a
 Python file the USER owns, and its output is ordinary markdown notes in the
-vault — searchable, editable, deletable, diffable like everything else. No
+vault · searchable, editable, deletable, diffable like everything else. No
 second store, no daemon, no credentials held by Lemory.
 
 Contract (either entry point):
@@ -24,7 +24,7 @@ Each item is a dict:
      "folder": "서브폴더"}         # optional override under the base folder
 
 Runs are idempotent: an item writes to a deterministic path and overwrites
-what's there (source notes are the connector's derived data — the external
+what's there (source notes are the connector's derived data · the external
 system stays the source of truth). Nothing is ever deleted.
 
     lemory connect ./my_rss.py             # writes to 가져옴/my_rss/
@@ -74,7 +74,7 @@ def run_connector(engine: "Engine", source: Path, folder: str = "") -> Connector
     """Execute a connector file and write its items as vault notes.
 
     The connector is user-supplied code and runs with the user's own
-    privileges — the same trust level as running the script directly."""
+    privileges · the same trust level as running the script directly."""
     source = Path(source)
     mod = _load_module(source)
     name = source.stem
