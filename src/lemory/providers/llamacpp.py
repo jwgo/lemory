@@ -40,7 +40,8 @@ class LlamaCppLocalClient:
                  n_ctx: int = 1024, generator=None,
                  answer_repo: str | None = None, answer_file: str | None = None,
                  answer_n_ctx: int | None = None, answer_gpu_layers: int | None = None):
-        self.llm_model = generator.llm_model if generator else "none (local search-only)"
+        from .local import _keyless_llm_label
+        self.llm_model = generator.llm_model if generator else _keyless_llm_label(answer_file)
         # a stable, human-readable id the index stores to detect model switches
         self.embed_model = f"llamacpp:{gguf_repo}/{gguf_file}"
         self.embed_dim = embed_dim

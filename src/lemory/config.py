@@ -381,8 +381,12 @@ class LemoryConfig(BaseSettings):
         if p == "openai":
             return self.openai_llm_model
         if p == "local":
-            return (f"{self.llm_model} (answers)" if self.resolved_gemini_key()
-                    else "none · local search-only")
+            if self.resolved_gemini_key():
+                return f"{self.llm_model} (answers)"
+            # keyless: answers come from on-device Gemma when llama.cpp exists
+            if _has_module("llama_cpp"):
+                return f"{self.assistant_gguf_file} (on-device)"
+            return "none · local search-only"
         return self.llm_model
 
     def resolved_api_key(self) -> str:

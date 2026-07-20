@@ -98,13 +98,24 @@ def _local_generate(prompt: str, system: str | None,
     )
 
 
+def _keyless_llm_label(answer_file: str | None) -> str:
+    """What answers ask() in keyless mode: on-device Gemma if llama.cpp is
+    installed, otherwise nothing. status/doctor show this, so it must match
+    what generate() will actually do (a stale 'none' here was a real bug)."""
+    from ..config import _has_module
+    if _has_module("llama_cpp"):
+        from .gemma import DEFAULT_FILE
+        return f"{answer_file or DEFAULT_FILE} (on-device)"
+    return "none (local search-only)"
+
+
 class LocalClient:
     """LLMClient implementation with local embeddings and no generator."""
 
     def __init__(self, embed_model: str = DEFAULT_EMBED_MODEL, generator=None,
                  answer_repo: str | None = None, answer_file: str | None = None,
                  answer_n_ctx: int | None = None, answer_gpu_layers: int | None = None):
-        self.llm_model = generator.llm_model if generator else "none (local search-only)"
+        self.llm_model = generator.llm_model if generator else _keyless_llm_label(answer_file)
         self.embed_model = embed_model
         self.embed_dim = LOCAL_EMBED_DIM
         self._model = None

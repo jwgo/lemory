@@ -98,7 +98,10 @@ def test_status_without_any_api_key(tmp_path, monkeypatch):
     eng = Engine(LemoryConfig(vault=v, data_dir=tmp_path / "d"))
     st = eng.status()  # must not raise
     assert st["documents"] == 0
-    assert "local" in st["llm_model"] or "unconfigured" in st["llm_model"]
+    # keyless: either search-only, or the on-device answer model when
+    # llama.cpp happens to be installed — never a cloud model name
+    assert ("local" in st["llm_model"] or "unconfigured" in st["llm_model"]
+            or "on-device" in st["llm_model"])
     eng.close()
 
 
