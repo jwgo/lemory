@@ -173,6 +173,14 @@ class LemoryConfig(BaseSettings):
     # on the semantic leg. Fires only when a vector leg exists — keyless
     # BM25-only installs unaffected. Measured on RoleMemQA episodic-type.
     common_bm25_damp: float = 0.5
+    # informativeness prior: when a query is all-boilerplate (no lexically
+    # discriminative token — episodic recall like "우리 약속이 뭐였지?"), the
+    # semantic leg alone can't tell the real fact line from chat filler that is
+    # ALSO near the query ("기억해 둘게, 약속!"). This re-weights the vector
+    # leg by how much rare corpus content each candidate carries, so the
+    # fact-bearing burst outranks the filler burst. 0 disables. Measured on
+    # RoleMemQA-messy episodic; gated so ordinary queries are untouched.
+    informativeness_prior: float = 0.6
     verbatim_gate: float = 0.60  # query-token coverage in top BM25 chunks that flips to lexical lean
     # near-exact quoting tier: at this coverage the query is reciting the note
     # (reference-QA), where paraphrase risk is nil — lean harder on lexical.

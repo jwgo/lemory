@@ -1083,6 +1083,7 @@ const SETTINGS_META = [
     ["chunk_chars", "청크 크기(자)", "재색인 후 적용", "int"],
     ["chunk_overlap", "청크 겹침(자)", "재색인 후 적용", "int"],
     ["chat_burst_chunking", "대화 버스트 청킹", "채팅 노트를 화자 버스트 단위로 색인 · 재색인 후 적용", "bool"],
+    ["informativeness_prior", "정보량 prior", "어휘 변별력 0인 에피소드 질문에서만 벡터 레그를 희소 내용으로 재정렬 (필러 대신 진짜 팩트) · 0이면 끔 (BENCHMARKS §7e)", "float"],
   ]],
 ];
 

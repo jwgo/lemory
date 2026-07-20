@@ -57,6 +57,11 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
     text, title, heading, tokenize='porter unicode61'
 );
 
+-- term -> (# chunks containing it): drives the informativeness prior that
+-- separates a real fact line from chat boilerplate. 'row' gives one row per
+-- term with its document (=chunk) count; read-only over chunks_fts.
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vocab USING fts5vocab('chunks_fts', 'row');
+
 CREATE TABLE IF NOT EXISTS links (
     src_doc INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     dst_doc INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -242,6 +247,7 @@ class Store:
         self._matrix_pos: dict[int, int] = {}  # chunk_id -> row
         self._lexicon: Optional[dict[str, int]] = None
         self._lexicon_buckets: Optional[dict] = None  # FTS term -> doc count
+        self._term_doc: Optional[dict[str, int]] = None  # FTS term -> chunk df
         self._doc_dates: Optional[dict[int, float]] = None  # doc_id -> epoch
         self._dirty = True
         try:
@@ -305,6 +311,7 @@ class Store:
             self._ann_failed = False  # data changed; a fresh build may fit now
             self._lexicon = None
             self._lexicon_buckets = None
+            self._term_doc = None
             self._doc_dates = None
 
     def _upsert_document_tx(
@@ -1207,6 +1214,27 @@ class Store:
         except sqlite3.OperationalError:
             return 0  # unparseable token: treat as rare/discriminative
         return int(row["n"] if row else 0)
+
+    def chunk_doc_freq(self) -> dict[str, int]:
+        """FTS term -> number of chunks containing it, cached until the index
+        changes. One scan of the fts5vocab table (a few ms even at 100k terms),
+        so the informativeness prior can judge a candidate chunk's rarity with
+        pure dict lookups instead of one FTS count per token. Terms are the
+        tokenizer's own output (unicode61 + the bigram augmentation), which is
+        the same tokenization queries hit, so word-level lookups line up."""
+        with self._matrix_lock:
+            td = self._term_doc
+        if td is not None:
+            return td
+        td = {}
+        try:
+            for r in self.conn().execute("SELECT term, doc FROM chunks_vocab"):
+                td[r["term"]] = int(r["doc"])
+        except sqlite3.OperationalError:
+            td = {}  # very old db without the vocab table: prior stays inert
+        with self._matrix_lock:
+            self._term_doc = td
+        return td
 
     # ------------------------------------------------------------------ misc
     def title_map(self) -> dict[str, int]:
