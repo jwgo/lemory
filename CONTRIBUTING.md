@@ -1,7 +1,7 @@
 # Contributing to Lemory
 
-Thanks for helping! The codebase is small on purpose — one SQLite file, one
-provider seam, no services — please keep it that way.
+Thanks for helping! The codebase is small on purpose: one SQLite file, one
+provider seam, no services. Please keep it that way.
 
 ## Dev setup
 

@@ -1,5 +1,5 @@
 """On-device answer LLM on the **same llama.cpp engine** as the embedder and the
-reranker — one runtime (Metal / CUDA / Vulkan / CPU offload), no daemon, no
+reranker · one runtime (Metal / CUDA / Vulkan / CPU offload), no daemon, no
 second engine. Runs **Gemma 4** (E4B by default, E2B for lighter machines) from
 a Q4 GGUF; the model auto-downloads from HuggingFace once and is cached, and
 the context easily holds the retrieved NOTES (Gemma 4 supports a large window).
@@ -90,12 +90,12 @@ def _fit(llm, system: str, history: list[dict], question: str,
 
         1. keep the question (always) and the answer budget,
         2. keep the grounding NOTES (trim their tail only if they alone are huge
-           — build_context orders by rank, so the tail is least relevant),
+           · build_context orders by rank, so the tail is least relevant),
         3. fill whatever budget remains with the MOST RECENT history turns,
            dropping the oldest first (sliding window).
 
-    The old code did the opposite — it trimmed the grounding to make room for
-    history — so a long conversation slowly starved retrieval and later turns
+    The old code did the opposite · it trimmed the grounding to make room for
+    history · so a long conversation slowly starved retrieval and later turns
     lost their evidence. Returns (grounding, kept_history)."""
     def toks(s: str) -> int:
         return len(llm.tokenize(s.encode("utf-8")))

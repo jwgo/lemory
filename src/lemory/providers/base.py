@@ -2,7 +2,7 @@
 
 Every provider client (Gemini, OpenAI, future ones) implements LLMClient.
 The Engine talks only to this interface; adding a provider means one new
-module here plus one entry in the factory — nothing else changes.
+module here plus one entry in the factory · nothing else changes.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ class RateLimiter:
     """Requests-per-minute limiter (thread-safe).
 
     Enforces both a sliding 60s window AND even spacing between requests
-    (after a small burst allowance) — burst-then-wait patterns trip
+    (after a small burst allowance) · burst-then-wait patterns trip
     fixed-window server quotas even when the average rate is compliant."""
 
     def __init__(self, rpm: int):

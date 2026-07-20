@@ -9,8 +9,8 @@ before it reaches the model. Lemory's version is fully local and LLM-free:
      index uses (one batched call on first sight, free afterwards),
   3. keep the top sentences per chunk, rendered as dated one-liners.
 
-The generator then sees "- [Note (2026-07-04)] fact…" lines — typically
-5-10x fewer tokens than full chunks — with graceful fallback to the raw
+The generator then sees "- [Note (2026-07-04)] fact…" lines · typically
+5-10x fewer tokens than full chunks · with graceful fallback to the raw
 chunk when a chunk has no scoreable sentences.
 """
 

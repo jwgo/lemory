@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="google-site-verification" content="y2OGf96gyziVArMpdOjbD99Xrf04sqSnWbeYTvtaSPs" />
-<title>Lemory — local memory for your Markdown</title>
+<title>Lemory: local memory for your Markdown</title>
 <meta name="description" content="Turn your Obsidian/Markdown notes into memory for every AI you use. Local-first, keyless, Korean-first, with every retrieval claim benchmarked. One command to start.">
 <link rel="canonical" href="https://jwgo.github.io/lemory/en.html">
 <link rel="alternate" hreflang="ko" href="https://jwgo.github.io/lemory/">
 <link rel="alternate" hreflang="en" href="https://jwgo.github.io/lemory/en.html">
 <link rel="alternate" hreflang="x-default" href="https://jwgo.github.io/lemory/">
-<meta property="og:title" content="Lemory — local memory for your Markdown">
-<meta property="og:description" content="Your memory should belong to you. Not rows in someone's database — Markdown files in your own vault.">
+<meta property="og:title" content="Lemory: local memory for your Markdown">
+<meta property="og:description" content="Your memory should belong to you. Not rows in someone's database, but Markdown files in your own vault.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://jwgo.github.io/lemory/en.html">
 <meta property="og:image" content="https://jwgo.github.io/lemory/assets/console-knowledge.png">
@@ -105,11 +105,11 @@ img.shot{max-width:100%;border-radius:12px;border:1px solid var(--line);margin:1
 <div class="hero"><div class="wrap">
   <h1>Your memory should belong to you</h1>
   <p class="lead">Turn your Obsidian/Markdown notes into memory for every AI
-  you use. Not rows in someone's database — <b>files in your own folder</b>.</p>
+  you use. Not rows in someone's database, but <b>files in your own folder</b>.</p>
   <a class="cta" href="#install">Start in one minute</a>
   <span class="sub">Keyless, free, everything runs on your machine</span>
   <img src="assets/demo1_en.gif" alt="Live instant search: an English question answered from the demo vault in milliseconds, no query embedding" loading="lazy">
-  <span class="sub">Not a mockup — a real capture of the CLI. Instant lexical search in ~3.8ms, no query embedding, no API call. (On a 1,469-doc vault too — see the benchmarks.)</span>
+  <span class="sub">Not a mockup, a real capture of the CLI. Instant lexical search in ~3.8ms, no query embedding, no API call. (On a 1,469-doc vault too; see the benchmarks.)</span>
 </div></div>
 
 <section id="why"><div class="wrap">
@@ -124,12 +124,12 @@ img.shot{max-width:100%;border-radius:12px;border:1px solid var(--line);margin:1
   one <code>rm</code> deletes them. Lemory sits between those files and your
   AI, and does three things:</p>
   <div class="grid">
-    <div class="card"><b>AI reads your memory</b><p>Hybrid retrieval: semantic + CJK-aware keyword search + your [[wikilink]] graph. Benchmarked against every competitor we can run — losses published too.</p></div>
+    <div class="card"><b>AI reads your memory</b><p>Hybrid retrieval: semantic + CJK-aware keyword search + your [[wikilink]] graph. Benchmarked against every competitor we can run. Losses published too.</p></div>
     <div class="card"><b>AI writes your memory</b><p>Decisions and facts land as plain .md notes in your vault, with duplicate detection and automatic related-links.</p></div>
-    <div class="card"><b>You see everything</b><p>Every query, every note an AI wrote (one-click undo), per-client usage — all in a dashboard, all in one local SQLite file.</p></div>
+    <div class="card"><b>You see everything</b><p>Every query, every note an AI wrote (one-click undo), per-client usage. All in a dashboard, all in one local SQLite file.</p></div>
   </div>
   <p>One more thing: most of this space treats Korean (and CJK in general)
-  as an afterthought. Lemory treats it as a benchmark suite — Hangul bigram
+  as an afterthought. Lemory treats it as a benchmark suite: Hangul bigram
   indexing, syllable-level typo repair, morphology-aware matching. Ask in
   Korean over English notes and it still finds the answer.</p>
   <blockquote>Every number regenerates from committed code and public data.
@@ -139,7 +139,7 @@ img.shot{max-width:100%;border-radius:12px;border:1px solid var(--line);margin:1
 
 <section id="install"><div class="wrap">
   <div class="kicker">Install</div>
-  <h2>Install — one command</h2>
+  <h2>Install: one command</h2>
   <div class="step"><div class="n">1</div><div>
     <b>Install</b>
     <pre>pipx install "git+https://github.com/jwgo/lemory"</pre>
@@ -149,7 +149,7 @@ img.shot{max-width:100%;border-radius:12px;border:1px solid var(--line);margin:1
     <b>Start</b>
     <pre>lemory up ~/Obsidian/MyVault</pre>
     <p class="muted">This one line does config → indexing → dashboard. Any
-    folder of <code>.md</code> files counts as a vault — Obsidian optional.</p>
+    folder of <code>.md</code> files counts as a vault (Obsidian optional).</p>
   </div></div>
   <div class="step"><div class="n">3</div><div>
     <b>Ask</b>
@@ -160,7 +160,7 @@ img.shot{max-width:100%;border-radius:12px;border:1px solid var(--line);margin:1
   <p>With a Gemini key it uses the cloud; without one it runs the
   <b>on-device stack that ships by default</b> (Korean-tuned e5-small-ko-v2
   embeddings + Gemma 4 answers). In fully-offline mode, <b>not one byte</b>
-  of your vault leaves the machine — air-gapped environments included.</p>
+  of your vault leaves the machine, air-gapped environments included.</p>
   <table>
     <tr><th>Mode</th><th>Needs</th><th>You get</th></tr>
     <tr><td>On-device (default)</td><td>No key, 8GB+ RAM</td><td>Search + answers, fully offline</td></tr>
@@ -175,12 +175,12 @@ img.shot{max-width:100%;border-radius:12px;border:1px solid var(--line);margin:1
   <div class="kicker">Use cases</div>
   <h2>Where it shines</h2>
   <div class="grid">
-    <div class="card"><b>💼 Work &amp; meetings</b><p>"What budget did we settle on at the Q3 kickoff?" "How did the remote policy change since last year?" — the more meeting notes, the stronger it gets.</p></div>
-    <div class="card"><b>📚 Study notes</b><p>"What was the event loop again — from my notes?" Answers from what you wrote, not from the internet.</p></div>
+    <div class="card"><b>💼 Work &amp; meetings</b><p>"What budget did we settle on at the Q3 kickoff?" "How did the remote policy change since last year?" The more meeting notes, the stronger it gets.</p></div>
+    <div class="card"><b>📚 Study notes</b><p>"What was the event loop again, from my notes?" Answers from what you wrote, not from the internet.</p></div>
     <div class="card"><b>🤖 Long-term memory for AI assistants</b><p>Connect Claude/Cursor via MCP and decisions survive the session. The next session picks up where you left off.</p></div>
-    <div class="card"><b>💬 Chat memory</b><p>Import your ChatGPT/Claude exports and decisions buried in conversations become searchable — a month later, with the source cited.</p></div>
-    <div class="card"><b>🎮 Games &amp; hobbies</b><p>"What did I write down to prep for that boss?" "My golden ratio for kimchi stew" — strategy notes and recipes alike.</p></div>
-    <div class="card"><b>🏠 Life admin</b><p>"That ramen place in Osaka?" "What's step one if my lease renewal is refused?" — anything you ever wrote down.</p></div>
+    <div class="card"><b>💬 Chat memory</b><p>Import your ChatGPT/Claude exports and decisions buried in conversations become searchable a month later, with the source cited.</p></div>
+    <div class="card"><b>🎮 Games &amp; hobbies</b><p>"What did I write down to prep for that boss?" "My golden ratio for kimchi stew" Strategy notes and recipes alike.</p></div>
+    <div class="card"><b>🏠 Life admin</b><p>"That ramen place in Osaka?" "What's step one if my lease renewal is refused?" Anything you ever wrote down.</p></div>
   </div>
   <h3>The queries plain RAG structurally can't do</h3>
   <pre>$ lemory ask "what database does the Atlas project lead prefer?"
@@ -206,7 +206,7 @@ $ lemory ask "what was I reading in March?"            # March reaches history</
   <pre>claude mcp add lemory -- lemory mcp --vault ~/Obsidian/MyVault --client claude-desktop
 lemory skill install claude-code    # teach the assistant to use it well
 lemory hooks install claude-code    # auto-save session memory on exit</pre>
-  <p>Cursor, Windsurf, VS Code — anything that speaks MCP works the same
+  <p>Cursor, Windsurf, VS Code: anything that speaks MCP works the same
   way. With the hook installed, every Claude Code session ends by saving
   the decisions worth keeping as <b>one dated note</b>. No discipline
   required.</p>
@@ -242,7 +242,7 @@ query ─► typo repair ─► dense + lexical (fusion) ─► title & recency 
             dated, cited context ─► LLM ─► answer [n]</pre>
   <p>Search is local and LLM-free (3–13ms). One embedding call per query
   (cached), one generation call per answer. Past 20k chunks the vector index
-  switches automatically — <b>1M chunks = 5.9ms per query</b>.</p>
+  switches automatically: <b>1M chunks = 5.9ms per query</b>.</p>
   <h3>In numbers</h3>
   <table class="num">
     <tr><th>Measured</th><th>Lemory</th><th>Context</th></tr>

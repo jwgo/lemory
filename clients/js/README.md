@@ -1,6 +1,6 @@
 # lemory-client (TypeScript)
 
-Zero-dependency client for the [Lemory](../../README.md) REST API — use your
+Zero-dependency client for the [Lemory](../../README.md) REST API · use your
 Markdown vault as memory from Node/Bun/Deno agents (Vercel AI SDK,
 LangChain.js, plain scripts).
 
@@ -16,4 +16,4 @@ await mem.remember("환불은 비동기 큐로 결정", { title: "환불 결정"
 Remote (phone/tailnet): run `lemory serve --host 0.0.0.0` with `api_token`
 set in `lemory.toml`, then `new Lemory({ baseUrl, token })`.
 
-Not yet on npm — build locally: `npm run build` (needs only `typescript`).
+Not yet on npm · build locally: `npm run build` (needs only `typescript`).

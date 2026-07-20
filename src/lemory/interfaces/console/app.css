@@ -1,4 +1,4 @@
-/* Lemory console — dark-first, Linear-inspired design system.
+/* Lemory console · dark-first, Linear-inspired design system.
    No external assets: system font stack, inline SVG icons. */
 
 :root {
@@ -331,7 +331,7 @@ input::placeholder { color: var(--text-3); }
 .set-ctl input[type=number] { width: 88px; text-align: right; }
 .set-ctl select { min-width: 110px; }
 
-/* Models card — answer-LLM picker + embedding/reranker identity */
+/* Models card · answer-LLM picker + embedding/reranker identity */
 .models-card .card-head .mp-hint { font-size: 11px; color: var(--text-3); font-weight: 400; }
 .model-group { padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .mg-label { font-size: 13px; font-weight: 600; margin-bottom: 10px; }

@@ -3,18 +3,18 @@
 Absorbed from Tolaria's strongest axis (credited in docs/COMPETITIVE.md):
 a vault should teach ANY agent how to use it, not just Claude. Three pieces:
 
-1. **Managed guidance files** — `AGENTS.md` at the vault root is the
+1. **Managed guidance files** · `AGENTS.md` at the vault root is the
    canonical instruction file the 2026 agent wave reads (Codex, Copilot,
    OpenCode, Gemini CLI all look for it); `CLAUDE.md` and `GEMINI.md` are
    thin compatibility shims pointing at it. Lemory writes them with a
    managed marker so it can repair its own files while NEVER touching a
    user-authored one.
 
-2. **Status detection** — each guidance file is `managed` (ours, current),
+2. **Status detection** · each guidance file is `managed` (ours, current),
    `missing`, `broken` (empty/whitespace/stale managed template), or
-   `custom` (user-authored — sacred, surfaced but untouched).
+   `custom` (user-authored · sacred, surfaced but untouched).
 
-3. **Agent detection** — which agent CLIs are actually installed, with the
+3. **Agent detection** · which agent CLIs are actually installed, with the
    exact one-line MCP hookup command for each, so `lemory agents` turns
    "install Lemory" into "every agent on this machine now has memory".
 """
@@ -41,19 +41,19 @@ middleware). Treat it as the user's long-term memory.
     `recent_notes`, `related_notes`, `vault_context`
   - CLI fallback: `lemory search "question as-is" --vault "{vault}"`
 - Natural questions, keywords, Korean, and typos all work. Scope with
-  `tag:x folder:y`. Results are ranked — the top 3 usually suffice.
+  `tag:x folder:y`. Results are ranked · the top 3 usually suffice.
 - Cite note titles as [[wikilinks]] when you use them.
 
 ## Write what's worth remembering
 
 - Save durable facts (decisions, preferences, people, promises, updates)
-  BEFORE the session ends — one fact per note:
+  BEFORE the session ends · one fact per note:
   - MCP: `save_memory` · CLI: `lemory remember "fact" --title "short title"`
 - Duplicates are detected and related notes linked automatically. If the
   result mentions a possible duplicate, tell the user instead of stacking
-  copies. Never delete an outdated note — retrieval prefers newer facts.
+  copies. Never delete an outdated note · retrieval prefers newer facts.
 - Do NOT hand-edit files under `memories/` or `chats/`; `save_memory` keeps
-  provenance and undo working. Editing other notes directly is fine — the
+  provenance and undo working. Editing other notes directly is fine · the
   watcher reindexes within seconds.
 
 ## Rules
@@ -63,13 +63,13 @@ middleware). Treat it as the user's long-term memory.
 - Keep new notes small and entity-titled (person/project/topic); wikilinks
   between notes power multi-hop retrieval.
 - Dashboard (`lemory serve` → http://127.0.0.1:8377) shows every AI read and
-  write with one-click undo — assume the user reviews the trail.
+  write with one-click undo · assume the user reviews the trail.
 """
 
 _CLAUDE_SHIM = _MARKER + """
 # CLAUDE.md
 
-See **AGENTS.md** in this folder — canonical instructions for using this
+See **AGENTS.md** in this folder · canonical instructions for using this
 vault's Lemory memory (search first, save durable facts, respect
 `lemory: false`).
 """
@@ -77,7 +77,7 @@ vault's Lemory memory (search first, save durable facts, respect
 _GEMINI_SHIM = _MARKER + """
 # GEMINI.md
 
-See **AGENTS.md** in this folder — canonical instructions for using this
+See **AGENTS.md** in this folder · canonical instructions for using this
 vault's Lemory memory.
 """
 
@@ -95,7 +95,7 @@ def _render(name: str, vault: Path) -> str:
 def guidance_status(vault: Path) -> dict[str, str]:
     """Per-file status: managed | missing | broken | custom.
 
-    `custom` (user-authored) is sacred — install/repair never touches it.
+    `custom` (user-authored) is sacred · install/repair never touches it.
     `broken` = empty or whitespace-only. A managed file whose content
     drifted from the current template still counts as managed (repair
     refreshes it); a file WITHOUT our marker is the user's."""
@@ -162,7 +162,7 @@ _AGENTS: list[tuple[str, str, str, str]] = [
     ("gemini", "Gemini CLI", "gemini",
      'gemini mcp add lemory lemory mcp --vault "{vault}" --client gemini'),
     ("copilot", "GitHub Copilot CLI", "copilot",
-     "AGENTS.md에 CLI 사용법 포함 — 추가 설정 없이 동작 (MCP는 copilot 설정에서 lemory 추가)"),
+     "AGENTS.md에 CLI 사용법 포함 · 추가 설정 없이 동작 (MCP는 copilot 설정에서 lemory 추가)"),
     ("opencode", "OpenCode", "opencode",
      "opencode 설정(mcp)에 다음 추가: command=lemory args=[mcp, --vault, {vault}]"),
     ("cursor", "Cursor", "cursor",

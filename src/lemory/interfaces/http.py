@@ -115,7 +115,7 @@ def remote_auth_error(client_host: str, auth_header: str,
     the configured Bearer token. Localhost stays tokenless so the desktop
     dashboard/plugin work with zero setup; with no token configured,
     non-localhost requests are refused outright (never silently open).
-    ('testclient' is starlette's TestClient pseudo-host — local by
+    ('testclient' is starlette's TestClient pseudo-host · local by
     definition, never seen by a real socket.)"""
     if client_host in ("127.0.0.1", "::1", "localhost", "testclient", ""):
         return None
@@ -156,7 +156,7 @@ def _log_activity(engine: Engine, kind: str, rep) -> None:
 
 def _remember_intent(text: str) -> str | None:
     """Chat-native write path: '기억해줘: 환불은 큐로' / '…라고 기억해' →
-    the content to save, else None. Rule-based on purpose — works with a
+    the content to save, else None. Rule-based on purpose · works with a
     small on-device brain that can't be trusted with tool-calling."""
     import re as _re
 
@@ -177,11 +177,11 @@ _ANAPHORA = ("그거", "그건", "그때", "그게", "그 ", "이거", "이건",
 
 
 def _contextual_query(question: str, msgs: list[dict]) -> str:
-    """Follow-up repair: retrieval on '그건 언제였지?' alone finds nothing —
+    """Follow-up repair: retrieval on '그건 언제였지?' alone finds nothing ·
     when the turn is short or anaphoric, retrieve on the recent conversation
     plus this one. The antecedent of '그 사람/그거' usually lives in the
     ASSISTANT's last answer (e.g. it named '김지수'), not just the user's
-    previous question — so fold in both. Generation still sees the raw turn
+    previous question · so fold in both. Generation still sees the raw turn
     (history covers it)."""
     q = question.strip()
     anaphoric = len(q) <= 16 or any(q.startswith(a) or f" {a}" in f" {q}" for a in _ANAPHORA)
@@ -437,7 +437,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                 related = getattr(path, "related", [])
                 lines = [f"기억했습니다 → `{path}`"]
                 if engine.cfg.memory_approval:
-                    lines.append("(승인 대기 — 건강 탭에서 승인하면 검색에 편입됩니다)")
+                    lines.append("(승인 대기 · 건강 탭에서 승인하면 검색에 편입됩니다)")
                 for r in related:
                     flag = " · 중복일 수 있음" if r.get("near_duplicate") else ""
                     lines.append(f"관련 기억: [[{r['title']}]]{flag}")
@@ -513,7 +513,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     @app.get("/context")
     def context(max_chars: int = 2400):
         """Pre-assembled vault context (Zep-style): stats, recent activity,
-        frequently referenced notes, hubs, tags — one cheap local call."""
+        frequently referenced notes, hubs, tags · one cheap local call."""
         from ..ingestion.memory import context_block
 
         return {"context": context_block(engine, max_chars=max_chars)}
@@ -591,13 +591,13 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
 
     @app.get("/api/events")
     def api_events(kinds: str = "", limit: int = 60):
-        """The middleware timeline: queries, AI writes, undos — newest first."""
+        """The middleware timeline: queries, AI writes, undos · newest first."""
         kind_list = [k for k in (s.strip() for s in kinds.split(",")) if k] or None
         return engine.store.events(kinds=kind_list, limit=min(limit, 200))
 
     @app.get("/api/clients")
     def api_clients(days: float = 7.0):
-        """Per-client usage in the window — who is reading/writing this memory."""
+        """Per-client usage in the window · who is reading/writing this memory."""
         return engine.store.client_stats(days=days)
 
     # ----------------------------------------------------------- console API
@@ -658,7 +658,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
 
     @app.get("/api/related")
     def related(path: str, k: int = 8):
-        """Related notes by content similarity (the note itself is the query —
+        """Related notes by content similarity (the note itself is the query ·
         no LLM, no new embeddings)."""
         from ..retrieval.search import related_notes
 
@@ -729,7 +729,7 @@ def _persist_config(engine: Engine, changed: dict[str, Any]) -> None:
     path = vault / "lemory.toml"
     existing: dict[str, Any] = {}
     if path.is_file():
-        import tomllib
+        from ..config import tomllib  # 3.10-safe (tomli fallback)
         try:
             with open(path, "rb") as fh:
                 data = tomllib.load(fh)

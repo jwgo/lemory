@@ -1,12 +1,12 @@
 """Link suggestions: turn the index's unlinked-mention edges into actionable
-[[wikilink]] proposals — the "your notes are more connected than you wrote
+[[wikilink]] proposals · the "your notes are more connected than you wrote
 down" half of a second brain.
 
 The indexer already detects when note A's text mentions note B's title
-without linking it (kind='mention' edges exist ONLY where no wiki edge does —
+without linking it (kind='mention' edges exist ONLY where no wiki edge does ·
 see indexer._rebuild_links). This module surfaces those edges with the
 sentence around the mention, so a human (or an agent with append rights) can
-decide which ones deserve to become real links. Zero LLM, zero embeddings —
+decide which ones deserve to become real links. Zero LLM, zero embeddings ·
 it reads the graph the index already built.
 """
 
@@ -34,7 +34,7 @@ def _mention_snippet(text: str, title: str, max_chars: int = 160) -> str:
 def suggest_links(engine: "Engine", path: str | None = None, k: int = 12) -> list[dict]:
     """Unlinked mentions as ranked [[link]] suggestions.
 
-    With `path`: suggestions for that note (both directions — titles it
+    With `path`: suggestions for that note (both directions · titles it
     mentions, and notes that mention it). Without: the vault's top unlinked
     mentions overall. Each row carries the mention's sentence so the decision
     can be made without opening the note."""

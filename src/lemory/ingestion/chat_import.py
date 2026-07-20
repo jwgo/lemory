@@ -1,14 +1,14 @@
 """Import ChatGPT / Claude conversation exports into the vault as Markdown.
 
 Why: 2026's platform memory features made "my chat history is my knowledge"
-normal — and export/import the standard escape hatch (Claude ships Memory
+normal · and export/import the standard escape hatch (Claude ships Memory
 Import; Rewind/Khoj-Cloud shutdowns orphaned users mid-migration). This turns
 the official data exports into plain vault notes: searchable by the same
 hybrid retrieval as everything else, owned by the user, no lock-in.
 
 Supported inputs (auto-detected):
-  * ChatGPT export        conversations.json  — mapping-tree format
-  * Claude export         conversations.json  — chat_messages list format
+  * ChatGPT export        conversations.json  · mapping-tree format
+  * Claude export         conversations.json  · chat_messages list format
 
 One note per conversation, under <folder>/, tagged #chat-import, dated with
 the conversation's own timestamp so temporal queries ("3월에 GPT랑 얘기한
@@ -39,7 +39,7 @@ def _detect(data) -> str:
                 return "chatgpt"
             if "chat_messages" in first:
                 return "claude"
-    raise ValueError("unrecognized export format — expected a ChatGPT or "
+    raise ValueError("unrecognized export format · expected a ChatGPT or "
                      "Claude conversations.json")
 
 
@@ -86,7 +86,7 @@ def _conv_date(conv: dict, fmt: str) -> str:
 def log_assistant_session(engine, messages: list[dict], answer: str,
                           session: str = "") -> "str | None":
     """The write half of the memory loop: upsert THIS conversation as a dated
-    session note, in the same Markdown layout import_conversations produces —
+    session note, in the same Markdown layout import_conversations produces ·
     so what the user tells the assistant today is a searchable memory
     tomorrow, visible and editable in the vault like any note (that
     transparency is the undo story). Called after each completed assistant
@@ -136,7 +136,7 @@ def import_conversations(engine, file: Path, folder: str = "chats",
                          limit: int | None = None) -> list[str]:
     """Write one Markdown note per conversation. Returns vault-relative paths.
     Existing notes with the same name are left untouched (safe to re-run on a
-    newer export — only new conversations are added)."""
+    newer export · only new conversations are added)."""
     data = json.loads(Path(file).read_text(encoding="utf-8"))
     fmt = _detect(data)
     vault = engine.cfg.resolved_vault()

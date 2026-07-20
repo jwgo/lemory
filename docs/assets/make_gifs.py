@@ -2,7 +2,7 @@
 """Render the README demo GIFs (synthetic terminal frames, PIL).
 
 Every output block below is a REAL capture from running the actual CLI on the
-demo vault in this file's header comment — nothing is mocked, the animation is
+demo vault in this file's header comment · nothing is mocked, the animation is
 just a re-typing of what the terminal actually printed. To re-capture:
 
     lemory index --vault <demovault>
@@ -11,7 +11,7 @@ just a re-typing of what the terminal actually printed. To re-capture:
     lemory remember "..." --title "웹훅 서명 결정" --vault <demovault>   # memory_approval=true
     lemory pending / approve / drift / search "tag:회의록 예산" ...
 
-Font: NanumGothicCoding (OFL) — download once:
+Font: NanumGothicCoding (OFL) · download once:
     curl -sSLo NanumGothicCoding.ttf "https://fonts.gstatic.com/s/nanumgothiccoding/v27/8QIVdjzHisX_8vv59_xMxtPFW4IXROwsy6Q.ttf"
 
     python docs/assets/make_gifs.py [outdir]
@@ -216,7 +216,7 @@ PENDING_OUT = """\
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
 │ memories/재시도 정책 결정.md │ 재시도 정책 결정 │
 └──────────────────────────────┴──────────────────┘
-1건 대기 — lemory approve <path> 로 승인"""
+1건 대기 · lemory approve <path> 로 승인"""
 
 APPROVED_SEARCH = """\
 ┏━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -279,7 +279,7 @@ indexed in 602s · 9747 chunks · 0 LLM calls
 
 def main(outdir: Path):
     # 1) fast mode — as-you-type instant lexical search
-    t = Term("lemory — 즉답 검색 (fast: 임베딩 0회)", 27)
+    t = Term("lemory · 즉답 검색 (fast: 임베딩 0회)", 27)
     t.type_cmd('lemory search "결제 환불" --fast')
     t.out(FAST_OUT, per_frame=3)
     t.out("3.8 ms · 쿼리 임베딩 없음 · KorQuAD recall@1 0.975 (113문단 하네스)",
@@ -288,7 +288,7 @@ def main(outdir: Path):
     t.save(outdir / "demo5_fast.gif")
 
     # 2) conflicts — the vault disagreeing with itself
-    t = Term("lemory — 모순 탐지 (기억 vs 기억, LLM 0회)", 27)
+    t = Term("lemory · 모순 탐지 (기억 vs 기억, LLM 0회)", 27)
     t.type_cmd("lemory conflicts --threshold 0.7")
     t.out(CONFLICTS_OUT, per_frame=3,
           color_map={"숫자": YELLOW, "부정 충돌": RED})
@@ -296,7 +296,7 @@ def main(outdir: Path):
     t.save(outdir / "demo6_conflicts.gif")
 
     # 3) approval workflow
-    t = Term("lemory — AI 쓰기 승인 게이트 (memory_approval)", 24)
+    t = Term("lemory · AI 쓰기 승인 게이트 (memory_approval)", 24)
     t.type_cmd('lemory remember "환불 재시도는 지수 백오프 3회로 결정" --title "재시도 정책 결정"')
     t.out("saved memories/재시도 정책 결정.md\n  관련 기억: [[결제 모듈]] sim=0.625",
           color_map={"saved": GREEN, "관련 기억": DIM})
@@ -305,7 +305,7 @@ def main(outdir: Path):
     t.out(PENDING_OUT, per_frame=3, color_map={"1건 대기": YELLOW})
     t.blank()
     t.type_cmd('lemory approve "memories/재시도 정책 결정.md"')
-    t.out("approved memories/재시도 정책 결정.md — 검색 가능해졌습니다",
+    t.out("approved memories/재시도 정책 결정.md · 검색 가능해졌습니다",
           color_map={"approved": GREEN})
     t.blank()
     t.type_cmd('lemory search "재시도 정책 뭐로 했지?" --fast')
@@ -314,23 +314,23 @@ def main(outdir: Path):
     t.save(outdir / "demo7_approval.gif")
 
     # 4) drift
-    t = Term("lemory — 드리프트 감지 (기억 vs 현실)", 12)
+    t = Term("lemory · 드리프트 감지 (기억 vs 현실)", 12)
     t.type_cmd("lemory drift")
     t.out(DRIFT_OUT, per_frame=2, color_map={"깨진 위키링크": RED, "고치려면": DIM})
     t.hold()
     t.save(outdir / "demo8_drift.gif")
 
     # 5) scoping operators
-    t = Term("lemory — 스코프 연산자 (tag: / folder: / path:)", 17)
+    t = Term("lemory · 스코프 연산자 (tag: / folder: / path:)", 17)
     t.type_cmd('lemory search "tag:회의록 예산" --fast')
     t.out(OPERATORS_OUT, per_frame=3)
-    t.out("회의록 태그 안에서만 검색 — 50만원(킥오프) → 80만원(최근) 모두 찾음",
+    t.out("회의록 태그 안에서만 검색 · 50만원(킥오프) → 80만원(최근) 모두 찾음",
           color_map={"회의록": DIM})
     t.hold()
     t.save(outdir / "demo9_operators.gif")
 
     # 6) temporal
-    t = Term("lemory — 시간 인지 검색", 12)
+    t = Term("lemory · 시간 인지 검색", 12)
     t.type_cmd('lemory search "요새 작업하던 결제 관련 결정" --fast')
     t.out(TEMPORAL_OUT, per_frame=3)
     t.out('"요새"를 이해하고 최신 결정(7/15)을 1위로', color_map={"요새": DIM})
@@ -338,7 +338,7 @@ def main(outdir: Path):
     t.save(outdir / "demo10_temporal.gif")
 
     # 7) full-scale KorQuAD
-    t = Term("KorQuAD 전량 — 9,663문단 × 60,407질문, 키리스 로컬", 12)
+    t = Term("KorQuAD 전량 · 9,663문단 × 60,407질문, 키리스 로컬", 12)
     t.type_cmd("python benchmarks/run_korquad_full.py")
     t.out(SCALE_OUT, per_frame=1, ms=350,
           color_map={"recall@1=0.8584": GREEN, "recall@1=0.8309": CYAN})
@@ -346,7 +346,7 @@ def main(outdir: Path):
     t.save(outdir / "demo11_scale.gif")
 
     # 8) typo repair
-    t = Term("lemory — 오타 교정 (로컬 did-you-mean)", 12)
+    t = Term("lemory · 오타 교정 (로컬 did-you-mean)", 12)
     t.type_cmd('lemory search "FoundatoinDB 팬은 누구" --fast')
     t.out(TYPO_OUT, per_frame=3)
     t.out("FoundatoinDB → FoundationDB 자동 교정, API 0회", color_map={"자동 교정": DIM})

@@ -140,17 +140,17 @@ def _chat_burst_chunks(
     """Focused burst chunks for a chat-layout section (Cerebras-style).
 
     Uniform packing dilutes a fact line's embedding with the filler around
-    it — measured messy-chat doc@1 dropped 16pt vs clean notes. Consecutive
+    it · measured messy-chat doc@1 dropped 16pt vs clean notes. Consecutive
     same-speaker messages form a burst; a burst that carries signal (the
     quality gate: enough content or a number) becomes its own chunk,
     prefixed with the previous turn when that turn was weak (a question or
-    reaction — the antecedent a reply needs; duplicating a STRONG previous
+    reaction · the antecedent a reply needs; duplicating a STRONG previous
     burst instead double-counts it in rank fusion, which measurably let old
     values outrank newer ones on update questions).
 
     These are ADDITIONAL granularity: callers index them alongside the
     normal packed chunks, which keep doc-level keyword aggregation (two
-    weak mentions in one note still add up) — dropping the packed layer
+    weak mentions in one note still add up) · dropping the packed layer
     measurably broke exactly that."""
     bursts: list[str] = []
     speaker = None
@@ -205,7 +205,7 @@ def chunk_note(
     chunk. Title context is added later by embed_text_for_chunk, not here.
     Chat-layout sections (speaker-prefixed paragraphs, e.g. chat imports)
     additionally get focused speaker-burst chunks on top of the packed ones
-    — multi-granularity, see _chat_burst_chunks.
+    · multi-granularity, see _chat_burst_chunks.
     """
     chunks: list[tuple[str, str]] = []
     for sec in split_sections(body):

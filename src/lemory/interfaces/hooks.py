@@ -5,7 +5,7 @@ local-first edition).
 ~/.claude/settings.json. When a Claude Code session ends, Claude invokes
 `lemory hook claude-code` with the hook event JSON on stdin; we read the
 session transcript, ask the LLM for the handful of facts/decisions worth
-keeping, and save them as ONE dated Markdown note in the vault — where it
+keeping, and save them as ONE dated Markdown note in the vault · where it
 shows up in the dashboard's AI 메모리 피드 (client: claude-code-hook) with
 one-click undo, like every other write. No discipline required, nothing
 invisible, nothing outside your vault.
@@ -91,7 +91,7 @@ def capture_session(engine, event: dict, client: str = "claude-code-hook") -> st
     cwd = event.get("cwd") or ""
     project = Path(cwd).name if cwd else ""
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    title = f"세션 {stamp}" + (f" — {project}" if project else "")
+    title = f"세션 {stamp}" + (f" · {project}" if project else "")
     return save_memory(
         engine, summary, title=title, folder="memories/sessions",
         tags=["session", "claude-code"], source="claude-code session",
@@ -101,7 +101,7 @@ def capture_session(engine, event: dict, client: str = "claude-code-hook") -> st
 
 def run_hook(engine) -> int:
     """Entry point for `lemory hook claude-code`: event JSON on stdin.
-    Always exits 0 — a memory hook must never break the host session."""
+    Always exits 0 · a memory hook must never break the host session."""
     try:
         event = json.load(sys.stdin)
     except Exception:
@@ -129,7 +129,7 @@ def install_claude_code(vault: Path, settings_path: Path | None = None) -> str:
         try:
             data = json.loads(sp.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
-            raise ValueError(f"{sp} is not valid JSON — fix it first, not touching it")
+            raise ValueError(f"{sp} is not valid JSON · fix it first, not touching it")
         sp.with_suffix(".json.bak").write_text(
             sp.read_text(encoding="utf-8"), encoding="utf-8")
     hooks = data.setdefault("hooks", {})

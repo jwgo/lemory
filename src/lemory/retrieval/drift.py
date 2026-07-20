@@ -1,4 +1,4 @@
-"""`lemory drift` — does the vault's memory still match reality?
+"""`lemory drift` · does the vault's memory still match reality?
 
 mex (mex-memory/mex) made drift detection the headline for coding-agent
 scaffolds: verify remembered paths/commands without spending tokens. The

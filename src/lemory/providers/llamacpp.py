@@ -7,7 +7,7 @@ qmd uses (node-llama-cpp) ported to Python (llama-cpp-python).
                                         # is installed (pip install lemory[llama])
 
 Runs **Harrier-OSS-0.6B** (Qwen3-based multilingual, Q8 GGUF) fully in this
-process on Apple GPU Metal or CPU — no daemon, no server. Measured on
+process on Apple GPU Metal or CPU · no daemon, no server. Measured on
 KorMapleQA: hybrid doc@8 0.853, the top local tier above the lighter fastembed
 e5-small-ko-v2 default. The GGUF (~640MB) auto-downloads from HuggingFace once.
 
@@ -40,7 +40,8 @@ class LlamaCppLocalClient:
                  n_ctx: int = 1024, generator=None,
                  answer_repo: str | None = None, answer_file: str | None = None,
                  answer_n_ctx: int | None = None, answer_gpu_layers: int | None = None):
-        self.llm_model = generator.llm_model if generator else "none (local search-only)"
+        from .local import _keyless_llm_label
+        self.llm_model = generator.llm_model if generator else _keyless_llm_label(answer_file)
         # a stable, human-readable id the index stores to detect model switches
         self.embed_model = f"llamacpp:{gguf_repo}/{gguf_file}"
         self.embed_dim = embed_dim

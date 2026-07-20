@@ -1,4 +1,4 @@
-"""Lemory — a high-performance personal knowledge base for your Obsidian vault.
+"""Lemory · a high-performance personal knowledge base for your Obsidian vault.
 
 Quickstart (cognee-style):
 

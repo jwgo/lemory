@@ -1,9 +1,9 @@
-"""`lemory graph` — the vault's knowledge graph as ONE self-contained HTML file.
+"""`lemory graph` · the vault's knowledge graph as ONE self-contained HTML file.
 
 The 2026 wave of graph tools (Graphify, Understand-Anything, OpenKB) builds
 its graph with an LLM pipeline per file and ships an interactive graph.html
-as the flagship artifact. Lemory's graph already exists — the user wrote it
-as wikilinks, the indexer added unlinked mentions — so the same artifact
+as the flagship artifact. Lemory's graph already exists · the user wrote it
+as wikilinks, the indexer added unlinked mentions · so the same artifact
 costs zero LLM calls and milliseconds: read the links table, embed the data
 into a canvas-rendered force layout, done. Works offline, no CDN, no deps.
 """
@@ -59,7 +59,7 @@ def graph_data(engine: "Engine", max_nodes: int = MAX_NODES) -> dict:
 
 _TEMPLATE = """<!doctype html>
 <html><head><meta charset="utf-8">
-<title>__TITLE__ — Lemory graph</title>
+<title>__TITLE__ · Lemory graph</title>
 <style>
 :root{color-scheme:light dark}
 body{margin:0;font:13px/1.4 -apple-system,'Segoe UI',sans-serif;display:flex;
