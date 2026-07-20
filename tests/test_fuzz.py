@@ -76,11 +76,11 @@ def test_fts_random_queries_never_raise(tmp_path, seed):
 
 
 @pytest.mark.parametrize("seed", range(10))
-def test_engine_random_vault(tmp_path, seed):
+def test_engine_random_vault(tmp_path, seed, fakes):
     """Random small vaults index and search without errors."""
     from lemory.config import LemoryConfig
     from lemory.engine import Engine
-    from tests.conftest import DIM, FakeGemini
+    DIM, FakeGemini = fakes
 
     rng = random.Random(seed)
     vault = tmp_path / "v"

@@ -74,11 +74,11 @@ def test_extract_links():
     assert "메이플스토리" in links and "레헬른" in links
 
 
-def test_lemory_indexes_converted_note(tmp_path):
+def test_lemory_indexes_converted_note(tmp_path, fakes):
     """변환 결과가 Lemory 인제스트 파이프라인을 그대로 통과해야 한다."""
     from lemory.config import LemoryConfig
     from lemory.engine import Engine
-    from tests.conftest import DIM, FakeGemini
+    DIM, FakeGemini = fakes
 
     vault = tmp_path / "v"
     vault.mkdir()

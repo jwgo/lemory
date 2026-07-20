@@ -164,3 +164,11 @@ def client(engine):
 
     with TestClient(build_app(engine, watch=False), base_url="http://127.0.0.1") as c:
         yield c
+
+
+@pytest.fixture
+def fakes():
+    """(DIM, FakeGemini) for tests that build their own Engine. A fixture,
+    not `from tests.conftest import ...`: bare `pytest` (CI) has no repo
+    root on sys.path, so the module import only worked with `python -m`."""
+    return DIM, FakeGemini
