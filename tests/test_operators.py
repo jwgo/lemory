@@ -4,22 +4,31 @@ from lemory.retrieval.search import parse_operators
 
 
 def test_parse_operators_basic():
-    clean, tags, folders = parse_operators("tag:프로젝트 folder:회의록 예산 결정")
+    clean, tags, folders, fields = parse_operators("tag:프로젝트 folder:회의록 예산 결정")
     assert clean == "예산 결정"
-    assert tags == ["프로젝트"] and folders == ["회의록"]
+    assert tags == ["프로젝트"] and folders == ["회의록"] and fields == {}
 
 
 def test_parse_operators_quoted_and_path_synonym():
-    clean, tags, folders = parse_operators('tag:"프로젝트 A" path:daily 뭐했지')
+    clean, tags, folders, _ = parse_operators('tag:"프로젝트 A" path:daily 뭐했지')
     assert clean == "뭐했지"
     assert tags == ["프로젝트 A"] and folders == ["daily"]
 
 
 def test_parse_operators_hash_stripped_and_plain_query():
-    clean, tags, _ = parse_operators("tag:#log 이번주")
+    clean, tags, _, _ = parse_operators("tag:#log 이번주")
     assert tags == ["log"] and clean == "이번주"
-    clean, tags, folders = parse_operators("그냥 일반 질문")
-    assert clean == "그냥 일반 질문" and not tags and not folders
+    clean, tags, folders, fields = parse_operators("그냥 일반 질문")
+    assert clean == "그냥 일반 질문" and not tags and not folders and not fields
+
+
+def test_parse_operators_frontmatter_fields():
+    clean, _, _, fields = parse_operators('type:error case:"mcp 붙이기" 포트 충돌')
+    assert clean == "포트 충돌"
+    assert fields == {"type": ["error"], "case": ["mcp 붙이기"]}
+    # values within one key OR together
+    _, _, _, fields = parse_operators("type:error type:decision")
+    assert fields == {"type": ["error", "decision"]}
 
 
 def test_docs_matching_tag_and_folder(engine):

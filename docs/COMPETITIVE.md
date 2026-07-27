@@ -10,7 +10,8 @@
 | 시간 인지 | 경쟁 제품 중 "요새/어제/지난주/3월에" + 최신값 우선을 검색층에서 하는 것은 없음. 시나리오 hit@1 1.000 |
 | 한국어 | 유니그램+바이그램 인덱싱, 조사 내성, 크로스링구얼 0.975. 한국 옵시디언 커뮤니티라는 미점유 세그먼트 |
 | 운영 단순성 | SQLite 1파일 + numpy. cognee(4개 저장소)·mem0(벡터DB)·supermemory(호스팅) 대비 설치 마찰 최소 |
-| 표면 | CLI/웹/HTTP/MCP(6툴)/옵시디언 플러그인. qmd(CLI/MCP), mem0(SDK/API) 대비 최다 |
+| 표면 | CLI/웹/HTTP/MCP(17툴)/옵시디언 플러그인. qmd(CLI/MCP), mem0(SDK/API) 대비 최다 |
+| 에이전트 기억 | remember/recall/reflect + `resume_case`. AnchorMind와 같은 파편 7종 taxonomy를 쓰되 호스팅 DB가 아니라 볼트 마크다운에, 쿼터 없이 (아래 AnchorMind 절) |
 
 ## 정직한 약점
 
@@ -263,3 +264,77 @@ spawn(우리는 미들웨어라 에이전트를 소유하지 않는다. MCP로 �
 > git 체크포인트로 가져왔다. 이제 Lemory 볼트도 깔면 어떤 에이전트든
 > 바로 기억으로 쓴다. 편집은 계속 옵시디언(또는 Tolaria!)에서 하면 된다.
 > 우리는 그 옆의 미들웨어다.
+
+---
+
+# AnchorMind (anchormind.net, 2026-07): 정면으로 겹치는 첫 경쟁자
+
+지금까지의 챌린저들은 "옵시디언 대안" 아니면 "인지 아키텍처"였다. AnchorMind는
+다르다. **에이전트용 장기기억 MCP 서버**. Claude Code·Cursor에 붙여 세션 간
+기억을 유지시키는, Lemory의 MCP 표면과 목적이 같은 제품이다.
+
+## 그쪽 설계 (공개 랜딩 기준)
+
+| 축 | AnchorMind |
+|---|---|
+| 저장 | 호스팅 Postgres + pgvector (`memento.anchormind.net/mcp`) |
+| 인증 | GitHub OAuth. 수집 항목은 GitHub ID·표시명·아바타 URL |
+| 기억 단위 | 파편(fragment) 7종: fact·decision·error·preference·procedure·relation·episode |
+| 루프 | `remember` → `recall` → `reflect` |
+| 스레드 | caseId·phase·resolutionStatus로 다단계 작업 묶기 |
+| 코어 기억 | 앵커 고정. 세션 시작 시 항상 주입 |
+| 한도 | 계정당 파편 5,000개 (GitHub Sponsors 후원 시 10,000개) |
+| 검색 | pgvector 시맨틱 recall |
+
+## 먼저 인정할 것
+
+- **온보딩 마찰이 우리보다 낮다.** GitHub 로그인 → `.mcp.json`에 URL 한 줄.
+  설치도, 임베더 선택도, 인덱싱도 없다. 유통에서 이건 진짜 강점이다.
+- **파편 타입 분류가 좋다.** 7종 taxonomy는 에이전트가 실제로 쓰기 좋은 단위다.
+  발명할 이유가 없어서 **그대로 채택했다** (아래).
+- **기억 파편 반출**(JSON·Markdown)과 수집 항목 최소화를 명시한 점은 정직하다.
+
+## 우리가 이기는 지점
+
+| 축 | AnchorMind | Lemory |
+|---|---|---|
+| 기억의 실체 | 호스팅 DB의 row | **사용자 볼트의 .md 파일**. 옵시디언에서 즉시 보이고, 손으로 고치고, git diff 나고, API 없이 지운다 |
+| 데이터 위치 | 그쪽 서버 | 내 디스크. 키리스 모드면 네트워크 자체가 0 |
+| 한도 | 5,000개 (후원 10,000개) | 없음. 상한은 디스크 |
+| 회상 | pgvector 코사인 단독 | BM25 + 벡터 + RRF + 링크그래프 확장 + 최신성. 타입은 **후보를 좁힐 뿐 랭킹을 대신하지 않는다** |
+| 한국어 | 언급 없음 | 유니그램+바이그램 인덱싱, 조사 내성, 크로스링구얼 0.975 |
+| 케이스 | 필터 키 | `resume_case`가 **스레드를 복원한다**. 타임라인·결정·미해결 오류·직전 세션이 남긴 다음 단계 |
+| 표면 | MCP 단독 | MCP + CLI + HTTP + 웹 콘솔(기억 뷰) + 옵시디언 플러그인 |
+| 기존 지식과의 관계 | 파편은 파편끼리만 | 파편이 **볼트의 나머지와 같은 인덱스·같은 그래프**에 산다. `reflect`가 만든 에피소드는 실제 노트와 [[위키링크]]로 이어진 그래프 노드다 |
+
+## 이식한 것
+
+taxonomy는 발명보다 **상호운용**이 이긴다. 다른 데서 `type="decision"`을 배운
+에이전트가 여기서도 같은 습관을 쓰고, 양쪽 파편 export가 1:1로 대응한다.
+
+| AnchorMind | Lemory 구현 |
+|---|---|
+| 파편 7종 | `remember(type=...)`. frontmatter `type:`. 미등록 타입도 거부하지 않고 그대로 저장 |
+| caseId/phase/resolutionStatus | frontmatter `case:`/`phase:`/`status:` + `type:`/`case:` 검색 연산자 (CLI·웹 검색창에서도 동작) |
+| 앵커 고정 | `anchor_note` / `lemory anchor`. `vault_context` 최상단에 주입 |
+| remember/recall/reflect | 동명 MCP 툴 + `resume_case`·`list_cases` (그쪽에 없는 두 개) |
+| 검색 텔레메트리 | 기존 `note_hits`·`event_log`로 이미 있던 것 |
+
+**안 가져온 것**: 계정·쿼터·호스팅. 로컬 우선 포지셔닝과 정면으로 충돌한다.
+
+## 정직한 약점
+
+- 설치 마찰은 여전히 우리가 크다. `pip install` + 볼트 지정 + 인덱싱 vs URL 한 줄.
+  PyPI 미배포가 이 격차를 더 벌린다(로드맵 1순위).
+- AnchorMind는 벤치마크 수치를 공개하지 않았다. **회상 정확도로 이겼다고 주장할
+  근거가 없다**. 위 표의 "회상" 행은 아키텍처 차이지 실측 비교가 아니다.
+  같은 하네스에 올리려면 그쪽 API 키가 필요하다.
+- 여러 기기에서 같은 기억을 쓰려면 그쪽은 공짜, 우리는 볼트 동기화(iCloud/git)가
+  전제다.
+
+## 한 줄
+
+> AnchorMind는 **당신의 기억을 자기 서버에 보관해주는** 에이전트 메모리다.
+> Lemory는 같은 루프(remember/recall/reflect)를 **당신 볼트의 마크다운 위에서**
+> 돌린다. 한도 없이, 계정 없이, 그리고 회상이 코사인 하나가 아니라 하이브리드
+> 검색 전체를 거친다. 온보딩은 그쪽이 쉽고, 기억의 소유권과 검색 품질은 우리가 낫다.

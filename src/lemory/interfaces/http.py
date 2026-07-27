@@ -101,6 +101,23 @@ class MemoryBody(BaseModel):
     tags: list[str] = []
 
 
+class FragmentBody(BaseModel):
+    content: str
+    type: str = "fact"
+    topic: str = ""
+    case: str = ""
+    phase: str = ""
+    status: str = ""
+    anchor: bool = False
+    title: str = ""
+    tags: list[str] = []
+
+
+class AnchorBody(BaseModel):
+    path: str
+    pinned: bool = True
+
+
 class AppendBody(BaseModel):
     path: str
     content: str
@@ -531,6 +548,75 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"saved": str(path), "related": getattr(path, "related", [])}
+
+    # ---- agent working memory -------------------------------------------
+
+    @app.post("/memory/fragment")
+    def memory_fragment(request: Request, body: FragmentBody):
+        """Write a typed fragment (fact/decision/error/preference/procedure/
+        relation/episode), optionally tied to a work thread."""
+        from ..ingestion.fragments import remember
+
+        try:
+            path = remember(engine, body.content, type=body.type, topic=body.topic,
+                            case=body.case, phase=body.phase, status=body.status,
+                            anchor=body.anchor, title=body.title, tags=body.tags,
+                            client=_client(request))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"saved": str(path), "type": body.type,
+                "related": getattr(path, "related", [])}
+
+    @app.get("/api/recall")
+    def api_recall(q: str = "", type: str = "", case: str = "", topic: str = "",
+                   status: str = "", since_days: int = 0, k: int = 8):
+        """Scoped fragment recall, ranked by the hybrid retriever."""
+        from ..retrieval.recall import recall
+
+        engine.index()
+        return {"results": recall(engine, query=q, type=type, case=case,
+                                  topic=topic, status=status,
+                                  since_days=since_days, k=k)}
+
+    @app.get("/api/cases")
+    def api_cases(limit: int = 20):
+        """Work threads, most recently touched first, with unresolved counts."""
+        from ..retrieval.recall import open_cases
+
+        engine.index()
+        return {"cases": open_cases(engine, limit=limit)}
+
+    @app.get("/api/case")
+    def api_case(case: str):
+        """One work thread, reconstructed: next steps, unresolved items,
+        decisions, timeline."""
+        from ..retrieval.recall import resume_case
+
+        engine.index()
+        try:
+            return resume_case(engine, case)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
+    @app.post("/memory/anchor")
+    def memory_anchor(request: Request, body: AnchorBody):
+        """Pin/unpin a note as core memory (injected into /context)."""
+        from ..ingestion.fragments import set_anchor
+
+        try:
+            rel = set_anchor(engine, body.path, on=body.pinned,
+                             client=_client(request))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"path": rel, "anchor": body.pinned}
+
+    @app.get("/api/anchors")
+    def api_anchors(limit: int = 12):
+        """The pinned core memory set."""
+        from ..ingestion.fragments import anchored
+
+        engine.index()
+        return {"anchors": anchored(engine, limit=limit)}
 
     @app.post("/append")
     def append(request: Request, body: AppendBody):

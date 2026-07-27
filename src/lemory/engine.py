@@ -166,12 +166,13 @@ class Engine:
     def search(
         self, query: str, k: int = 8, graph: bool | None = None, mode: str = "hybrid",
         expand: bool | None = None, rerank: bool | None = None, record: bool = False,
-        client: str = "",
+        client: str = "", fields: dict[str, list[str]] | None = None,
     ) -> list[ChunkHit]:
         from .retrieval import hybrid_search
 
         hits = hybrid_search(
-            self, query, k=k, graph=graph, mode=mode, expand=expand, rerank=rerank
+            self, query, k=k, graph=graph, mode=mode, expand=expand, rerank=rerank,
+            fields=fields,
         ).hits
         # hit stats are opt-in per call site: the server and CLI record real
         # usage; library calls, tests and benchmarks stay invisible

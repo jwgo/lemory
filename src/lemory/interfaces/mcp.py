@@ -164,6 +164,124 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
                                "both are now linked via frontmatter")
         return json.dumps(out, ensure_ascii=False)
 
+    # ---- agent working memory -------------------------------------------
+    # remember → recall → reflect → resume_case: the loop that makes the next
+    # session start where this one stopped. Fragments are ordinary vault
+    # notes, so everything above (search_notes, read_note, the graph) sees
+    # them too — the typed layer narrows, it never forks the store.
+
+    @mcp.tool(annotations=WRITE)
+    def remember(content: str, type: str = "fact", topic: str = "",
+                 case: str = "", phase: str = "", status: str = "",
+                 anchor: bool = False, title: str = "", tags: str = "") -> str:
+        """Persist a TYPED memory fragment for future sessions.
+
+        `type` is one of: fact (a stable truth), decision (a choice + reason),
+        error (a failure; defaults to status=open until you mark it resolved),
+        preference (how the user wants things done), procedure (repeatable
+        steps), relation (how two things connect), episode (what happened).
+
+        `case` groups fragments into one work thread — pass the same case id
+        all session, then `resume_case` rebuilds it next time. `anchor=true`
+        pins the fragment into every future session's opening context; use it
+        only for things that are always relevant.
+        """
+        from ..ingestion.fragments import remember as _remember
+
+        tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
+        try:
+            path = _remember(engine, content, type=type, topic=topic, case=case,
+                             phase=phase, status=status, anchor=anchor,
+                             title=title, tags=tag_list, client=client)
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
+        out: dict = {"saved": str(path), "type": (type or "fact").lower()}
+        related = getattr(path, "related", [])
+        if related:
+            out["related_existing"] = related
+            dup = next((r["title"] for r in related if r["near_duplicate"]), None)
+            if dup:
+                out["note"] = (f"possible duplicate of existing memory '{dup}' — "
+                               "both are now linked via frontmatter")
+        return json.dumps(out, ensure_ascii=False)
+
+    @mcp.tool(annotations=RO)
+    def recall(query: str = "", type: str = "", case: str = "", topic: str = "",
+               status: str = "", since_days: int = 0, k: int = 8) -> str:
+        """Recall memory fragments, narrowed by type/case/topic/status/recency
+        and ranked by the full hybrid retriever (keyword + semantic + link
+        graph + recency). Leave `query` empty to list a scope newest-first
+        ("what do I know about case X").
+
+        Prefer this over search_notes when you want remembered facts rather
+        than the user's own notes."""
+        from ..retrieval.recall import recall as _recall
+
+        engine.index()
+        rows = _recall(engine, query=query, type=type, case=case, topic=topic,
+                       status=status, since_days=since_days, k=k)
+        return json.dumps(rows, ensure_ascii=False)
+
+    @mcp.tool(annotations=WRITE)
+    def reflect(summary: str, decisions: str = "", errors_resolved: str = "",
+                next_steps: str = "", case: str = "", phase: str = "",
+                notes_touched: str = "") -> str:
+        """Close out a session: persist what happened as one episode fragment.
+
+        Call this before the conversation ends. `decisions`, `errors_resolved`,
+        `next_steps` and `notes_touched` are newline-separated lists. The next
+        steps are what `resume_case` hands the next session, so write them as
+        instructions to a stranger."""
+        from ..ingestion.fragments import reflect as _reflect
+
+        def _lines(s: str) -> list[str]:
+            return [ln.strip() for ln in s.splitlines() if ln.strip()]
+
+        try:
+            path = _reflect(engine, summary, decisions=_lines(decisions),
+                            errors_resolved=_lines(errors_resolved),
+                            next_steps=_lines(next_steps), case=case, phase=phase,
+                            notes_touched=_lines(notes_touched), client=client)
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
+        return json.dumps({"saved": str(path)}, ensure_ascii=False)
+
+    @mcp.tool(annotations=RO)
+    def resume_case(case: str) -> str:
+        """Rebuild a work thread: timeline, decisions so far, still-unresolved
+        errors, and the next steps the last session recorded. Call this when
+        picking a case back up — it is the cheapest way to stop re-deriving
+        what already happened. `brief` is a paste-ready summary."""
+        from ..retrieval.recall import resume_case as _resume
+
+        engine.index()
+        try:
+            return json.dumps(_resume(engine, case), ensure_ascii=False)
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
+
+    @mcp.tool(annotations=RO)
+    def list_cases(limit: int = 20) -> str:
+        """Work threads with fragments, most recently touched first, with a
+        count of unresolved errors each — "what was I in the middle of?"."""
+        from ..retrieval.recall import open_cases
+
+        engine.index()
+        return json.dumps(open_cases(engine, limit=limit), ensure_ascii=False)
+
+    @mcp.tool(annotations=WRITE)
+    def anchor_note(path: str, pinned: bool = True) -> str:
+        """Pin (or unpin) a note as core memory — it is injected into every
+        future session's opening context via vault_context. Keep the pinned
+        set small; it costs tokens on every session."""
+        from ..ingestion.fragments import set_anchor
+
+        try:
+            rel = set_anchor(engine, path, on=pinned, client=client)
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
+        return json.dumps({"path": rel, "anchor": bool(pinned)}, ensure_ascii=False)
+
     @mcp.tool(annotations=RO)
     def suggest_links(path: str = "", k: int = 12) -> str:
         """Unlinked-mention [[link]] suggestions: notes whose text mentions

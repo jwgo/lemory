@@ -10,6 +10,7 @@ from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from ..engine import create_engine
@@ -333,22 +334,130 @@ def context(
 @app.command()
 def remember(
     content: str = typer.Argument(..., help="What to remember"),
+    type: str = typer.Option("fact", "--type", "-t",
+                             help="fact|decision|error|preference|procedure|"
+                                  "relation|episode"),
+    topic: str = typer.Option("", help="Subject line for the fragment"),
+    case: str = typer.Option("", "--case", "-c", help="Work thread id"),
+    phase: str = typer.Option("", help="Where in the case this happened"),
+    status: str = typer.Option("", help="open|resolved|blocked (errors default to open)"),
+    anchor: bool = typer.Option(False, "--anchor", help="Pin into every session's context"),
     title: str = typer.Option("", help="Note title (default: first line)"),
     folder: str = typer.Option("memories", help="Vault folder for the note"),
     tags: str = typer.Option("", help="Comma-separated tags"),
     vault: Optional[Path] = typer.Option(None),
 ):
-    """Save a memory as a new Markdown note in the vault (indexed instantly)."""
-    from ..ingestion.memory import save_memory
+    """Save a typed memory fragment as a new Markdown note (indexed instantly)."""
+    from ..ingestion.fragments import remember as _remember
 
     eng = _engine(vault)
     tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
-    path = save_memory(eng, content, title=title, folder=folder, tags=tag_list, client="cli")
-    console.print(f"[green]saved[/green] {path}")
+    path = _remember(eng, content, type=type, topic=topic, case=case, phase=phase,
+                     status=status, anchor=anchor, title=title, folder=folder,
+                     tags=tag_list, client="cli")
+    console.print(f"[green]saved[/green] {path} [dim]({type})[/dim]")
     for r in getattr(path, "related", []):
         flag = (" [yellow]" + _t("(중복일 수 있음)", "(possible duplicate)")
                 + "[/yellow]") if r["near_duplicate"] else ""
         console.print("  [dim]" + _t("관련 기억:", "related:") + f"[/dim] [[{r['title']}]] sim={r['sim']}{flag}")
+
+
+@app.command()
+def recall(
+    query: str = typer.Argument("", help="What to recall (empty = list the scope)"),
+    type: str = typer.Option("", "--type", "-t", help="Only this fragment type"),
+    case: str = typer.Option("", "--case", "-c", help="Only this work thread"),
+    topic: str = typer.Option("", help="Only this topic"),
+    status: str = typer.Option("", help="Only this status"),
+    since: int = typer.Option(0, help="Only fragments touched in the last N days"),
+    k: int = typer.Option(8, help="How many"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """Recall memory fragments, scoped by type/case/topic/status/recency."""
+    from ..retrieval.recall import recall as _recall
+
+    eng = _engine(vault)
+    eng.index()
+    rows = _recall(eng, query=query, type=type, case=case, topic=topic,
+                   status=status, since_days=since, k=k)
+    if not rows:
+        console.print("[yellow]해당하는 기억 없음[/yellow]")
+        return
+    table = Table(show_lines=False)
+    table.add_column("type", style="cyan")
+    table.add_column("note")
+    table.add_column("case", style="dim")
+    table.add_column("status", style="dim")
+    for r in rows:
+        pin = "📌 " if r["anchor"] else ""
+        # note titles are user data — "[WIP] 설계" must not be read as markup
+        table.add_row(r["type"] or "-", f"{pin}{escape(r['note'])}",
+                      escape(r["case"]) or "-", r["status"] or "-")
+    console.print(table)
+
+
+@app.command("case")
+def case_cmd(
+    case: str = typer.Argument(..., help="Work thread id"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """Resume a work thread: next steps, unresolved items, decisions, timeline."""
+    from ..retrieval.recall import resume_case
+
+    eng = _engine(vault)
+    eng.index()
+    try:
+        # markup off: the brief carries literal `[open]` status markers and
+        # [[wikilinks]], which Rich would otherwise swallow as style tags
+        console.print(resume_case(eng, case)["brief"], markup=False)
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command("cases")
+def cases_cmd(
+    limit: int = typer.Option(20, help="How many"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """Work threads, most recently touched first — what was I in the middle of?"""
+    from ..retrieval.recall import open_cases
+
+    eng = _engine(vault)
+    eng.index()
+    rows = open_cases(eng, limit=limit)
+    if not rows:
+        console.print("[yellow]케이스 없음 — lemory remember --case <id> 로 시작[/yellow]")
+        return
+    table = Table()
+    table.add_column("case")
+    table.add_column("기록", justify="right")
+    table.add_column("미해결", justify="right", style="yellow")
+    table.add_column("단계", style="dim")
+    table.add_column("최근", style="dim")
+    for r in rows:
+        table.add_row(escape(r["case"]), str(r["fragments"]),
+                      str(r["open"]) if r["open"] else "-",
+                      escape(r["phase"]) or "-", r["last_touched"])
+    console.print(table)
+
+
+@app.command()
+def anchor(
+    path: str = typer.Argument(..., help="Vault-relative note path"),
+    off: bool = typer.Option(False, "--off", help="Unpin instead"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """Pin a note as core memory — injected into every session's context."""
+    from ..ingestion.fragments import set_anchor
+
+    eng = _engine(vault)
+    try:
+        rel = set_anchor(eng, path, on=not off, client="cli")
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    console.print(f"[green]{'unpinned' if off else 'pinned'}[/green] {rel}")
 
 
 @app.command("pending")

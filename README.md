@@ -131,12 +131,48 @@ lemory skill install claude-code    # 잘 쓰는 법까지 가르치기
 `--client`에 적은 이름이 대시보드 사용량에 그대로 떠요. 누가 내 기억을
 읽고 쓰는지 항상 알 수 있어요.
 
-툴은 11개예요. 읽기: `search_notes` · `ask_notes` · `recent_notes` ·
+툴은 17개예요. 읽기: `search_notes` · `ask_notes` · `recent_notes` ·
 `read_note` · `list_notes` · `related_notes` · `suggest_links`(아직 연결
 안 된 언급을 문장 증거와 함께 링크로 제안) · `vault_status` ·
-`vault_context`(최근 활동·자주 쓰는 노트·태그를 한 번에 요약, LLM 없이
-수 ms). 쓰기: `save_memory`(저장하면서 중복 검사와 관련 노트 연결까지) ·
-`append_note`(덮어쓰기 불가, 볼트 밖으로 못 나감).
+`vault_context`(고정 앵커·열린 케이스·최근 활동·자주 쓰는 노트·태그를 한 번에
+요약, LLM 없이 수 ms). 쓰기: `save_memory`(저장하면서 중복 검사와 관련 노트
+연결까지) · `append_note`(덮어쓰기 불가, 볼트 밖으로 못 나감). 그리고 아래
+에이전트 작업 기억 6개.
+
+### 에이전트 작업 기억: remember → recall → reflect → resume
+
+에이전트가 매번 처음부터 다시 시작하지 않게 하는 6개예요. 기억 파편은 **타입이
+있고**(`fact`·`decision`·`error`·`preference`·`procedure`·`relation`·`episode`),
+세션보다 오래 사는 작업 스레드인 `case`에 묶여요.
+
+| 툴 | 하는 일 |
+|---|---|
+| `remember` | 타입 있는 파편 하나 저장 (`error`는 해결 표시 전까지 `open`으로 태어나요) |
+| `recall` | 종류·케이스·주제·상태·최근성으로 좁혀서 회상 · 좁히는 건 후보 선정이고 순위는 여전히 하이브리드 검색이 매겨요 |
+| `reflect` | 세션 마무리: 요약·결정·해결한 오류·다음 단계를 `episode` 노트 하나로, 건드린 노트와 `[[위키링크]]`로 이어서 |
+| `resume_case` | 스레드 복원: 타임라인, 지금까지의 결정, 아직 안 풀린 오류, 직전 세션이 적어둔 다음 단계 |
+| `list_cases` | "내가 뭐 하다 말았지?" |
+| `anchor_note` | 노트를 코어 기억으로 고정 · 이후 모든 세션의 `vault_context` 맨 위에 주입돼요 |
+
+CLI에서도 같은 루프가 돌아요:
+
+```bash
+lemory remember "포트 8080이 이미 점유되어 서버가 안 뜬다" --type error --case 배포
+lemory recall 포트 --type error      # 좁혀서 회상
+lemory cases                          # 미해결 개수까지 붙은 스레드 목록
+lemory case 배포                      # 스레드 재개
+lemory anchor "memories/언어 선호.md"  # 코어 기억으로 고정
+```
+
+핵심은 파편의 **정체**예요. 남의 Postgres 안 row가 아니라 내 볼트의 마크다운
+노트예요. 쓰는 즉시 옵시디언에 뜨고, 손으로 고치고, 깃 diff가 나고, 나머지
+노트와 **같은 인덱스·같은 링크 그래프**에 살아요 · `reflect`가 만든 에피소드는
+인용한 노트와 이어진 진짜 그래프 노드예요. 계정도 파편 한도도 없어요. 상한은
+디스크예요. 타입 층은 좁힐 뿐 저장소를 쪼개지 않아서 `search_notes`는 여전히
+전부 봐요.
+
+파편 메타데이터는 평범한 frontmatter라서 스코핑이 어디서나 통해요 · CLI든,
+웹 검색창이든, `search_notes`든 `type:error case:배포`.
 
 ### 세션 기억은 자동으로 남겨요 (명령 하나)
 

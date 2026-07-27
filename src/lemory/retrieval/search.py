@@ -54,31 +54,49 @@ class SearchResult:
 
 # khoj-style scoping operators: `tag:프로젝트 folder:회의록 예산 결정` restricts
 # retrieval before ranking. Values with spaces are quoted: tag:"프로젝트 A".
-_OPERATOR_RE = re.compile(r'(?:^|\s)(tag|folder|path)\s*:\s*(?:"([^"]+)"|(\S+))',
-                          re.IGNORECASE)
+#
+# `type:`/`case:`/`status:`/`topic:` scope on frontmatter instead of the path ·
+# the agent-memory axis (typed fragments, work threads). They are ordinary
+# operators, so the same scoping works in the CLI, the web search box and MCP
+# recall() without a second retrieval path.
+FIELD_OPS = ("type", "case", "status", "topic")
+_OPERATOR_RE = re.compile(
+    r'(?:^|\s)(tag|folder|path|type|case|status|topic)\s*:\s*(?:"([^"]+)"|(\S+))',
+    re.IGNORECASE,
+)
 # escape hatch from cfg.default_scope for a single query: `scope:all 질문`
 # (or 전체: prefix) searches the whole vault without touching settings
 _SCOPE_ALL_RE = re.compile(r"(?:^|\s)(?:scope\s*:\s*all|전체\s*:)(?=\s|$)",
                            re.IGNORECASE)
 
 
-def parse_operators(query: str) -> tuple[str, list[str], list[str]]:
+def parse_operators(query: str) -> tuple[str, list[str], list[str], dict[str, list[str]]]:
     """Split scoping operators out of a query.
 
-    Returns (clean_query, tags, folders). Multiple tags AND together; multiple
-    folders OR together (two disjoint folders can never AND). `path:` is a
-    synonym for `folder:`."""
+    Returns (clean_query, tags, folders, fields). Multiple tags AND together;
+    multiple folders OR together (two disjoint folders can never AND). `path:`
+    is a synonym for `folder:`. `fields` maps a frontmatter key to its accepted
+    values (values within a key OR, keys AND)."""
     tags: list[str] = []
     folders: list[str] = []
+    fields: dict[str, list[str]] = {}
 
     def _grab(m: re.Match) -> str:
-        val = (m.group(2) or m.group(3)).strip().lstrip("#")
+        op = m.group(1).lower()
+        val = (m.group(2) or m.group(3)).strip()
+        if op == "tag":
+            val = val.lstrip("#")
         if val:
-            (tags if m.group(1).lower() == "tag" else folders).append(val)
+            if op in FIELD_OPS:
+                fields.setdefault(op, []).append(val)
+            elif op == "tag":
+                tags.append(val)
+            else:
+                folders.append(val)
         return " "
 
     clean = _OPERATOR_RE.sub(_grab, query).strip()
-    return clean, tags, folders
+    return clean, tags, folders, fields
 
 
 def rrf_fuse(
@@ -227,6 +245,7 @@ def hybrid_search(
     mode: str = "hybrid",  # 'hybrid' | 'fast' | 'vector' | 'bm25'
     expand: bool | None = None,
     rerank: bool | None = None,
+    fields: dict[str, list[str]] | None = None,
 ) -> SearchResult:
     """mode='fast' is the production lexical path (EchoVault-class latency):
     every zero-cost ranking signal · operators, typo repair, Hangul-bigram
@@ -241,10 +260,15 @@ def hybrid_search(
 
     # scoping operators (`tag:x folder:y ...`) restrict retrieval to a doc
     # subset. Parsed in every mode so `tag:회의록 예산` behaves the same in
-    # vector/bm25 ablations as in hybrid.
+    # vector/bm25 ablations as in hybrid. Caller-supplied `fields` (MCP
+    # recall's explicit arguments) merge with any parsed from the query text ·
+    # a case id with spaces never has to survive a round trip through a query
+    # string.
     allowed_docs: set[int] | None = None
-    clean, op_tags, op_folders = parse_operators(query)
-    if not (op_tags or op_folders) and cfg.default_scope:
+    clean, op_tags, op_folders, op_fields = parse_operators(query)
+    for key, vals in (fields or {}).items():
+        op_fields.setdefault(key, []).extend(vals)
+    if not (op_tags or op_folders or op_fields) and cfg.default_scope:
         # Cerebras-projects-style default scope: cfg.default_scope (same
         # operator syntax) applies when the query itself is unscoped.
         # Explicit operators in the query always win; `scope:all` (or 전체:)
@@ -252,12 +276,12 @@ def hybrid_search(
         if _SCOPE_ALL_RE.search(query):
             query = _SCOPE_ALL_RE.sub(" ", query).strip()
         else:
-            _, op_tags, op_folders = parse_operators(cfg.default_scope)
-    if op_tags or op_folders:
-        allowed_docs = store.docs_matching(op_tags, op_folders)
+            _, op_tags, op_folders, op_fields = parse_operators(cfg.default_scope)
+    if op_tags or op_folders or op_fields:
+        allowed_docs = store.docs_matching(op_tags, op_folders, op_fields)
         if not allowed_docs:
             return SearchResult(hits=[])
-        if clean != query:  # operators came from the query text — strip them
+        if clean != query:  # operators came from the query text · strip them
             query = clean
         if not query:
             # bare filter ("tag:회의록") = scoped listing, newest first

@@ -87,6 +87,14 @@ class SavedMemory(str):
     related: list[dict]
 
 
+# frontmatter keys the writer owns — `meta` may not forge them (a spoofed
+# `lemory_generated` or `lemory_pending` would subvert the trash guard and the
+# approval gate)
+_RESERVED_FM = frozenset(
+    {"date", "source", "lemory", "lemory_generated", "lemory_pending", "tags",
+     "related", "possible_duplicate_of"}
+)
+
 _TOKEN_RE = re.compile(r"[a-z0-9가-힣]+")
 
 
@@ -141,6 +149,20 @@ def find_related_memories(engine, content: str, exclude_rel: str = "",
     return out
 
 
+def _yaml_scalar(v) -> str:
+    """Emit a frontmatter value. Bools stay bare (so `anchor: true` is a real
+    YAML boolean, not the string "true"); lists become flow sequences;
+    everything else is double-quoted, which is safe for the values agents
+    actually pass (case ids with colons, Korean topics, paths)."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(f'"{_yaml_dq(str(x))}"' for x in v) + "]"
+    return f'"{_yaml_dq(str(v))}"'
+
+
 def save_memory(
     engine,
     content: str,
@@ -149,9 +171,13 @@ def save_memory(
     tags: list[str] | None = None,
     source: str = "assistant",
     client: str = "",
+    meta: dict | None = None,
 ) -> SavedMemory:
     """Persist a memory as a new Markdown note. Returns the vault-relative
-    path (a str subclass carrying the consolidation result as `.related`)."""
+    path (a str subclass carrying the consolidation result as `.related`).
+
+    `meta` adds frontmatter keys verbatim (the agent-memory layer's
+    type/case/status/anchor). Keys that Lemory owns are not overridable."""
     if not content.strip():
         raise ValueError("empty memory content")
     vault = engine.cfg.resolved_vault()
@@ -189,9 +215,16 @@ def save_memory(
     pending_line = ""
     if engine.cfg.memory_approval:
         pending_line = "lemory: false\nlemory_pending: true\n"
+    meta_line = ""
+    if meta:
+        meta_line = "".join(
+            f"{k}: {_yaml_scalar(v)}\n"
+            for k, v in meta.items()
+            if v not in (None, "", [], ()) and k not in _RESERVED_FM
+        )
     body = (
         f"---\ndate: {today}\nsource: {source}\nlemory_generated: true\n"
-        f"{pending_line}{tag_line}{related_line}---\n\n"
+        f"{pending_line}{meta_line}{tag_line}{related_line}---\n\n"
         f"{content.strip()}\n"
     )
     # exclusive create in the collision loop: `open(..., "x")` fails if the
@@ -344,8 +377,14 @@ def context_block(engine, max_chars: int = 2400) -> str:
     """Zep-style pre-assembled context: one cheap deterministic call that gives
     an agent situational awareness of the vault without a search round-trip.
 
-    Sections (all local, no LLM): stats → recent activity → frequently
-    referenced notes → most-linked hub notes → top tags."""
+    Sections (all local, no LLM): stats → pinned anchors → open cases →
+    recent activity → frequently referenced notes → most-linked hub notes →
+    top tags.
+
+    Anchors and open cases lead deliberately. The derived sections describe
+    the vault; those two describe the *work* — what the user pinned as always
+    relevant, and what was left unfinished. An agent that reads only the first
+    screen should still get those."""
     store = engine.store
     lines: list[str] = []
     st = engine.status()
@@ -356,6 +395,25 @@ def context_block(engine, max_chars: int = 2400) -> str:
         f"{st['documents']} notes, {st['chunks']} chunks, {st['links']} links "
         f"(index: {st['vector_index']})"
     )
+
+    from .fragments import anchored
+    from ..retrieval.recall import open_cases
+
+    pins = anchored(engine, limit=8)
+    if pins:
+        lines.append("\n## Anchors (pinned core memory)")
+        for p in pins:
+            kind = f" · {p['type']}" if p["type"] else ""
+            lines.append(f"- {p['title']} ({p['path']}){kind}")
+
+    cases = [c for c in open_cases(engine, limit=5)]
+    if cases:
+        lines.append("\n## Open cases")
+        for c in cases:
+            unresolved = f", 미해결 {c['open']}건" if c["open"] else ""
+            phase = f" · {c['phase']}" if c["phase"] else ""
+            lines.append(f"- {c['case']}{phase} — 기록 {c['fragments']}건"
+                         f"{unresolved} (최근 {c['last_touched']})")
 
     docs = {d.id: d for d in store.all_docs()}  # reused by the hot/hub sections
 

@@ -135,14 +135,52 @@ lemory skill install claude-code    # and teach the assistant to use it well
 The `--client` name is how each app shows up in the dashboard's per-client
 usage. You always know who is reading and writing your memory.
 
-Eleven tools (with MCP behavior annotations, so clients know what's
+Seventeen tools (with MCP behavior annotations, so clients know what's
 read-only). Read: `search_notes` · `ask_notes` · `recent_notes` ·
 `read_note` · `list_notes` · `related_notes` · `suggest_links` (unlinked
 mentions as [[link]] proposals with the mention's sentence) · `vault_status`
-· `vault_context` (one-call session context: recent activity, hot notes,
-hubs, tags; Zep-style, ~ms, zero LLM). Write: `save_memory` (with
-consolidation: related existing memories get linked, near-duplicates get
-flagged) · `append_note` (never overwrites, can't escape the vault).
+· `vault_context` (one-call session context: pinned anchors, open cases,
+recent activity, hot notes, hubs, tags; Zep-style, ~ms, zero LLM). Write:
+`save_memory` (with consolidation: related existing memories get linked,
+near-duplicates get flagged) · `append_note` (never overwrites, can't escape
+the vault). Plus the six agent-memory tools below.
+
+### Agent working memory: remember → recall → reflect → resume
+
+The six tools that make an agent stop starting over. A fragment is **typed**
+· `fact`, `decision`, `error`, `preference`, `procedure`, `relation`,
+`episode` · and optionally tied to a `case`, a work thread that outlives the
+session.
+
+| Tool | What it does |
+|---|---|
+| `remember` | write one typed fragment (an `error` is born `open` until you resolve it) |
+| `recall` | retrieve, narrowed by type/case/topic/status/recency · the narrowing picks candidates, the hybrid retriever still ranks them |
+| `reflect` | session close-out: summary, decisions, resolved errors, next steps → one `episode` note, wikilinked to the notes you touched |
+| `resume_case` | rebuild a thread: timeline, decisions so far, still-unresolved errors, and the next steps the last session wrote down |
+| `list_cases` | "what was I in the middle of?" |
+| `anchor_note` | pin a note as core memory, injected into every future session's `vault_context` |
+
+The same loop from the CLI:
+
+```bash
+lemory remember "포트 8080이 이미 점유되어 서버가 안 뜬다" --type error --case 배포
+lemory recall 포트 --type error      # scoped recall
+lemory cases                          # threads with unresolved counts
+lemory case 배포                      # resume the thread
+lemory anchor "memories/언어 선호.md"  # pin as core memory
+```
+
+The point is what a fragment *is*: not a row in someone's Postgres but a
+Markdown note in your vault. It shows up in Obsidian the moment it is written,
+you can edit it by hand, it diffs in git, and it lives in the same index and
+the same link graph as the rest of your notes · so an episode `reflect` wrote
+is a real graph node connected to the notes it cites. There is no account and
+no fragment quota; the ceiling is your disk. The typed layer narrows, it never
+forks the store: `search_notes` still sees everything.
+
+Fragment metadata is ordinary frontmatter, so the scoping works everywhere ·
+`type:error case:배포` in the CLI, the web search box, or `search_notes`.
 
 ### Automatic session memory (one command)
 

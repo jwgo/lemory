@@ -218,6 +218,17 @@ def _fts_escape(query: str) -> str:
     return " OR ".join(f'"{t}"' for t in all_terms)
 
 
+def _fm_values(raw) -> set[str]:
+    """A frontmatter value as a lowercase comparison set. A scalar is one
+    value; a list is any of its items (`case: [a, b]` matches either). None
+    and empty containers yield the empty set, which never matches a filter."""
+    if raw is None:
+        return set()
+    if isinstance(raw, (list, tuple, set)):
+        return {str(v).strip().lower() for v in raw if str(v).strip()}
+    return {str(raw).strip().lower()}
+
+
 def _loads_or(raw, default):
     """json.loads that returns `default` on any malformed value · the index is
     derived data, so a corrupt cell must degrade gracefully, never crash a read."""
@@ -488,13 +499,23 @@ class Store:
         return int(self.conn().execute("SELECT COUNT(*) AS n FROM links").fetchone()["n"])
 
     def docs_matching(self, tags: list[str] | None = None,
-                      folders: list[str] | None = None) -> set[int]:
+                      folders: list[str] | None = None,
+                      fields: dict[str, list[str]] | None = None) -> set[int]:
         """Doc ids satisfying scope filters: ALL tags present (AND), path under
-        ANY of the folders (OR). Case-insensitive; folders match any depth."""
+        ANY of the folders (OR), frontmatter key equal to ANY of its values
+        (OR within a key, AND across keys). Case-insensitive; folders match any
+        depth."""
         want_tags = [t.lower().lstrip("#") for t in (tags or []) if t.strip()]
         want_dirs = [f.lower().strip().strip("/") for f in (folders or []) if f.strip()]
+        want_fields = {
+            k.lower(): {v.lower().strip() for v in vals if str(v).strip()}
+            for k, vals in (fields or {}).items()
+            if any(str(v).strip() for v in vals)
+        }
         out: set[int] = set()
-        for r in self.conn().execute("SELECT id, path, tags FROM documents"):
+        for r in self.conn().execute(
+            "SELECT id, path, tags, frontmatter FROM documents"
+        ):
             if want_tags:
                 have = {t.lower().lstrip("#") for t in _loads_or(r["tags"], [])}
                 if not all(t in have for t in want_tags):
@@ -503,7 +524,35 @@ class Store:
                 hay = "/" + r["path"].lower()
                 if not any(f"/{d}/" in hay for d in want_dirs):
                     continue
+            if want_fields:
+                fm = _loads_or(r["frontmatter"], {})
+                if not isinstance(fm, dict):
+                    continue
+                lowered = {str(k).lower(): v for k, v in fm.items()}
+                if not all(
+                    _fm_values(lowered.get(key)) & accepted
+                    for key, accepted in want_fields.items()
+                ):
+                    continue
             out.add(r["id"])
+        return out
+
+    def docs_meta(self, doc_ids: "list[int] | set[int] | None" = None) -> dict[int, dict]:
+        """Frontmatter for the given docs (all docs when None). Kept off
+        `DocRecord` on purpose: `all_docs()` is a hot path and most callers
+        never look at frontmatter, so the JSON parse stays opt-in."""
+        sql = "SELECT id, frontmatter FROM documents"
+        params: tuple = ()
+        if doc_ids is not None:
+            ids = list(doc_ids)
+            if not ids:
+                return {}
+            sql += f" WHERE id IN ({','.join('?' * len(ids))})"
+            params = tuple(ids)
+        out: dict[int, dict] = {}
+        for r in self.conn().execute(sql, params):
+            fm = _loads_or(r["frontmatter"], {})
+            out[r["id"]] = fm if isinstance(fm, dict) else {}
         return out
 
     def all_links(self) -> list[tuple[int, int, str, float]]:
@@ -930,6 +979,26 @@ class Store:
     # their packed sibling carries the lexical signal). Must equal
     # ingestion.markdown.BURST_HEADING; a test pins the literals together.
     BURST_HEADING = "↔ 발췌"
+
+    def body_text(self, doc_ids: "list[int] | set[int]") -> dict[int, str]:
+        """First real content chunk per doc, skipping enrichment pseudo-chunks.
+
+        The enrichment chunk (flattened frontmatter + backlink sentences) earns
+        its keep in ranking, but it is metadata, not prose — showing it to a
+        human as the note's excerpt reads as "date: … source: assistant …".
+        Display paths ask for this instead."""
+        ids = list(doc_ids)
+        if not ids:
+            return {}
+        rows = self.conn().execute(
+            f"SELECT doc_id, text FROM chunks WHERE doc_id IN ({','.join('?' * len(ids))}) "
+            f"AND heading != ? ORDER BY doc_id, ord",
+            (*ids, self.ENRICH_HEADING),
+        )
+        out: dict[int, str] = {}
+        for r in rows:
+            out.setdefault(r["doc_id"], r["text"])
+        return out
 
     def replace_enrichment_chunk(self, doc_id: int, title: str, text: str,
                                  vec: Optional[np.ndarray]) -> None:

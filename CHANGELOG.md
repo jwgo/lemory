@@ -2,6 +2,52 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · agent working memory: typed fragments, anchors, work threads
+
+**An agent stops starting over, and the memory stays in your vault.**
+
+The head-to-head prompt was AnchorMind (anchormind.net), a hosted long-term
+memory MCP server for coding agents. Its fragment taxonomy is good, so it was
+adopted verbatim rather than reinvented: an agent that learned
+`type="decision"` elsewhere keeps the habit here, and fragment exports map
+1:1. Everything underneath is ours. Full head-to-head in COMPETITIVE.
+
+- **Typed fragments:** `remember(type=...)` writes one of `fact` ·
+  `decision` · `error` · `preference` · `procedure` · `relation` ·
+  `episode` as a Markdown note in the vault: visible in Obsidian
+  immediately, hand-editable, git-diffable, deletable without an API call.
+  An `error` is born `status: open`, so forgetting to mark it defaults to
+  "still broken", which is the useful direction to be wrong in. No account,
+  no fragment quota (AnchorMind caps at 5,000/account).
+- **Scoped recall:** `type:`/`case:`/`status:`/`topic:` join `tag:`/`folder:`
+  as ordinary search operators, backed by frontmatter, so the same scoping
+  works from MCP, the CLI and the web search box. The narrowing selects
+  candidates; the full hybrid retriever (BM25 + vectors + RRF + link graph +
+  recency) still ranks them, rather than a lone pgvector cosine.
+- **Work threads:** `case`/`phase`/`status` group fragments across sessions,
+  and `resume_case` *reconstructs* the thread (timeline, decisions so far,
+  still-unresolved errors, and the next steps the last session recorded)
+  instead of just filtering rows. `list_cases` answers "what was I in the
+  middle of?".
+- **`reflect`:** session close-out writes one `episode` note whose touched
+  notes become [[wikilinks]], making it a real node in the graph the
+  retriever already walks.
+- **Anchors:** `anchor_note` pins a note as core memory, and `vault_context`
+  now leads with pinned anchors and open cases before the derived sections,
+  because those two describe the *work* while the rest describes the vault.
+- Surfaces: 6 new MCP tools (17 total), CLI `recall`/`case`/`cases`/`anchor`
+  and a typed `remember`, HTTP `/memory/fragment` · `/api/recall` ·
+  `/api/cases` · `/api/case` · `/memory/anchor` · `/api/anchors`, and a new
+  **기억** console view (anchors, cases, case brief, typed recall).
+- Fixes found while building it: recall returned the same fragment once per
+  chunk; `open_cases` blanked a case's phase when the newest fragment omitted
+  it; fragment excerpts showed flattened frontmatter ("date: ... source:
+  assistant ...") because short notes rank via the enrichment pseudo-chunk,
+  so display paths now ask for the prose; `lemory case` lost its `[open]`
+  markers to Rich markup parsing.
+- `meta` on the write path cannot forge `lemory_generated`/`lemory_pending`,
+  so the trash guard and the approval gate stay honest.
+
 ## Unreleased · the memory loop closes: auto-remember, distill, messy-chat bench
 
 **A conversation is now a memory without anyone doing anything.**

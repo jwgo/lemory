@@ -50,6 +50,7 @@ const S = {
   tags: null,
   vaultPath: null,
   knowledge: { folder: "", filter: "", sort: "mtime", sel: null, open: new Set([""]) },
+  memory: { q: "", type: "", sel: null },
   search: { q: "", mode: "hybrid", graph: true, k: 8 },
 };
 
@@ -62,6 +63,7 @@ async function loadNotes(force = false) {
 const routes = {
   overview: renderOverview,
   knowledge: renderKnowledge,
+  memory: renderMemory,
   health: renderHealth,
   search: renderSearch,
   assistant: renderAssistant,
@@ -569,6 +571,149 @@ const EXAMPLE_QUERIES = [
   "김치찌개 황금비율, 내 레시피 노트 기준으로",
   "요새 내가 하던 그거 뭐였지?",
 ];
+
+/* ------------------------------------------------------------------ 기억 */
+// The agent-memory view: what the AI pinned, what work is unfinished, and
+// what it remembered. the three questions a hosted memory dashboard answers,
+// answered here off the local vault with no account.
+
+const FRAG_TYPES = [
+  ["", "전체"], ["fact", "사실"], ["decision", "결정"], ["error", "오류"],
+  ["preference", "선호"], ["procedure", "절차"], ["relation", "관계"],
+  ["episode", "세션"],
+];
+const FRAG_LABEL = Object.fromEntries(FRAG_TYPES.map(([k, v]) => [k, v]));
+
+async function renderMemory(selCase) {
+  const M = S.memory;
+  if (selCase) M.sel = selCase;
+  const m = $("#main");
+  m.innerHTML = `<div class="view">
+    <div class="view-head"><div class="view-title">기억</div>
+      <div class="view-sub">에이전트가 기억한 것 · 볼트 안 마크다운. 계정도, 쿼터도 없다</div></div>
+    <div class="mem-grid">
+      <div class="mem-col">
+        <div class="mem-sec-head">📌 앵커 <span class="mem-hint">모든 세션 시작에 주입</span></div>
+        <div id="anchors"><div class="skel" style="height:48px"></div></div>
+        <div class="mem-sec-head">케이스 <span class="mem-hint">진행 중인 작업 스레드</span></div>
+        <div id="caseList"><div class="skel" style="height:64px"></div></div>
+      </div>
+      <div class="mem-col mem-main">
+        <div class="search-box">
+          <input id="memQ" type="text" placeholder="기억 검색 · 비워두면 최신순 목록" value="${esc(M.q)}" autocomplete="off">
+          <button class="btn primary" id="btnRecall">회상</button>
+        </div>
+        <div class="search-ctl"><div class="grp"><span>종류</span><div class="seg" id="segType">
+          ${FRAG_TYPES.map(([v, l]) => `<button data-v="${v}">${l}</button>`).join("")}
+        </div></div></div>
+        <div id="caseBrief"></div>
+        <div class="hits" id="memHits"></div>
+      </div>
+    </div></div>`;
+
+  const syncType = () => $$("#segType button").forEach(
+    b => b.classList.toggle("active", b.dataset.v === M.type));
+  syncType();
+  $$("#segType button").forEach(b => b.onclick = () => {
+    M.type = b.dataset.v; syncType(); doRecall();
+  });
+  $("#memQ").addEventListener("keydown", e => { if (e.key === "Enter") doRecall(); });
+  $("#btnRecall").onclick = doRecall;
+
+  drawAnchors();
+  drawCases();
+  if (M.sel) drawCaseBrief(M.sel); else doRecall();
+
+  async function doRecall() {
+    M.q = $("#memQ").value.trim();
+    $("#memHits").innerHTML = `<div class="skel" style="height:56px"></div>`;
+    const p = new URLSearchParams({ q: M.q, k: "20" });
+    if (M.type) p.set("type", M.type);
+    if (M.sel) p.set("case", M.sel);
+    try {
+      drawFragments((await api(`/api/recall?${p}`)).results);
+    } catch (e) { $("#memHits").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  }
+}
+
+function drawFragments(rows) {
+  const box = $("#memHits");
+  if (!box) return;
+  if (!rows.length) {
+    box.innerHTML = `<div class="empty">기억 없음. MCP <code>remember</code> 또는
+      <code>lemory remember</code> 로 저장하세요</div>`;
+    return;
+  }
+  box.innerHTML = rows.map(r => `<div class="hit mem-frag" data-path="${esc(r.path)}">
+    <div class="row1">
+      <span class="chip type-${esc(r.type || "note")}">${esc(FRAG_LABEL[r.type] || r.type || "노트")}</span>
+      ${r.anchor ? `<span class="chip brand">📌</span>` : ""}
+      <span class="title">${esc(r.note)}</span>
+      ${r.case ? `<span class="chip">${esc(r.case)}</span>` : ""}
+      ${r.status ? `<span class="chip st-${esc(r.status)}">${esc(r.status)}</span>` : ""}
+    </div>
+    <div class="snippet">${esc((r.text || "").slice(0, 240))}</div>
+  </div>`).join("");
+  $$(".mem-frag").forEach(el => el.onclick = () => go(`#/knowledge/${encodeURIComponent(el.dataset.path)}`));
+}
+
+async function drawAnchors() {
+  const box = $("#anchors");
+  if (!box) return;
+  try {
+    const rows = (await api("/api/anchors")).anchors;
+    box.innerHTML = rows.length
+      ? rows.map(a => `<div class="mem-row" data-path="${esc(a.path)}">
+          <span class="mem-row-title">${esc(a.title)}</span>
+          ${a.type ? `<span class="chip dim">${esc(FRAG_LABEL[a.type] || a.type)}</span>` : ""}
+        </div>`).join("")
+      : `<div class="empty sm">고정된 기억 없음</div>`;
+    $$("#anchors .mem-row").forEach(el => el.onclick =
+      () => go(`#/knowledge/${encodeURIComponent(el.dataset.path)}`));
+  } catch (e) { box.innerHTML = `<div class="empty sm">${esc(e.message)}</div>`; }
+}
+
+async function drawCases() {
+  const box = $("#caseList");
+  if (!box) return;
+  try {
+    const rows = (await api("/api/cases")).cases;
+    box.innerHTML = rows.length
+      ? rows.map(c => `<div class="mem-row case-row ${S.memory.sel === c.case ? "active" : ""}"
+            data-case="${esc(c.case)}">
+          <span class="mem-row-title">${esc(c.case)}</span>
+          ${c.open ? `<span class="chip st-open">미해결 ${c.open}</span>` : ""}
+          <span class="chip dim">${c.fragments}</span>
+        </div>`).join("")
+      : `<div class="empty sm">케이스 없음</div>`;
+    $$("#caseList .case-row").forEach(el => el.onclick = () => {
+      S.memory.sel = S.memory.sel === el.dataset.case ? null : el.dataset.case;
+      renderMemory(S.memory.sel || undefined);
+    });
+  } catch (e) { box.innerHTML = `<div class="empty sm">${esc(e.message)}</div>`; }
+}
+
+async function drawCaseBrief(caseId) {
+  const box = $("#caseBrief");
+  if (!box) return;
+  try {
+    const t = await api(`/api/case?case=${encodeURIComponent(caseId)}`);
+    const sec = (title, items, cls = "") => items.length
+      ? `<div class="brief-sec"><div class="brief-h ${cls}">${title}</div>
+         <ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>` : "";
+    box.innerHTML = `<div class="card brief">
+      <div class="brief-title">${esc(t.case)}
+        <span class="mem-hint">기록 ${t.found}건${t.phases?.length ? ` · ${t.phases.map(esc).join(" → ")}` : ""}</span></div>
+      ${sec("다음 단계", t.next_steps || [], "next")}
+      ${sec("미해결", (t.open || []).map(o => `[${o.status || "open"}] ${o.note}`), "open")}
+      ${sec("결정", t.decisions || [])}
+    </div>`;
+  } catch (e) { box.innerHTML = `<div class="empty sm">${esc(e.message)}</div>`; }
+  // the fragment list below the brief stays scoped to this case
+  const p = new URLSearchParams({ q: S.memory.q, k: "20", case: caseId });
+  if (S.memory.type) p.set("type", S.memory.type);
+  try { drawFragments((await api(`/api/recall?${p}`)).results); } catch { /* brief still shown */ }
+}
 
 async function renderSearch() {
   const Q = S.search;
@@ -1181,6 +1326,7 @@ async function renderSettings() {
 const PAL_VIEWS = [
   ["overview", "현황으로 이동", icoHome],
   ["knowledge", "지식으로 이동", icoFolder],
+  ["memory", "기억으로 이동", icoDoc],
   ["search", "검색으로 이동", icoSearch],
   ["settings", "설정으로 이동", icoGear],
 ];
