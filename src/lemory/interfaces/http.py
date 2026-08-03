@@ -618,6 +618,64 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         engine.index()
         return {"anchors": anchored(engine, limit=limit)}
 
+    # ---- memory pyramid (L2 scenes + L3 persona) ------------------------
+
+    @app.get("/api/persona")
+    def api_persona():
+        """The L3 persona note: body + whether it exists."""
+        from ..ingestion.pyramid import persona_block
+
+        engine.index()
+        body = persona_block(engine, max_chars=4000)
+        return {"path": engine.cfg.persona_note, "body": body,
+                "exists": bool(body)}
+
+    @app.get("/api/scenes")
+    def api_scenes(limit: int = 24):
+        """The L2 scene map, hottest first."""
+        from ..ingestion.pyramid import scene_index
+
+        engine.index()
+        return {"scenes": scene_index(engine, limit=limit)}
+
+    @app.post("/memory/consolidate")
+    def memory_consolidate(request: Request):
+        """Run one pyramid promotion pass (L1 atoms → scenes → persona).
+        Incremental; returns what happened. Uses the LLM when available,
+        deterministic fallback otherwise."""
+        from ..ingestion.pyramid import consolidate
+
+        engine.index()
+        try:
+            rep = consolidate(engine)
+        except Exception as e:
+            raise HTTPException(500, f"consolidate failed: {e}")
+        return {"atoms": rep.atoms, "scenes_updated": rep.scenes_updated,
+                "scenes_created": rep.scenes_created,
+                "absorbed_into_existing": rep.scenes_absorbed,
+                "persona": rep.persona or None, "used_llm": rep.llm}
+
+    @app.get("/api/skills")
+    def api_skills():
+        """Reusable skill notes extracted from finished work threads."""
+        from ..ingestion.skill_extract import list_skills
+
+        engine.index()
+        return {"skills": list_skills(engine)}
+
+    @app.post("/memory/skills-extract")
+    def memory_skills_extract(request: Request):
+        """Run the skill gate over finished cases; writes 스킬/*.md for the
+        few that pass. Empty result is the normal outcome."""
+        from ..ingestion.skill_extract import extract_skills
+
+        engine.index()
+        try:
+            written = extract_skills(engine)
+        except Exception as e:
+            raise HTTPException(500, f"skill extraction failed: {e}")
+        return {"skills_written": written}
+
     @app.post("/append")
     def append(request: Request, body: AppendBody):
         """Append-only write to an existing note (creates it if missing)."""
@@ -796,6 +854,12 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         if changed:
             _persist_config(engine, changed)
         return {"changed": changed}
+
+    # OpenAI-compatible memory proxy: /v1/chat/completions + /v1/models ·
+    # any client that can change a baseURL gets read+write memory
+    from .proxy import mount_proxy
+
+    mount_proxy(app, engine)
 
     return app
 

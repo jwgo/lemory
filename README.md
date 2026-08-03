@@ -135,13 +135,13 @@ lemory skill install claude-code    # 잘 쓰는 법까지 가르치기
 `--client`에 적은 이름이 대시보드 사용량에 그대로 떠요. 누가 내 기억을
 읽고 쓰는지 항상 알 수 있어요.
 
-툴은 18개예요. 읽기: `search_notes` · `ask_notes` · `recent_notes` ·
+툴은 19개예요. 읽기: `search_notes` · `ask_notes` · `recent_notes` ·
 `read_note` · `list_notes` · `related_notes` · `suggest_links`(아직 연결
 안 된 언급을 문장 증거와 함께 링크로 제안) · `vault_status` ·
 `vault_context`(페르소나·장면 지도·고정 앵커·열린 케이스·최근 활동을 한 번에,
 LLM 없이 수 ms). 쓰기: `save_memory`(저장하면서 중복 검사와 관련 노트
 연결까지) · `append_note`(덮어쓰기 불가, 볼트 밖으로 못 나감). 그리고 아래
-에이전트 작업 기억 7개.
+에이전트 작업 기억 8개.
 
 ### 에이전트 작업 기억: remember → recall → reflect → resume
 
@@ -158,6 +158,7 @@ LLM 없이 수 ms). 쓰기: `save_memory`(저장하면서 중복 검사와 관�
 | `list_cases` | "내가 뭐 하다 말았지?" |
 | `anchor_note` | 노트를 코어 기억으로 고정 · 이후 모든 세션의 `vault_context` 맨 위에 주입돼요 |
 | `consolidate_memory` | 피라미드 승격: 새 기억을 장면 노트와 페르소나에 녹여요 (아래) |
+| `extract_skills` | 완결된 케이스에서 재사용 SKILL 문서 추출 · 게이트를 못 넘으면 아무것도 안 써요 (그게 정답인 경우가 대부분) |
 
 CLI에서도 같은 루프가 돌아요:
 
@@ -192,6 +193,28 @@ TencentDB Agent Memory(11.3k★)가 검증한 4층 구조를 볼트 위에서 �
 완전 오프라인에서도 피라미드가 살아 있어요. 그리고 장면·페르소나가 평범한
 볼트 노트라서 하이브리드 검색과 링크 그래프에 그대로 잡혀요. 소스 레벨
 분석과 정면 비교는 [docs/COMPETITIVE.md](docs/COMPETITIVE.md)에 있어요.
+
+### MCP를 못 쓰는 클라이언트도: 메모리 프록시
+
+`lemory serve`가 **OpenAI 호환 `/v1/chat/completions`** 를 함께 열어요.
+baseURL만 바꾸면 어떤 SDK·스크립트·IDE 플러그인이든 기억이 생겨요:
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://127.0.0.1:8377/v1", api_key="unused-locally")
+r = client.chat.completions.create(model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "우리 배포 포트가 몇 번이었지?"}])
+# → "현재 배포 포트는 15000으로 설정되어 있습니다. 사내 프록시가 쓰는
+#    8080과의 충돌을 피하기 위해서…"  (볼트 기억으로 근거 있는 답)
+```
+
+요청이 지나갈 때 피라미드 부트(페르소나+장면 지도)와 그 턴의 관련 기억이
+시스템 메시지로 주입되고, 응답이 돌아오면 대화가 `chats/proxy/` 세션
+노트로 저장돼요(`proxy_capture = false`로 끔) · 다음 `consolidate`가 그걸
+피라미드로 올려요. **읽기와 쓰기가 모두 공짜로 붙어요.** 스트리밍은 그대로
+통과하고, 업스트림 키는 설정에서만 읽어요(클라이언트 Authorization은
+전달하지 않아요 · 로컬 포트가 새어도 과금 키는 안 새요). 업스트림은
+`proxy_upstream`으로 바꿔요 (기본 OpenAI, OpenAI 호환이면 뭐든).
 
 핵심은 파편의 **정체**예요. 남의 Postgres 안 row가 아니라 내 볼트의 마크다운
 노트예요. 쓰는 즉시 옵시디언에 뜨고, 손으로 고치고, 깃 diff가 나고, 나머지

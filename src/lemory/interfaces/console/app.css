@@ -329,6 +329,17 @@ input::placeholder { color: var(--text-3); }
 .mem-sec-head:not(:first-child) { margin-top: 22px; }
 .mem-hint { font-size: 11px; font-weight: 400; color: var(--text-3); }
 
+.persona-card { background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 11px 13px; cursor: pointer;
+  transition: border-color .12s ease; }
+.persona-card:hover { border-color: var(--border-2); }
+.persona-body { font-size: 12px; color: var(--text-2); line-height: 1.65;
+  white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical; overflow: hidden; }
+.persona-foot { margin-top: 8px; font-size: 10.5px; color: var(--text-3); }
+.chip.heat { color: var(--brand); background: var(--brand-soft);
+  border-color: transparent; font-variant-numeric: tabular-nums; }
+
 .mem-row { display: flex; align-items: center; gap: 7px; padding: 7px 10px;
   border-radius: var(--r-sm); cursor: pointer; font-size: 12.5px;
   border: 1px solid transparent; transition: background .12s ease; }

@@ -162,6 +162,19 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         }, ensure_ascii=False)
 
     @mcp.tool(annotations=WRITE)
+    def extract_skills(case: str = "") -> str:
+        """Extract reusable SKILL documents from finished work threads (cases
+        with no unresolved errors). Gated hard: if the thread is not a
+        recurring, transferable, executable-by-a-stranger workflow, nothing
+        is written · an empty result is the normal outcome. Skills land in
+        스킬/*.md and are immediately searchable."""
+        from ..ingestion.skill_extract import extract_skills as _extract
+
+        engine.index()
+        written = _extract(engine, cases=[case] if case.strip() else None)
+        return json.dumps({"skills_written": written}, ensure_ascii=False)
+
+    @mcp.tool(annotations=WRITE)
     def save_memory(content: str, title: str = "", folder: str = "memories",
                     tags: str = "") -> str:
         """Persist a memory as a NEW Markdown note in the user's vault (facts,

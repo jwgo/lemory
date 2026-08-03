@@ -590,13 +590,21 @@ async function renderMemory(selCase) {
   const m = $("#main");
   m.innerHTML = `<div class="view">
     <div class="view-head"><div class="view-title">기억</div>
-      <div class="view-sub">에이전트가 기억한 것 · 볼트 안 마크다운. 계정도, 쿼터도 없다</div></div>
+      <div class="view-sub">에이전트가 기억한 것 · 볼트 안 마크다운. 계정도, 쿼터도 없다</div>
+      <div class="spacer"></div>
+      <button class="btn" id="btnConsolidate" title="L1 아톰 → L2 장면 → L3 페르소나 승격">피라미드 통합</button></div>
     <div class="mem-grid">
       <div class="mem-col">
-        <div class="mem-sec-head">📌 앵커 <span class="mem-hint">모든 세션 시작에 주입</span></div>
+        <div class="mem-sec-head">🧠 페르소나 <span class="mem-hint">L3 · 모든 세션 시작에 주입</span></div>
+        <div id="personaCard"><div class="skel" style="height:60px"></div></div>
+        <div class="mem-sec-head">장면 <span class="mem-hint">L2 · 맥락별 살아있는 서사</span></div>
+        <div id="sceneList"><div class="skel" style="height:48px"></div></div>
+        <div class="mem-sec-head">📌 앵커 <span class="mem-hint">고정 주입</span></div>
         <div id="anchors"><div class="skel" style="height:48px"></div></div>
         <div class="mem-sec-head">케이스 <span class="mem-hint">진행 중인 작업 스레드</span></div>
         <div id="caseList"><div class="skel" style="height:64px"></div></div>
+        <div class="mem-sec-head">스킬 <span class="mem-hint">끝난 케이스에서 추출한 재사용 절차</span></div>
+        <div id="skillList"><div class="skel" style="height:40px"></div></div>
       </div>
       <div class="mem-col mem-main">
         <div class="search-box">
@@ -619,10 +627,28 @@ async function renderMemory(selCase) {
   });
   $("#memQ").addEventListener("keydown", e => { if (e.key === "Enter") doRecall(); });
   $("#btnRecall").onclick = doRecall;
+  $("#btnConsolidate").onclick = doConsolidate;
 
+  drawPersona();
+  drawScenes();
   drawAnchors();
   drawCases();
+  drawSkills();
   if (M.sel) drawCaseBrief(M.sel); else doRecall();
+
+  async function doConsolidate() {
+    const btn = $("#btnConsolidate");
+    btn.disabled = true; btn.textContent = "통합 중…";
+    try {
+      const r = await api("/memory/consolidate", { method: "POST" });
+      if (r.atoms === 0) toast("승격할 새 기억 없음");
+      else toast(`아톰 ${r.atoms}건 → 장면 ${r.scenes_created.length}생성/${r.scenes_updated.length}갱신` +
+                 (r.persona ? " · 페르소나 갱신" : "") +
+                 (r.used_llm ? "" : " (LLM 없이 폴백)"), "ok");
+      drawPersona(); drawScenes();
+    } catch (e) { toast(e.message, "err"); }
+    btn.disabled = false; btn.textContent = "피라미드 통합";
+  }
 
   async function doRecall() {
     M.q = $("#memQ").value.trim();
@@ -655,6 +681,55 @@ function drawFragments(rows) {
     <div class="snippet">${esc((r.text || "").slice(0, 240))}</div>
   </div>`).join("");
   $$(".mem-frag").forEach(el => el.onclick = () => go(`#/knowledge/${encodeURIComponent(el.dataset.path)}`));
+}
+
+async function drawPersona() {
+  const box = $("#personaCard");
+  if (!box) return;
+  try {
+    const p = await api("/api/persona");
+    if (!p.exists) {
+      box.innerHTML = `<div class="empty sm">아직 없음 · '피라미드 통합'으로 생성</div>`;
+      return;
+    }
+    const short = p.body.length > 360 ? p.body.slice(0, 360) + "…" : p.body;
+    box.innerHTML = `<div class="persona-card" data-path="${esc(p.path)}">
+      <div class="persona-body">${esc(short)}</div>
+      <div class="persona-foot">${esc(p.path)} · 클릭해서 전체 보기</div></div>`;
+    $(".persona-card").onclick = () => go(`#/knowledge/${encodeURIComponent(p.path)}`);
+  } catch (e) { box.innerHTML = `<div class="empty sm">${esc(e.message)}</div>`; }
+}
+
+async function drawScenes() {
+  const box = $("#sceneList");
+  if (!box) return;
+  try {
+    const rows = (await api("/api/scenes")).scenes;
+    box.innerHTML = rows.length
+      ? rows.map(s => `<div class="mem-row" data-path="${esc(s.path)}" title="${esc(s.summary)}">
+          <span class="mem-row-title">${esc(s.title)}</span>
+          <span class="chip heat">${s.heat >= 5 ? "🔥" : ""}${s.heat}</span>
+        </div>`).join("")
+      : `<div class="empty sm">장면 없음 · 기억이 쌓이면 통합으로 생겨요</div>`;
+    $$("#sceneList .mem-row").forEach(el => el.onclick =
+      () => go(`#/knowledge/${encodeURIComponent(el.dataset.path)}`));
+  } catch (e) { box.innerHTML = `<div class="empty sm">${esc(e.message)}</div>`; }
+}
+
+async function drawSkills() {
+  const box = $("#skillList");
+  if (!box) return;
+  try {
+    const rows = (await api("/api/skills")).skills;
+    box.innerHTML = rows.length
+      ? rows.map(s => `<div class="mem-row" data-path="${esc(s.path)}">
+          <span class="mem-row-title">${esc(s.name)}</span>
+          ${s.case ? `<span class="chip">${esc(s.case)}</span>` : ""}
+        </div>`).join("")
+      : `<div class="empty sm">스킬 없음 · 완결된 케이스에서 추출돼요</div>`;
+    $$("#skillList .mem-row").forEach(el => el.onclick =
+      () => go(`#/knowledge/${encodeURIComponent(el.dataset.path)}`));
+  } catch (e) { box.innerHTML = `<div class="empty sm">${esc(e.message)}</div>`; }
 }
 
 async function drawAnchors() {

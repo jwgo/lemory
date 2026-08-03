@@ -1153,6 +1153,43 @@ def consolidate(
         console.print(f"  [cyan]페르소나 갱신[/cyan] {rep.persona}")
 
 
+@app.command("skills")
+def skills_cmd(
+    action: str = typer.Argument("list", help="list | extract"),
+    case: str = typer.Option("", "--case", "-c",
+                             help="extract: 이 케이스만 (기본: 미해결 0인 모든 케이스)"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """재사용 스킬 노트(스킬/*.md): 끝난 작업 스레드에서 SKILL 문서를 추출.
+
+    게이트가 핵심이다: 반복되는 작업 클래스가 아니거나, 이 대화를 못 본
+    에이전트가 실행할 수 없으면 아무것도 쓰지 않는다 (안 쓰는 게 정답인
+    경우가 대부분). LLM 필수 · 판정 없는 추출은 케이스 덤프일 뿐이다."""
+    from ..ingestion.skill_extract import extract_skills, list_skills
+
+    eng = _engine(vault)
+    eng.index()
+    if action == "extract":
+        written = extract_skills(eng, cases=[case] if case else None)
+        if not written:
+            console.print("추출된 스킬 없음 (게이트 통과 실패 또는 완결된 케이스 없음)")
+            return
+        for rel in written:
+            console.print(f"[green]skill[/green] {rel}")
+        return
+    rows = list_skills(eng)
+    if not rows:
+        console.print("스킬 없음 · lemory skills extract 로 완결된 케이스에서 추출")
+        return
+    table = Table()
+    table.add_column("name")
+    table.add_column("case", style="dim")
+    table.add_column("path", style="dim")
+    for r in rows:
+        table.add_row(escape(r["name"]), escape(r["case"]) or "-", r["path"])
+    console.print(table)
+
+
 @app.command()
 def persona(vault: Optional[Path] = typer.Option(None)):
     """현재 페르소나 노트(L3)를 출력합니다."""

@@ -141,7 +141,7 @@ lemory skill install claude-code    # and teach the assistant to use it well
 The `--client` name is how each app shows up in the dashboard's per-client
 usage. You always know who is reading and writing your memory.
 
-Eighteen tools (with MCP behavior annotations, so clients know what's
+Nineteen tools (with MCP behavior annotations, so clients know what's
 read-only). Read: `search_notes` · `ask_notes` · `recent_notes` ·
 `read_note` · `list_notes` · `related_notes` · `suggest_links` (unlinked
 mentions as [[link]] proposals with the mention's sentence) · `vault_status`
@@ -149,7 +149,7 @@ mentions as [[link]] proposals with the mention's sentence) · `vault_status`
 anchors, open cases, recent activity; ~ms, zero LLM at call time). Write:
 `save_memory` (with consolidation: related existing memories get linked,
 near-duplicates get flagged) · `append_note` (never overwrites, can't escape
-the vault). Plus the seven agent-memory tools below.
+the vault). Plus the eight agent-memory tools below.
 
 ### Agent working memory: remember → recall → reflect → resume
 
@@ -167,6 +167,7 @@ session.
 | `list_cases` | "what was I in the middle of?" |
 | `anchor_note` | pin a note as core memory, injected into every future session's `vault_context` |
 | `consolidate_memory` | pyramid promotion: fold new memories into scene notes and the persona (below) |
+| `extract_skills` | distill reusable SKILL documents from finished cases · writes nothing unless the gate passes (which is the normal outcome) |
 
 The same loop from the CLI:
 
@@ -204,6 +205,29 @@ structured digest when it isn't** · the pyramid survives fully offline. And
 because scenes and the persona are ordinary vault notes, the hybrid retriever
 and the link graph see them immediately. Source-level analysis and the
 head-to-head: [docs/COMPETITIVE.md](docs/COMPETITIVE.md).
+
+### Clients that can't speak MCP: the memory proxy
+
+`lemory serve` also exposes an **OpenAI-compatible `/v1/chat/completions`**.
+Change a baseURL and any SDK, script, or IDE plugin gets memory:
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://127.0.0.1:8377/v1", api_key="unused-locally")
+r = client.chat.completions.create(model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "우리 배포 포트가 몇 번이었지?"}])
+# → a memory-grounded answer: port 15000, and WHY (8080 is taken by the
+#   corporate proxy) · straight from the vault
+```
+
+On the way out, the pyramid boot (persona + scene map) and this turn's
+relevant memories are injected as a system message; on the way back, the
+exchange is captured as a `chats/proxy/` session note (`proxy_capture =
+false` to disable) that the next `consolidate` promotes up the pyramid.
+**Read and write memory, for free.** Streaming passes through; the upstream
+key comes from config only · the client's Authorization header is never
+forwarded, so a leaked local port can't leak a paid key. Point
+`proxy_upstream` at any OpenAI-compatible endpoint.
 
 The point is what a fragment *is*: not a row in someone's Postgres but a
 Markdown note in your vault. It shows up in Obsidian the moment it is written,

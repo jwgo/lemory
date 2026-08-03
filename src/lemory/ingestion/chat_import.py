@@ -84,7 +84,8 @@ def _conv_date(conv: dict, fmt: str) -> str:
 
 
 def log_assistant_session(engine, messages: list[dict], answer: str,
-                          session: str = "") -> "str | None":
+                          session: str = "", force: bool = False,
+                          folder: str = "") -> "str | None":
     """The write half of the memory loop: upsert THIS conversation as a dated
     session note, in the same Markdown layout import_conversations produces ·
     so what the user tells the assistant today is a searchable memory
@@ -98,10 +99,12 @@ def log_assistant_session(engine, messages: list[dict], answer: str,
     import time
 
     cfg = engine.cfg
-    if not getattr(cfg, "assistant_log_sessions", False):
+    # `force` is the proxy's capture path: it has its own toggle
+    # (cfg.proxy_capture) and must not depend on the console-assistant one
+    if not force and not getattr(cfg, "assistant_log_sessions", False):
         return None
     vault = cfg.resolved_vault()
-    folder = (cfg.assistant_log_folder or "chats").strip().strip("/") or "chats"
+    folder = (folder or cfg.assistant_log_folder or "chats").strip().strip("/") or "chats"
     base = vault / folder
     if not base.resolve().is_relative_to(vault.resolve()):
         folder, base = "chats", vault / "chats"  # never escape the vault

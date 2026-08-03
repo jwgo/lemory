@@ -2,6 +2,36 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · every surface gets the pyramid: proxy, panel UI, skills
+
+**The pivot finishes only when the new memory reaches every place agents
+actually live.** Three TDBAM territories absorbed, verified end-to-end:
+
+- **Memory proxy (their MemoryProxy):** `lemory serve` now exposes an
+  OpenAI-compatible `/v1/chat/completions` (+`/v1/models`). Change a baseURL
+  and any SDK/script/IDE plugin gets memory: the pyramid boot (persona +
+  scene map) and this turn's hybrid recall are injected as a system message,
+  and the exchange is captured as a `chats/proxy/` session note that the
+  next consolidate promotes. Streaming passes through (capture re-assembled
+  from SSE deltas best-effort). The upstream key comes from config only ·
+  a client's Authorization header is never forwarded. Live-verified against
+  real OpenAI: a vanilla API call answered "배포 포트 15000, 8080은 사내
+  프록시" from vault memory, and the capture note landed.
+- **Skill extraction (their Skill asset):** `lemory skills extract` / MCP
+  `extract_skills` runs finished cases (zero open errors) through their
+  acceptance gate · recurring task class, executable by a stranger,
+  transferable steps, otherwise write NOTHING. Passing cases become
+  `스킬/<kebab-name>.md` with When-to-use/Workflow/Pitfalls sections,
+  case-bound for incremental updates ("변경 없음" respected). Gate verified
+  live: a thin 2-fragment case was correctly judged 없음 by the real model.
+  Keyless mode extracts nothing by design · the judgment IS the feature.
+- **Panel UI (their MemoryPanel):** the console 기억 view now shows the
+  whole pyramid · persona card (L3), scene list with heat (L2), anchors,
+  cases, skills, plus a "피라미드 통합" button that runs consolidate and
+  reports what moved. New HTTP surface: `/api/persona`, `/api/scenes`,
+  `/api/skills`, `POST /memory/consolidate`, `POST /memory/skills-extract`.
+- MCP grows to 19 tools (`extract_skills` joins `consolidate_memory`).
+
 ## Unreleased · identity pivot: the memory pyramid (L2 scenes + L3 persona)
 
 **Lemory is now, first, a long-term memory engine for AI agents.** The vault

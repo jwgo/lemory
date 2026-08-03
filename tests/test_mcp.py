@@ -34,8 +34,8 @@ def test_all_tools_registered(mcp_app):
         # agent working memory
         "remember", "recall", "reflect", "resume_case", "list_cases",
         "anchor_note",
-        # memory pyramid
-        "consolidate_memory",
+        # memory pyramid + skills
+        "consolidate_memory", "extract_skills",
     }
 
 

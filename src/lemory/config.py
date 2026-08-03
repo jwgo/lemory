@@ -227,6 +227,14 @@ class LemoryConfig(BaseSettings):
     persona_note: str = "페르소나.md"
     scene_cap: int = 12
     persona_max_chars: int = 2000
+    # --- OpenAI-compatible memory proxy (/v1/chat/completions on serve) ---
+    # any client that can change a baseURL gets memory: the pyramid boot +
+    # per-turn recall are injected as a system message, the exchange is
+    # captured as an L0 session note (chats/proxy/). The upstream key comes
+    # from config only · a client's own Authorization is never forwarded.
+    proxy_upstream: str = ""          # default: https://api.openai.com/v1
+    proxy_upstream_key: str = ""      # default: the OpenAI key
+    proxy_capture: bool = True
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
     context_style: str = "full"   # "full" chunks or "compact" fact-sheet context for ask()
