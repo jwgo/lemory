@@ -44,10 +44,12 @@ def approx_tokens(text: str) -> int:
     return int(cjk * 1.6 + other * 0.25)
 
 
-def build(use_llm: bool):
+def build(use_llm: bool, reuse: bool = False):
     from lemory.ingestion.distill import distill
     from lemory.ingestion.pyramid import consolidate
 
+    if reuse and VAULT.exists():
+        return make_engine(VAULT, TAG)
     if VAULT.exists():
         shutil.rmtree(VAULT)
     shutil.copytree(SRC_VAULT, VAULT)
@@ -85,28 +87,29 @@ def boot_text(eng) -> str:
     return "\n".join(lines)
 
 
-def scene_body_for(eng, persona: str) -> str:
-    """드릴다운 1회: 그 인물 이름이 제목/그룹에 들어간 장면 노트."""
-    from lemory.ingestion.pyramid import load_scenes
-
-    for s in sorted(load_scenes(eng), key=lambda s: -s["heat"]):
-        if persona in s["group"] or persona in s["title"]:
-            try:
-                return (eng.cfg.resolved_vault() / s["path"]).read_text(encoding="utf-8")
-            except OSError:
-                pass
-    return ""
+def scene_body_for(eng, question: str) -> str:
+    """드릴다운 1회: 장면 폴더로 스코프한 실제 하이브리드 검색 top-1의 본문.
+    에이전트가 '장면에서 찾아봐'를 하는 것과 같은 기계적 절차다."""
+    folder = eng.cfg.scene_folder.strip("/")
+    hits = eng.search(f"folder:{folder} {question}", k=1)
+    if not hits:
+        return ""
+    try:
+        return (eng.cfg.resolved_vault() / hits[0].path).read_text(encoding="utf-8")
+    except OSError:
+        return ""
 
 
 def main() -> None:
     load_env()
     use_llm = "--no-llm" not in sys.argv
+    reuse = "--measure-only" in sys.argv
     qs = [json.loads(l) for l in QFILE.read_text(encoding="utf-8").splitlines() if l.strip()]
     # 페르소나 사실 축만: long(안정 사실)+short(단기 사실). episodic/temporal은
     # 검색층의 몫이고 이미 run_rolememqa가 측정한다.
     qs = [q for q in qs if q["type"] in ("long", "short") and q.get("answerable")]
 
-    eng = build(use_llm)
+    eng = build(use_llm, reuse=reuse)
     boot = boot_text(eng)
     boot_tok = approx_tokens(boot)
     nboot = normalize_ko(boot)
@@ -115,20 +118,26 @@ def main() -> None:
         p.read_text(encoding="utf-8") for p in sorted(SRC_VAULT.rglob("*.md")))
     raw_tok = approx_tokens(raw_dump)
 
-    hit_boot = hit_drill = 0
-    drill_toks = []
+    hit_boot = hit_drill = hit_search = 0
+    drill_toks, search_toks = [], []
     for q in qs:
         answers = [normalize_ko(a) for a in q["answers"]]
-        if any(a in nboot for a in answers):
+        in_boot = any(a in nboot for a in answers)
+        if in_boot:
             hit_boot += 1
             hit_drill += 1
             drill_toks.append(boot_tok)
-            continue
-        body = scene_body_for(eng, q.get("persona", ""))
-        drill_toks.append(boot_tok + approx_tokens(body))
-        nfull = nboot + " " + normalize_ko(body)
-        if any(a in nfull for a in answers):
-            hit_drill += 1
+        else:
+            body = scene_body_for(eng, q["q"])
+            drill_toks.append(boot_tok + approx_tokens(body))
+            if any(a in normalize_ko(body) for a in answers):
+                hit_drill += 1
+        # 대조군: 피라미드 없이 원문 검색 top-8 청크 (기존 검색층의 비용/커버리지)
+        hits = eng.search(q["q"], k=8)
+        blob = " ".join(h.text for h in hits)
+        search_toks.append(approx_tokens(blob))
+        if any(a in normalize_ko(blob) for a in answers):
+            hit_search += 1
 
     n = len(qs)
     out = {
@@ -136,10 +145,12 @@ def main() -> None:
         "llm": use_llm,
         "boot_tokens": boot_tok,
         "raw_dump_tokens": raw_tok,
-        "token_ratio": round(raw_tok / max(1, boot_tok), 1),
+        "token_ratio_vs_dump": round(raw_tok / max(1, boot_tok), 1),
         "boot_coverage": round(hit_boot / n, 4),
         "boot_plus_1scene_coverage": round(hit_drill / n, 4),
-        "avg_drill_tokens": int(sum(drill_toks) / n),
+        "avg_boot_plus_scene_tokens": int(sum(drill_toks) / n),
+        "search_top8_coverage": round(hit_search / n, 4),
+        "avg_search_top8_tokens": int(sum(search_toks) / n),
     }
     print(json.dumps(out, ensure_ascii=False, indent=2))
     save_json(WORK / f"results_pyramid{'_nollm' if not use_llm else ''}.json", out)

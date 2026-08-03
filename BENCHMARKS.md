@@ -1271,6 +1271,42 @@ while a grounded answer here reads 8–12 evidence blocks. So `context_order`
 defaults to `"rank"` and `"curriculum"` remains an opt-in experiment, same
 policy as LLM query expansion (§4c): measured, not adopted.
 
+## 14. Memory pyramid: always-on boot context vs token cost (`run_pyramid.py`)
+
+TencentDB Agent Memory (11.3k★) validated the four-tier pyramid (L0
+conversation → L1 atom → L2 scene → L3 persona) with an always-injected top
+and drill-down for detail. Their headline (PersonaMem 48%→76%) ships with no
+harness in their repo, so it cannot be reproduced. Ours can: this section is
+`benchmarks/run_pyramid.py` on the RoleMemQA vault (8 relationships × 30
+sessions), pipeline = `lemory distill` (L1) → `lemory consolidate` (L2/L3),
+generator gpt-4o-mini, then a purely mechanical evaluation · a question
+counts as covered only if a gold answer string literally appears in the
+injected text (harsher than multiple-choice).
+
+72 persona-fact questions (long+short, answerable):
+
+| injection | tokens (avg) | coverage |
+|---|---|---|
+| boot: persona note + scene map (always-on) | **1,345** | 0.347 |
+| boot + one scene note (scene-scoped hybrid search, top-1) | 2,084 | 0.667 |
+| full hybrid search top-8 (no pyramid) | 2,771/question | **1.000** |
+| raw dump of all 240 sessions (the no-pyramid always-on equivalent) | 65,602 | · |
+
+Readings, honestly:
+
+* The always-on layer is **48.8× cheaper than dumping the corpus** and
+  answers a third of persona facts before any tool call. One drill-down
+  (read one scene) reaches two thirds at ~2k tokens.
+* The pyramid does NOT replace retrieval: the search layer stays at 1.000
+  coverage and is the fallback the boot context's drill-down guide points
+  to. The pyramid's job is to make the *first* screen of a session cheap
+  and dense, not to answer everything.
+* Caveat: RoleMemQA simulates 8 different user counterparts, which caps how
+  much a single persona note can hold · per-relationship facts land in
+  scenes instead. A true single-user vault should see higher boot coverage.
+* `--no-llm` runs the same measurement with the deterministic fallback
+  bodies (no narrative). TDBAM has no equivalent offline mode to compare.
+
 ## Reproduce
 
 **One command, no API key** (the third-party check we actively invite):
@@ -1299,6 +1335,7 @@ python benchmarks/report.py
 # key-free (local e5-ko) additions
 python benchmarks/data/rolememqa/generate.py   # roleplay memory vault+questions (§7e)
 python benchmarks/run_rolememqa.py             # §7e
+python benchmarks/run_pyramid.py               # §14 memory pyramid (needs an LLM key)
 python benchmarks/prep_locomo.py               # downloads locomo10.json
 python benchmarks/run_locomo_retrieval.py      # §7 retrieval axis, no LLM
 python benchmarks/run_beir.py scifact          # §4i (nfcorpus/arguana/scidocs/fiqa)

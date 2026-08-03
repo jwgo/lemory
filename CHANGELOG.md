@@ -36,10 +36,12 @@ floor is weak, we differ:
 - Scenes and persona are ordinary vault notes: hybrid retrieval, the link
   graph, the trash guard and the dashboard feed all see them with zero new
   storage paths.
-- New bench `benchmarks/run_pyramid.py`: persona-question coverage from the
-  always-injected boot context vs its token cost, against a raw-dump
-  baseline. Their PersonaMem +59% claim has no harness in their repo; every
-  number here regenerates from this script.
+- New bench `benchmarks/run_pyramid.py` (RoleMemQA, gpt-4o-mini pipeline,
+  BENCHMARKS §14): always-on boot context 1,345 tokens = 1/48.8 of the raw
+  dump, covering 0.347 of persona-fact questions by itself; one scene
+  drill-down 0.667 @ 2,084 tokens; the search layer stays 1.000. Their
+  PersonaMem +59% claim has no harness in their repo; every number here
+  regenerates from this script.
 - `mcp` extra pinned `<2` (mcp 2.0 moved `mcp.server.fastmcp`; the 1.x
   FastMCP surface is what `lemory mcp` targets).
 

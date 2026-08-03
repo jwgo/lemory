@@ -381,7 +381,7 @@ Tencent Cloud가 공개한 팀 단위 에이전트 메모리 허브. AnchorMind�
 | 기본 검색 | FTS5 단독 (임베더 기본 꺼짐), 중국어 jieba 분절 | 하이브리드 기본 (온디바이스 한국어 임베더 내장) + 유니그램·바이그램 한국어 인덱싱 |
 | 기억의 소유 | 서비스 데이터 디렉토리 (Docker 볼륨) | 사용자 볼트. 페르소나·장면이 옵시디언에서 열리고 git diff가 난다 |
 | 스택 | Node 22 + Docker 3서비스 (+ 선택 Kafka/ClickHouse/COS) | pip 하나, SQLite 한 파일 |
-| 검증 | PersonaMem +59% 발표, 하네스 비공개 | 모든 수치가 리포 안 스크립트로 재현된다 (benchmarks/run_pyramid.py) |
+| 검증 | PersonaMem +59% 발표, 하네스 비공개 | 실측 공개: 부트(페르소나+장면 지도) 1,345토큰 = 원문 덤프의 1/48.8, 페르소나 사실 커버 0.347 · 장면 1개 드릴 시 0.667 @ 2,084토큰 · 검색층은 1.000 유지 (benchmarks/run_pyramid.py로 재현) |
 | 지식 그래프 | 별도 서비스(MemoryKnowledge)의 wiki/code-graph | [[위키링크]]가 이미 그래프다. 장면·페르소나·파편이 같은 그래프의 노드 |
 
 ## 이식한 것 (lemory consolidate)

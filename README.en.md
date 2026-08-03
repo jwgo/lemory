@@ -189,14 +189,21 @@ count cap so consolidation beats sprawl) and a **persona note**
 `vault_context` leads with the persona and the scene map; scene bodies are a
 `read_note` away and raw notes a search away, only when needed.
 
+Measured (RoleMemQA, 8 relationships × 30 sessions; reproduce with
+`benchmarks/run_pyramid.py`): the always-injected boot context is **1,345
+tokens · 1/48.8 of the raw dump (65,602)** and already answers 34.7% of
+persona-fact questions; one scene drill-down reaches 66.7% at 2,084 tokens;
+the search layer keeps 100% for the rest. Their published PersonaMem +59%
+ships without a harness and cannot be reproduced · every number here
+regenerates from one script.
+
 The difference is the floor. Their distillation requires an OpenAI-compatible
 API (their "local mode" still calls a remote model); `lemory consolidate`
 writes narratives when an LLM is available and **degrades to a deterministic
 structured digest when it isn't** · the pyramid survives fully offline. And
 because scenes and the persona are ordinary vault notes, the hybrid retriever
 and the link graph see them immediately. Source-level analysis and the
-head-to-head: [docs/COMPETITIVE.md](docs/COMPETITIVE.md); reproducible
-measurements: `benchmarks/run_pyramid.py`.
+head-to-head: [docs/COMPETITIVE.md](docs/COMPETITIVE.md).
 
 The point is what a fragment *is*: not a row in someone's Postgres but a
 Markdown note in your vault. It shows up in Obsidian the moment it is written,

@@ -3,8 +3,10 @@
   "llm": true,
   "boot_tokens": 1345,
   "raw_dump_tokens": 65602,
-  "token_ratio": 48.8,
+  "token_ratio_vs_dump": 48.8,
   "boot_coverage": 0.3472,
-  "boot_plus_1scene_coverage": 0.3472,
-  "avg_drill_tokens": 1345
+  "boot_plus_1scene_coverage": 0.6667,
+  "avg_boot_plus_scene_tokens": 2084,
+  "search_top8_coverage": 1.0,
+  "avg_search_top8_tokens": 2771
 }
