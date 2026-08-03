@@ -159,6 +159,25 @@ def test_scene_trail_accumulates_in_fallback(engine):
     assert body.count("기억") >= 2 and "## 전개" in body
 
 
+def test_auto_consolidate_due_waits_out_the_burst(engine, monkeypatch):
+    """The idle debounce: promotable atoms alone are not enough · the newest
+    one must have been quiet for idle_seconds, or a chatty session would pay
+    an LLM call per burst."""
+    import time as _time
+
+    from lemory.ingestion.pyramid import auto_consolidate_due
+
+    engine.index()
+    assert auto_consolidate_due(engine) is False        # nothing to promote
+
+    remember(engine, "새 사실", type="fact", case="자동")
+    now = _time.time()
+    assert auto_consolidate_due(engine, now=now) is False           # too fresh
+    assert auto_consolidate_due(engine, now=now + 200) is True      # idle
+    consolidate(engine, use_llm=False)
+    assert auto_consolidate_due(engine, now=now + 400) is False     # cursor moved
+
+
 def test_persona_note_is_protected_by_trash_guard(engine):
     """persona is lemory_generated → undoable via the standard trash path."""
     from lemory.ingestion.memory import trash_ai_note

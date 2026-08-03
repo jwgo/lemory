@@ -80,7 +80,7 @@ _PERSONA_PROMPT = (
 class Atom:
     """One promotable memory unit: an L1 digest bullet or a typed fragment."""
     text: str
-    group: str          # scene binding key: case > digest group > 'general'
+    group: str          # scene binding key: case > digest group > '일반'
     kind: str           # fragment type or 'digest'
     mtime: float
     source: str = ""    # note title for provenance wikilinks
@@ -127,7 +127,7 @@ def collect_atoms(engine, since: float) -> list[Atom]:
         if "memory-digest" in tags:
             body = _FM_RE.sub("", _read(vault, d.path))
             group = re.sub(r"^기억\s+", "", d.title)
-            group = re.sub(r"\s+\d{4}-\d{2}$", "", group).strip() or "general"
+            group = re.sub(r"\s+(?:\d{4}-\d{2}|undated)$", "", group).strip() or "일반"
             for line in body.splitlines():
                 m = _BULLET_RE.match(line)
                 if m and not m.group(1).startswith("출처"):
@@ -139,7 +139,7 @@ def collect_atoms(engine, since: float) -> list[Atom]:
             body = _FM_RE.sub("", _read(vault, d.path)).strip()
             if not body:
                 continue
-            group = str(fm.get("case", "") or "").strip() or "general"
+            group = str(fm.get("case", "") or "").strip() or "일반"
             out.append(Atom(body[:500], group, ftype, d.mtime, d.title))
     out.sort(key=lambda a: a.mtime)
     return out
@@ -149,7 +149,7 @@ def collect_atoms(engine, since: float) -> list[Atom]:
 
 def _scene_slug(group: str) -> str:
     s = re.sub(r'[\\/:*?"<>|#^\[\]]+', " ", group)
-    return re.sub(r"\s+", " ", s).strip()[:60] or "general"
+    return re.sub(r"\s+", " ", s).strip()[:60] or "일반"
 
 
 def load_scenes(engine) -> list[dict]:
@@ -357,6 +357,20 @@ def consolidate(engine, use_llm: bool | None = None) -> ConsolidateReport:
             "memory", client="consolidate", path=persona_rel or "",
             detail={"atoms": rep.atoms, "scenes": len(written)})
     return rep
+
+
+def auto_consolidate_due(engine, now: float | None = None,
+                         idle_seconds: float = 180.0) -> bool:
+    """Should a background pass run? True when promotable atoms exist AND the
+    newest one has been quiet for `idle_seconds` · TDBAM's idle debounce,
+    one predicate. Waiting out the burst matters: consolidating mid-session
+    would write a scene per keystroke-burst and pay an LLM call each time."""
+    now = time.time() if now is None else now
+    cursor = float(engine.store.get_meta(_CURSOR_KEY) or 0.0)
+    atoms = collect_atoms(engine, since=cursor)
+    if not atoms:
+        return False
+    return (now - max(a.mtime for a in atoms)) >= idle_seconds
 
 
 def scene_index(engine, limit: int = 10) -> list[dict]:

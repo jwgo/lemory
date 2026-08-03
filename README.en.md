@@ -188,7 +188,10 @@ on your vault. Facts distilled from session logs (L1) get promoted into
 count cap so consolidation beats sprawl) and a **persona note**
 (`페르소나.md` · 2000-char cap, incrementally evolved). At session start,
 `vault_context` leads with the persona and the scene map; scene bodies are a
-`read_note` away and raw notes a search away, only when needed.
+`read_note` away and raw notes a search away, only when needed. With the
+server running, `auto_consolidate = true` makes promotion automatic ·
+new memories that sit quiet for a few minutes get folded up on their own
+(toggle in Settings).
 
 Measured (RoleMemQA, 8 relationships × 30 sessions; reproduce with
 `benchmarks/run_pyramid.py`): the always-injected boot context is **1,345
@@ -227,7 +230,9 @@ false` to disable) that the next `consolidate` promotes up the pyramid.
 **Read and write memory, for free.** Streaming passes through; the upstream
 key comes from config only · the client's Authorization header is never
 forwarded, so a leaked local port can't leak a paid key. Point
-`proxy_upstream` at any OpenAI-compatible endpoint.
+`proxy_upstream` at any OpenAI-compatible endpoint · aim it at Ollama
+(`http://localhost:11434/v1`) and the memory proxy is **fully local,
+model included**.
 
 The point is what a fragment *is*: not a row in someone's Postgres but a
 Markdown note in your vault. It shows up in Obsidian the moment it is written,

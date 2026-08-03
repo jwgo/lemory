@@ -46,6 +46,8 @@ TUNABLE_FIELDS: dict[str, type] = {
     "local_embed_backend": str,  # auto | llamacpp | fastembed
     "event_log": bool,
     "memory_approval": bool,
+    "auto_consolidate": bool,
+    "proxy_capture": bool,
     "semantic_links": bool,
     "context_neighbors": bool,
     "usage_prior": float,
@@ -244,7 +246,35 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                 finally:
                     state["watcher_alive"] = False
             threading.Thread(target=_watch, daemon=True, name="lemory-watcher").start()
+
+        def _auto_consolidate():
+            """Background pyramid promotion (opt-in, cfg.auto_consolidate):
+            poll every minute; when new atoms have been idle for a few
+            minutes, run one consolidate pass. The toggle is read each tick,
+            so flipping it in 설정 takes effect without a restart."""
+            from ..ingestion.pyramid import auto_consolidate_due, consolidate
+
+            while not state.get("shutdown"):
+                time.sleep(60)
+                if not getattr(engine.cfg, "auto_consolidate", False):
+                    continue
+                try:
+                    if auto_consolidate_due(engine):
+                        rep = consolidate(engine)
+                        if rep.atoms:
+                            log.info("auto-consolidate: %d atoms → %d scene(s)%s",
+                                     rep.atoms,
+                                     len(rep.scenes_created) + len(rep.scenes_updated),
+                                     ", persona" if rep.persona else "")
+                except Exception:
+                    # a failed pass must never kill the loop · atoms stay
+                    # pending and the next tick retries
+                    log.exception("auto-consolidate pass failed")
+
+        threading.Thread(target=_auto_consolidate, daemon=True,
+                         name="lemory-consolidate").start()
         yield
+        state["shutdown"] = True
 
     app = FastAPI(title="Lemory", version="0.1.0", lifespan=lifespan)
 

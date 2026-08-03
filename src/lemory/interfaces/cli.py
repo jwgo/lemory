@@ -476,7 +476,7 @@ def pending_cmd(vault: Optional[Path] = typer.Option(None)):
     table.add_column("path")
     table.add_column("title")
     for r in rows:
-        table.add_row(r["path"], r["title"])
+        table.add_row(r["path"], escape(r["title"]))
     console.print(table)
     console.print("[dim]" + _t(f"{len(rows)}건 대기 · lemory approve <path> 로 승인",
                                f"{len(rows)} pending · approve with lemory approve <path>") + "[/dim]")
@@ -520,7 +520,7 @@ def suggest_links_cmd(
     table.add_column("add link")
     table.add_column("mention context")
     for r in rows:
-        table.add_row(r["from_title"], r["suggestion"], r["snippet"][:80])
+        table.add_row(escape(r["from_title"]), escape(r["suggestion"]), escape(r["snippet"][:80]))
     console.print(table)
 
 
@@ -662,7 +662,7 @@ def drift_cmd(
         table.add_column("note")
         table.add_column("target")
         for r in rows[:20]:
-            table.add_row(r["note"], r.get("target", r.get("duplicate_of", "")))
+            table.add_row(escape(r["note"]), escape(r.get("target", r.get("duplicate_of", ""))))
         console.print(table)
     console.print("[dim]" + _t("고치려면: lemory drift --prompt | (에이전트에 전달)",
                                "to fix: lemory drift --prompt | (pipe to your agent)") + "[/dim]")
@@ -855,7 +855,7 @@ def search(
     for i, h in enumerate(hits, 1):
         sub = h.subheading()
         loc = h.title + (f" › {sub}" if sub else "")
-        table.add_row(str(i), loc, f"{h.score:.4f}", h.text[:180].replace("\n", " "))
+        table.add_row(str(i), escape(loc), f"{h.score:.4f}", escape(h.text[:180].replace("\n", " ")))
     console.print(table)
 
 

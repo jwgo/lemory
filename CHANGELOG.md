@@ -2,6 +2,26 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · competitiveness sweep: 103 review passes, 6 fixes (docs/REVIEW.md)
+
+A full self-audit against the current market, item by item, with verdicts and
+receipts · 72 fresh checkpoints plus the 31 regression-tested findings from
+the previous passes. Ledger committed as docs/REVIEW.md. Fixed this pass:
+
+- **Auto-consolidate (the #1 gap vs TDBAM's automatic pipeline):**
+  `auto_consolidate = true` makes `lemory serve` promote new atoms up the
+  pyramid on its own once they sit quiet for a few minutes · idle-debounce
+  predicate unit-tested (burst→wait, idle→run, cursor→no-op), toggle read
+  per tick so flipping it in Settings needs no restart, failures never kill
+  the loop. Off by default: LLM spend stays an explicit opt-in.
+- Scene naming: `general`/`undated` artifacts → `일반`, month tails stripped.
+- Fully-local proxy documented: point `proxy_upstream` at Ollama's /v1 and
+  the memory proxy runs with zero remote calls, model included.
+- CLI Rich-markup injection: note titles/snippets in 4 more tables are now
+  escaped (`[WIP] 설계` no longer breaks rendering).
+- `proxy_capture`/`auto_consolidate` joined the console Settings (live PATCH).
+- ROUTINE.ko: pyramid promotion added to the daily-routine doc.
+
 ## Unreleased · every surface gets the pyramid: proxy, panel UI, skills
 
 **The pivot finishes only when the new memory reaches every place agents

@@ -227,6 +227,12 @@ class LemoryConfig(BaseSettings):
     persona_note: str = "페르소나.md"
     scene_cap: int = 12
     persona_max_chars: int = 2000
+    # opt-in background promotion (TDBAM's idle-debounce pipeline, one knob):
+    # while `lemory serve` runs, new atoms that have sat quiet for a few
+    # minutes get consolidated automatically · memory keeps itself organized
+    # without anyone remembering to run `lemory consolidate`. Off by default
+    # because it spends LLM calls without an explicit action.
+    auto_consolidate: bool = False
     # --- OpenAI-compatible memory proxy (/v1/chat/completions on serve) ---
     # any client that can change a baseURL gets memory: the pyramid boot +
     # per-turn recall are injected as a system message, the exchange is
