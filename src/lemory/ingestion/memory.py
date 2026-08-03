@@ -377,14 +377,16 @@ def context_block(engine, max_chars: int = 2400) -> str:
     """Zep-style pre-assembled context: one cheap deterministic call that gives
     an agent situational awareness of the vault without a search round-trip.
 
-    Sections (all local, no LLM): stats → pinned anchors → open cases →
-    recent activity → frequently referenced notes → most-linked hub notes →
-    top tags.
+    Sections (all local, no LLM at call time): stats → persona (L3) →
+    scene map (L2) → pinned anchors → open cases → recent activity →
+    frequently referenced notes → most-linked hub notes → top tags.
 
-    Anchors and open cases lead deliberately. The derived sections describe
-    the vault; those two describe the *work* — what the user pinned as always
-    relevant, and what was left unfinished. An agent that reads only the first
-    screen should still get those."""
+    The ordering IS the memory pyramid's read path (TDBAM-style, absorbed):
+    the stable top tiers are always injected · persona says who the user is,
+    the scene map says which contexts exist and how hot each is · and
+    drilling into a scene body or raw notes stays a deliberate tool call
+    (read_note / recall / search_notes). No router, just a cheap first
+    screen an agent can act on."""
     store = engine.store
     lines: list[str] = []
     st = engine.status()
@@ -397,7 +399,21 @@ def context_block(engine, max_chars: int = 2400) -> str:
     )
 
     from .fragments import anchored
+    from .pyramid import persona_block, scene_index
     from ..retrieval.recall import open_cases
+
+    persona = persona_block(engine, max_chars=max(400, max_chars // 4))
+    if persona:
+        lines.append(f"\n## Persona ({engine.cfg.persona_note})")
+        lines.append(persona)
+
+    smap = scene_index(engine, limit=8)
+    if smap:
+        lines.append("\n## Scenes (drill down with read_note)")
+        for s in smap:
+            fire = "🔥" * min(3, 1 + s["heat"] // 5) if s["heat"] >= 5 else ""
+            summary = f" · {s['summary']}" if s["summary"] else ""
+            lines.append(f"- {s['title']} ({s['path']}) heat {s['heat']}{fire}{summary}")
 
     pins = anchored(engine, limit=8)
     if pins:

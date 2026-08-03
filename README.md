@@ -2,9 +2,9 @@
 
 # 🍋 Lemory
 
-### 기억은 당신 것이어야 하니까요.
-**남의 데이터베이스가 아니라, 내 폴더 안의 마크다운 파일로.**
-<sub>Your memory should belong to you · **[English README](README.en.md)**</sub>
+### AI 에이전트의 장기기억 엔진. 기억은 당신 것이어야 하니까요.
+**호스팅 DB도, 계정도, 쿼터도 없이 · 내 폴더 안의 마크다운 파일로.**
+<sub>Local memory engine for AI agents · **[English README](README.en.md)**</sub>
 
 [![CI](https://github.com/jwgo/lemory/actions/workflows/ci.yml/badge.svg)](https://github.com/jwgo/lemory/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -22,18 +22,22 @@
 
 ---
 
-**Lemory는 내 마크다운 노트를 위한 로컬 메모리 미들웨어예요.** 내 노트와
-내가 쓰는 AI(Claude Desktop, Claude Code, Cursor, 직접 만든 스크립트) 사이에
-있으면서, 내가 적어둔 건 AI가 기억해내게 하고, 기억할 만한 건 내 소유의
-마크다운 파일로 남겨요.
+**Lemory는 AI 에이전트를 위한 로컬 장기기억 엔진이에요.** Claude Code,
+Claude Desktop, Cursor, 직접 만든 에이전트가 매 세션 낯선 사람으로 시작하지
+않게 해요. 세션이 남긴 기억은 전부 내 소유의 마크다운 파일이고, 마크다운
+노트가 이미 있다면(옵시디언이든 그냥 폴더든) 그게 곧바로 기억이 돼요.
 
-- **AI가 기억을 꺼내요.** 의미 검색 + 한국어에 강한 키워드 검색 +
+- **기억 피라미드가 있어요.** 대화(L0) → 사실 아톰(L1) → 장면 서사(L2) →
+  페르소나(L3)로 승격되는 4층 구조예요. 세션이 시작되면 페르소나와 장면
+  지도부터 주입되고, 세부는 필요할 때만 드릴다운해요. 토큰은 아끼고 맥락은
+  안 잃어요.
+- **에이전트가 기억을 꺼내요.** 의미 검색 + 한국어에 강한 키워드 검색 +
   `[[위키링크]]` 그래프를 합친 하이브리드 검색이에요. 돌릴 수 있는 경쟁
   제품은 전부 같은 조건에서 측정했고, 지는 항목도 그대로 공개해요.
-- **AI가 기억을 남겨요.** 결정이나 사실이 볼트 안의 평범한 `.md` 노트로
-  저장돼요. 중복이면 표시해 주고, 관련 기억은 위키링크로 이어줘요.
-  옵시디언에서 보이고, 깃으로 관리되고, `rm` 한 번이면 지워져요. 전용
-  저장소도, 내보내기 버튼도, 이사 비용도 없어요.
+- **에이전트가 기억을 남겨요.** remember(타입 있는 파편) → recall →
+  reflect(세션 마무리) → consolidate(피라미드 승격) 루프예요. 전부 볼트
+  안의 평범한 `.md` 노트라 옵시디언에서 보이고, 깃으로 관리되고, `rm` 한
+  번이면 지워져요. 계정도, 파편 쿼터도, 이사 비용도 없어요.
 - **뭐가 오갔는지 다 보여요.** 대시보드에 모든 질의, AI가 쓴 모든
   노트(클릭 한 번으로 되돌리기), 클라이언트별 사용량이 남아요. 전부 내
   컴퓨터의 SQLite 파일 하나예요.
@@ -131,13 +135,13 @@ lemory skill install claude-code    # 잘 쓰는 법까지 가르치기
 `--client`에 적은 이름이 대시보드 사용량에 그대로 떠요. 누가 내 기억을
 읽고 쓰는지 항상 알 수 있어요.
 
-툴은 17개예요. 읽기: `search_notes` · `ask_notes` · `recent_notes` ·
+툴은 18개예요. 읽기: `search_notes` · `ask_notes` · `recent_notes` ·
 `read_note` · `list_notes` · `related_notes` · `suggest_links`(아직 연결
 안 된 언급을 문장 증거와 함께 링크로 제안) · `vault_status` ·
-`vault_context`(고정 앵커·열린 케이스·최근 활동·자주 쓰는 노트·태그를 한 번에
-요약, LLM 없이 수 ms). 쓰기: `save_memory`(저장하면서 중복 검사와 관련 노트
+`vault_context`(페르소나·장면 지도·고정 앵커·열린 케이스·최근 활동을 한 번에,
+LLM 없이 수 ms). 쓰기: `save_memory`(저장하면서 중복 검사와 관련 노트
 연결까지) · `append_note`(덮어쓰기 불가, 볼트 밖으로 못 나감). 그리고 아래
-에이전트 작업 기억 6개.
+에이전트 작업 기억 7개.
 
 ### 에이전트 작업 기억: remember → recall → reflect → resume
 
@@ -153,6 +157,7 @@ lemory skill install claude-code    # 잘 쓰는 법까지 가르치기
 | `resume_case` | 스레드 복원: 타임라인, 지금까지의 결정, 아직 안 풀린 오류, 직전 세션이 적어둔 다음 단계 |
 | `list_cases` | "내가 뭐 하다 말았지?" |
 | `anchor_note` | 노트를 코어 기억으로 고정 · 이후 모든 세션의 `vault_context` 맨 위에 주입돼요 |
+| `consolidate_memory` | 피라미드 승격: 새 기억을 장면 노트와 페르소나에 녹여요 (아래) |
 
 CLI에서도 같은 루프가 돌아요:
 
@@ -162,7 +167,25 @@ lemory recall 포트 --type error      # 좁혀서 회상
 lemory cases                          # 미해결 개수까지 붙은 스레드 목록
 lemory case 배포                      # 스레드 재개
 lemory anchor "memories/언어 선호.md"  # 코어 기억으로 고정
+lemory consolidate                    # L1 아톰 → L2 장면 → L3 페르소나 승격
 ```
+
+### 기억 피라미드: 대화 → 아톰 → 장면 → 페르소나
+
+TencentDB Agent Memory(11.3k★)가 검증한 4층 구조를 볼트 위에서 돌려요.
+세션 기록(L0)에서 증류된 사실(L1)이 **장면 노트**(`장면/*.md` · 맥락별 살아
+있는 서사, 개수 상한이 있어 새 파일 대신 통합이 기본)와 **페르소나
+노트**(`페르소나.md` · 2000자 캡, 점진 갱신)로 올라가요. 세션이 시작되면
+`vault_context`가 페르소나와 장면 지도를 먼저 내밀고, 장면 본문은
+`read_note`로, 원본은 검색으로 필요할 때만 파요.
+
+그쪽과의 차이는 밑단이에요. 그쪽 증류는 OpenAI 호환 API가 필수지만
+(그쪽 "로컬 모드"도 원격 모델 호출이에요), `lemory consolidate`는 LLM이
+있으면 서사를 쓰고 **없으면 결정적 폴백**으로 구조화 다이제스트를 써요 ·
+완전 오프라인에서도 피라미드가 살아 있어요. 그리고 장면·페르소나가 평범한
+볼트 노트라서 하이브리드 검색과 링크 그래프에 그대로 잡혀요. 소스 분석과
+정면 비교는 [docs/COMPETITIVE.md](docs/COMPETITIVE.md), 재현 가능한 측정은
+`benchmarks/run_pyramid.py`에 있어요.
 
 핵심은 파편의 **정체**예요. 남의 Postgres 안 row가 아니라 내 볼트의 마크다운
 노트예요. 쓰는 즉시 옵시디언에 뜨고, 손으로 고치고, 깃 diff가 나고, 나머지

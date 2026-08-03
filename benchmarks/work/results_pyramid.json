@@ -1,0 +1,10 @@
+{
+  "n_questions": 72,
+  "llm": true,
+  "boot_tokens": 1345,
+  "raw_dump_tokens": 65602,
+  "token_ratio": 48.8,
+  "boot_coverage": 0.3472,
+  "boot_plus_1scene_coverage": 0.3472,
+  "avg_drill_tokens": 1345
+}

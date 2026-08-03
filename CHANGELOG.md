@@ -2,6 +2,47 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · identity pivot: the memory pyramid (L2 scenes + L3 persona)
+
+**Lemory is now, first, a long-term memory engine for AI agents.** The vault
+stays the substrate; Obsidian becomes one integration among several.
+
+The prompt was TencentDB Agent Memory (11.3k★). We cloned it and read the
+pipeline at source level (785 files) instead of the marketing: their L2/L3
+are Markdown files too, their retrieval routing is a tool budget rather than
+a router, their "local mode" still requires a remote OpenAI-compatible model,
+and their embedder ships disabled (FTS-only default). Full analysis in
+docs/COMPETITIVE.md. What their design validated, we absorbed; where their
+floor is weak, we differ:
+
+- **`lemory consolidate` / MCP `consolidate_memory`:** one incremental pass
+  promotes new L1 atoms (fact-sheet bullets + typed fragments) into L2
+  **scene notes** (`장면/*.md` · scene_group/heat/summary frontmatter,
+  UPDATE-first, `scene_cap` default 12 · at the cap the coldest scene
+  absorbs instead of a new file appearing) and the L3 **persona note**
+  (`페르소나.md` · 2000-char hard cap, incremental evolution, "변경 없음"
+  respected as a first-class LLM outcome, no-speculation guard). Cursor-based
+  (`pyramid_cursor` meta), so running it every session end is cheap and
+  idempotent.
+- **Offline floor they don't have:** with no LLM the scene body degrades to a
+  deterministic sectioned digest (the `## 전개` trail still accumulates,
+  never overwrites) and the persona to a ranked fact sheet. Their pipeline
+  hard-requires a remote model; ours prefers one.
+- **Top-down boot:** `vault_context` now leads with persona → scene map
+  (heat-sorted, one line each) → anchors → open cases, and the MCP tool
+  doc carries the drill-down budget (~3 searches/turn, then answer from what
+  you have) · their auto-recall guide, absorbed as guidance instead of
+  infrastructure.
+- Scenes and persona are ordinary vault notes: hybrid retrieval, the link
+  graph, the trash guard and the dashboard feed all see them with zero new
+  storage paths.
+- New bench `benchmarks/run_pyramid.py`: persona-question coverage from the
+  always-injected boot context vs its token cost, against a raw-dump
+  baseline. Their PersonaMem +59% claim has no harness in their repo; every
+  number here regenerates from this script.
+- `mcp` extra pinned `<2` (mcp 2.0 moved `mcp.server.fastmcp`; the 1.x
+  FastMCP surface is what `lemory mcp` targets).
+
 ## Unreleased · agent working memory: typed fragments, anchors, work threads
 
 **An agent stops starting over, and the memory stays in your vault.**

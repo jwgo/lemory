@@ -128,14 +128,38 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
 
     @mcp.tool(annotations=RO)
     def vault_context(max_chars: int = 2400) -> str:
-        """Pre-assembled situational context for this vault in one cheap call
-        (no search round-trip): stats, recent notes, frequently referenced
-        notes, hub notes, top tags. Call this at the START of a session to
-        know what the user has been working on."""
+        """Pre-assembled situational context in one cheap call: persona (who
+        the user is), scene map (which contexts exist, hottest first), pinned
+        anchors, open cases, recent activity. Call this at the START of a
+        session · it is the top of the memory pyramid, always safe to inject.
+
+        Drill-down budget: when this context is not enough, use read_note on
+        a scene path for the full narrative, or recall/search_notes for
+        specifics · at most ~3 searches per turn; if 3 searches find nothing,
+        the information is not in memory, so answer from what you have."""
         from ..ingestion.memory import context_block
 
         engine.index()
         return context_block(engine, max_chars=max_chars)
+
+    @mcp.tool(annotations=WRITE)
+    def consolidate_memory() -> str:
+        """Promote new memories up the pyramid: L1 atoms (fact-sheet bullets +
+        typed fragments) fold into L2 scene notes (living narratives, capped
+        count) and the L3 persona note. Incremental and idempotent · call at
+        session end after reflect. Everything written is a plain vault note."""
+        from ..ingestion.pyramid import consolidate
+
+        engine.index()
+        rep = consolidate(engine)
+        return json.dumps({
+            "atoms": rep.atoms,
+            "scenes_updated": rep.scenes_updated,
+            "scenes_created": rep.scenes_created,
+            "absorbed_into_existing": rep.scenes_absorbed,
+            "persona": rep.persona or None,
+            "used_llm": rep.llm,
+        }, ensure_ascii=False)
 
     @mcp.tool(annotations=WRITE)
     def save_memory(content: str, title: str = "", folder: str = "memories",

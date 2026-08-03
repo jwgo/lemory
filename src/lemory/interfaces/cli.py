@@ -1122,5 +1122,49 @@ def distill(
         console.print("증류할 chat-import 세션 노트가 없습니다.")
 
 
+@app.command()
+def consolidate(
+    vault: Optional[Path] = typer.Option(None),
+    no_llm: bool = typer.Option(False, "--no-llm",
+                                help="LLM 없이 결정적 폴백으로만 (구조는 유지, 서사는 생략)"),
+):
+    """기억 피라미드 승격: L1 아톰 → L2 장면 노트 → L3 페르소나 노트.
+
+    새 기억(기억요약 팩트·타입 있는 파편)을 장면 노트에 녹이고 페르소나를
+    점진 갱신합니다. 커서 기반 증분이라 세션 끝날 때마다 돌려도 됩니다.
+    장면 수는 상한(scene_cap)이 있어 새 파일 대신 통합이 기본입니다."""
+    from ..ingestion.pyramid import consolidate as _consolidate
+
+    eng = _engine(vault)
+    eng.index()
+    rep = _consolidate(eng, use_llm=None if not no_llm else False)
+    if rep.atoms == 0:
+        console.print("승격할 새 기억 없음 (커서 이후 변경분 0)")
+        return
+    mode = "LLM" if rep.llm else "결정적 폴백"
+    console.print(f"[green]consolidated[/green] 아톰 {rep.atoms}건 ({mode})")
+    for rel in rep.scenes_created:
+        console.print(f"  [cyan]장면 생성[/cyan] {rel}")
+    for rel in rep.scenes_updated:
+        console.print(f"  장면 갱신 {rel}")
+    if rep.scenes_absorbed:
+        console.print(f"  [yellow]상한 도달: {rep.scenes_absorbed}건은 기존 장면에 흡수[/yellow]")
+    if rep.persona:
+        console.print(f"  [cyan]페르소나 갱신[/cyan] {rep.persona}")
+
+
+@app.command()
+def persona(vault: Optional[Path] = typer.Option(None)):
+    """현재 페르소나 노트(L3)를 출력합니다."""
+    from ..ingestion.pyramid import persona_block
+
+    eng = _engine(vault)
+    body = persona_block(eng, max_chars=4000)
+    if body:
+        console.print(body, markup=False)
+    else:
+        console.print("페르소나 노트 없음 · lemory consolidate 로 생성됩니다")
+
+
 if __name__ == "__main__":
     app()

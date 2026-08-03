@@ -34,7 +34,23 @@ def test_all_tools_registered(mcp_app):
         # agent working memory
         "remember", "recall", "reflect", "resume_case", "list_cases",
         "anchor_note",
+        # memory pyramid
+        "consolidate_memory",
     }
+
+
+def test_consolidate_memory_tool(mcp_app, vault):
+    _run(mcp_app.call_tool(
+        "remember", {"content": "답변은 한국어로", "type": "preference",
+                     "case": "스타일"}))
+    _c, meta = _run(mcp_app.call_tool("consolidate_memory", {}))
+    out = json.loads(meta["result"])
+    assert out["atoms"] >= 1 and out["scenes_created"]
+    assert out["persona"] == "페르소나.md"
+
+    # the boot context now leads with the promoted tiers
+    _c, meta = _run(mcp_app.call_tool("vault_context", {"max_chars": 4000}))
+    assert "## Persona" in meta["result"] and "## Scenes" in meta["result"]
 
 
 def test_agent_memory_loop_over_mcp(mcp_app, vault):

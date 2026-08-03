@@ -218,6 +218,15 @@ class LemoryConfig(BaseSettings):
     # one-click undo) is already stronger than silent ingestion, and an
     # approval queue only helps users who want a review ritual.
     memory_approval: bool = False
+    # --- memory pyramid (L2 scenes + L3 persona; TDBAM-style, vault edition) ---
+    # `lemory consolidate` promotes L1 atoms (기억요약 bullets + typed
+    # fragments) into scene notes and one persona note. All plain Markdown in
+    # the vault; the scene cap forces consolidation instead of sprawl (their
+    # measured lesson: UPDATE-first beats CREATE-happy).
+    scene_folder: str = "장면"
+    persona_note: str = "페르소나.md"
+    scene_cap: int = 12
+    persona_max_chars: int = 2000
     recency_boost: float = 1.0    # multiplicative recency strength on temporal queries
     adaptive_list_k: float = 2.0  # ask() retrieval-depth multiplier for list/count questions
     context_style: str = "full"   # "full" chunks or "compact" fact-sheet context for ask()

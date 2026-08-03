@@ -2,9 +2,9 @@
 
 # 🍋 Lemory
 
-### Your memory should belong to you.
-**Not rows in someone's database. Markdown files, in your own vault.**
-<sub>기억은 당신의 것이어야 합니다 · **[한국어 README (기본)](README.md)**</sub>
+### The local long-term memory engine for AI agents.
+**No hosted DB, no account, no quota. Markdown files, in your own vault.**
+<sub>AI 에이전트의 장기기억 엔진 · **[한국어 README (기본)](README.md)**</sub>
 
 [![CI](https://github.com/jwgo/lemory/actions/workflows/ci.yml/badge.svg)](https://github.com/jwgo/lemory/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -22,18 +22,24 @@ any API call. Reproducible from [`benchmarks/`](benchmarks/).</sub>
 
 ---
 
-**Lemory is local memory middleware for your Markdown.** It sits between your
-notes and every AI you use (Claude Desktop, Claude Code, Cursor, your own
-scripts) so that anything you ever wrote down becomes something they can
-recall, and anything worth remembering becomes a Markdown file you own.
+**Lemory is a local long-term memory engine for AI agents.** Claude Code,
+Claude Desktop, Cursor, or your own agent stops starting every session as a
+stranger. Everything a session remembers is a Markdown file you own · and if
+you already keep Markdown notes (Obsidian or just a folder), those are
+memory too, instantly.
 
-- **AI reads your memory**: hybrid retrieval (semantic + Korean-aware keyword
-  + your `[[wikilink]]` graph) that we benchmark against every competitor we
-  can run, and publish the losses too.
-- **AI writes your memory**: decisions and facts land as plain `.md` notes
-  with duplicate detection and automatic `related:` links. Visible in
-  Obsidian, versionable, greppable, one `rm` from gone. No proprietary
-  store, no export button needed, nothing to migrate off of.
+- **A memory pyramid**: conversations (L0) → fact atoms (L1) → scene
+  narratives (L2) → a persona note (L3). Sessions boot from the persona and
+  scene map; details are a deliberate drill-down. Fewer tokens, same recall.
+- **Agents read your memory**: hybrid retrieval (semantic + Korean-aware
+  keyword + your `[[wikilink]]` graph) that we benchmark against every
+  competitor we can run, and publish the losses too.
+- **Agents write your memory**: remember (typed fragments) → recall →
+  reflect (session close-out) → consolidate (pyramid promotion). Decisions
+  and facts land as plain `.md` notes with duplicate detection and automatic
+  `related:` links. Visible in Obsidian, versionable, greppable, one `rm`
+  from gone. No proprietary store, no fragment quota, nothing to migrate
+  off of.
 - **You watch the middleware**: a dashboard shows what flowed through:
   every query, every note an AI wrote (with one-click undo), per-client
   usage. All of it local, in one SQLite file.
@@ -135,15 +141,15 @@ lemory skill install claude-code    # and teach the assistant to use it well
 The `--client` name is how each app shows up in the dashboard's per-client
 usage. You always know who is reading and writing your memory.
 
-Seventeen tools (with MCP behavior annotations, so clients know what's
+Eighteen tools (with MCP behavior annotations, so clients know what's
 read-only). Read: `search_notes` · `ask_notes` · `recent_notes` ·
 `read_note` · `list_notes` · `related_notes` · `suggest_links` (unlinked
 mentions as [[link]] proposals with the mention's sentence) · `vault_status`
-· `vault_context` (one-call session context: pinned anchors, open cases,
-recent activity, hot notes, hubs, tags; Zep-style, ~ms, zero LLM). Write:
+· `vault_context` (one-call session context: persona, scene map, pinned
+anchors, open cases, recent activity; ~ms, zero LLM at call time). Write:
 `save_memory` (with consolidation: related existing memories get linked,
 near-duplicates get flagged) · `append_note` (never overwrites, can't escape
-the vault). Plus the six agent-memory tools below.
+the vault). Plus the seven agent-memory tools below.
 
 ### Agent working memory: remember → recall → reflect → resume
 
@@ -160,6 +166,7 @@ session.
 | `resume_case` | rebuild a thread: timeline, decisions so far, still-unresolved errors, and the next steps the last session wrote down |
 | `list_cases` | "what was I in the middle of?" |
 | `anchor_note` | pin a note as core memory, injected into every future session's `vault_context` |
+| `consolidate_memory` | pyramid promotion: fold new memories into scene notes and the persona (below) |
 
 The same loop from the CLI:
 
@@ -169,7 +176,27 @@ lemory recall 포트 --type error      # scoped recall
 lemory cases                          # threads with unresolved counts
 lemory case 배포                      # resume the thread
 lemory anchor "memories/언어 선호.md"  # pin as core memory
+lemory consolidate                    # promote L1 atoms → L2 scenes → L3 persona
 ```
+
+### The memory pyramid: conversation → atom → scene → persona
+
+The four-tier structure TencentDB Agent Memory (11.3k★) validated, running
+on your vault. Facts distilled from session logs (L1) get promoted into
+**scene notes** (`장면/*.md` · one living narrative per context, with a hard
+count cap so consolidation beats sprawl) and a **persona note**
+(`페르소나.md` · 2000-char cap, incrementally evolved). At session start,
+`vault_context` leads with the persona and the scene map; scene bodies are a
+`read_note` away and raw notes a search away, only when needed.
+
+The difference is the floor. Their distillation requires an OpenAI-compatible
+API (their "local mode" still calls a remote model); `lemory consolidate`
+writes narratives when an LLM is available and **degrades to a deterministic
+structured digest when it isn't** · the pyramid survives fully offline. And
+because scenes and the persona are ordinary vault notes, the hybrid retriever
+and the link graph see them immediately. Source-level analysis and the
+head-to-head: [docs/COMPETITIVE.md](docs/COMPETITIVE.md); reproducible
+measurements: `benchmarks/run_pyramid.py`.
 
 The point is what a fragment *is*: not a row in someone's Postgres but a
 Markdown note in your vault. It shows up in Obsidian the moment it is written,
