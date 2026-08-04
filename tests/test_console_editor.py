@@ -62,3 +62,21 @@ def test_graph_page_serves_html(client):
     r = client.get("/graph")
     assert r.status_code == 200
     assert "<html" in r.text.lower() or "<svg" in r.text.lower() or "<canvas" in r.text.lower()
+
+
+def test_console_js_has_no_unclosed_async_fills(client):
+    """The dogfood tour crashed on `Cannot set innerHTML of null` when a view
+    was left mid-fetch. Guard: async overview fills must go through put(),
+    never a bare `$('#x').innerHTML =` that can hit a detached node."""
+    import re
+    from importlib import resources
+
+    js = resources.files("lemory.interfaces").joinpath("console/app.js").read_text(
+        encoding="utf-8")
+    # the overview async section is between renderOverview and renderKnowledge
+    start = js.index("async function renderOverview")
+    end = js.index("async function renderKnowledge")
+    section = js[start:end]
+    bare = re.findall(r'\$\("#(tiles|acts|memFeed|qlog|clients|hot|recent|sys)"\)\.innerHTML\s*=', section)
+    assert not bare, f"overview async fill bypasses put(): {bare}"
+    assert "const put = (sel, html)" in js       # the guard helper exists

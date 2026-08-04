@@ -2,6 +2,27 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · dogfood UX pass: touched every screen, fixed the friction
+
+Walked all eight views + palette as a real user (screenshot → critique →
+fix → re-verify), not a scripted check. What the walkthrough caught:
+
+- **A live race crash** (`Cannot set innerHTML of null`): navigating away
+  from 현황 mid-fetch hit a detached node · 4 times in one tour. All async
+  overview fills now go through a `put()` guard that no-ops on a gone node;
+  a test pins that they never regress to a bare assignment.
+- **검색 empty state was a blank screen** · the one place a new user stalls.
+  It is now a tutorial built from THIS vault: 3 rotating example questions,
+  the real tag histogram (click to scope with `tag:`), the 5 most-recent
+  notes (click to open), and an operator hint. Idle is the tutorial.
+- **회상 list noise**: every plain note carried a meaningless "전체" type
+  chip · the chip now shows only for real typed fragments.
+- **현황 system card** dumped full absolute vault/DB paths (line-wrapped and
+  ugly) · home-shortened to `~/…` with the full path on hover.
+- **지식 empty pane** now shows `↑ ↓ 이동 · Enter 열기` so the keyboard
+  navigation built last pass is discoverable instead of hidden.
+- Re-verified live after each fix; JS errors 0 across the whole tour.
+
 ## Unreleased · usability pass: shortcuts everywhere, nothing ever lost
 
 - **Data-driven shortcuts + ? help**: one table drives the key handler AND

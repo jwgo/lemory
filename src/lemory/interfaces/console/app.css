@@ -617,3 +617,25 @@ input::placeholder { color: var(--text-3); }
 .sc-key { min-width: 46px; text-align: center; background: var(--surface-2);
   border: 1px solid var(--border); border-radius: 5px; padding: 2px 8px;
   font-size: 11px; font-family: ui-monospace, monospace; color: var(--text); }
+
+/* ------------------------------------------------------- search idle state */
+.search-idle { margin-top: 20px; display: flex; flex-direction: column; gap: 20px; max-width: 720px; }
+.si-block { display: flex; flex-direction: column; gap: 9px; }
+.si-h { font-size: 11.5px; font-weight: 650; color: var(--text-3);
+  letter-spacing: .02em; }
+.si-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.si-chip { background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 7px 13px; font-size: 12.5px; color: var(--text-2);
+  cursor: pointer; transition: border-color .12s, color .12s; }
+.si-chip:hover { border-color: var(--brand); color: var(--text); }
+.si-chip.dim { color: var(--text-3); font-size: 12px; }
+.si-chip .si-n { color: var(--text-3); font-size: 10.5px; margin-left: 3px; }
+.si-recent { display: flex; flex-direction: column; }
+.si-note { display: flex; align-items: baseline; gap: 10px; padding: 7px 10px;
+  border-radius: var(--r-sm); cursor: pointer; font-size: 13px; }
+.si-note:hover { background: var(--surface-2); }
+.si-when { margin-left: auto; font-size: 11px; color: var(--text-3); }
+.si-hint { margin-top: 4px; font-size: 11.5px; color: var(--text-3); }
+.si-hint code { background: var(--surface-2); border-radius: 4px; padding: 1px 5px;
+  font-size: 11px; }
+.empty-hint { display: block; margin-top: 8px; font-size: 11px; color: var(--text-3); }

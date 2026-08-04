@@ -33,6 +33,13 @@ function rel(ts) {
   if (s < 86400 * 30) return `${Math.floor(s / 86400)}일 전`;
   return new Date(ts * 1000).toLocaleDateString("ko-KR");
 }
+const shortPath = p => {
+  if (!p) return "-";
+  const home = (p.match(/^(\/(?:home|Users)\/[^/]+)/) || [])[1];
+  let s = home ? "~" + p.slice(home.length) : p;
+  if (s.length > 52) s = s.slice(0, 22) + "…" + s.slice(-27);
+  return s;
+};
 const fmtBytes = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB"
   : b > 1024 ? (b / 1024).toFixed(0) + " KB" : b + " B";
 const fmtN = n => (n ?? 0).toLocaleString("ko-KR");
@@ -174,6 +181,10 @@ window.addEventListener("hashchange", nav);
 function go(hash) { if (location.hash === hash) nav(); else location.hash = hash; }
 
 /* --------------------------------------------------------------- overview */
+// async fills write through put(): navigating away mid-fetch must be a
+// no-op, not a null-crash (the tour that found this hit 4 of them)
+const put = (sel, html) => { const el = $(sel); if (el) el.innerHTML = html; };
+
 async function renderOverview() {
   const m = $("#main");
   m.innerHTML = `<div class="view">
@@ -214,21 +225,21 @@ async function renderOverview() {
   setWatch(o.watcher_alive);
   $("#ovSub").textContent = o.last_sync ? `마지막 동기화 ${rel(+o.last_sync)}` : "";
 
-  $("#tiles").innerHTML = [
+  put("#tiles", [
     { n: fmtN(o.documents), l: "노트", s: `${fmtN(o.tags)}개 태그` },
     { n: fmtN(o.chunks), l: "청크", s: `임베딩 캐시 ${fmtN(o.cached_embeddings)}` },
     { n: fmtN(o.links), l: "그래프 링크", s: o.graph_expansion ? "그래프 확장 켜짐" : "그래프 확장 꺼짐" },
     { n: fmtBytes(o.db_bytes), l: "저장소", s: "SQLite 단일 파일" },
-  ].map(t => `<div class="tile"><div class="num">${t.n}</div><div class="lbl">${t.l}</div><div class="sub">${esc(t.s)}</div></div>`).join("");
+  ].map(t => `<div class="tile"><div class="num">${t.n}</div><div class="lbl">${t.l}</div><div class="sub">${esc(t.s)}</div></div>`).join(""));
 
-  $("#acts").innerHTML = o.activity.length ? o.activity.map(a => `
+  put("#acts", o.activity.length ? o.activity.map(a => `
     <div class="act-row">
       <span class="act-kind ${a.kind}">${{ startup: "시작", watch: "자동", manual: "수동" }[a.kind] || a.kind}</span>
       <span class="act-delta">+${a.added} ~${a.updated} −${a.removed}</span>
       <span class="act-delta" style="color:var(--text-3)">${a.chunks}청크 · ${a.embedded}임베딩 · ${a.seconds}s</span>
       <span class="act-time" title="${new Date(a.ts * 1000).toLocaleString("ko-KR")}">${rel(a.ts)}</span>
     </div>`).join("")
-    : `<div class="empty">아직 색인 활동이 없습니다</div>`;
+    : `<div class="empty">아직 색인 활동이 없습니다</div>`);
 
   // middleware timeline: AI writes (with undo), queries, per-client stats
   api("/api/events?limit=80").then(evts => {
@@ -236,14 +247,14 @@ async function renderOverview() {
     const writes = evts.filter(e => e.kind === "memory" || e.kind === "append").slice(0, 6);
     if (writes.length) {
       $("#memFeedCard").hidden = false;
-      $("#memFeed").innerHTML = writes.map(e => `
+      put("#memFeed", writes.map(e => `
         <div class="act-row">
           <span class="act-kind ${e.kind === "memory" ? "manual" : "watch"}">${e.kind === "memory" ? "새 기억" : "덧붙임"}</span>
           <span style="font-weight:550;cursor:pointer" data-goto-note="${esc(e.path)}">${esc((e.detail && e.detail.title) || e.path)}</span>
           ${clientChip(e.client)}
           ${e.kind === "memory" ? `<button class="btn ghost" style="height:22px;padding:0 8px;font-size:11px" data-trash="${esc(e.path)}">휴지통</button>` : ""}
           <span class="act-time">${rel(e.ts)}</span>
-        </div>`).join("");
+        </div>`).join(""));
       $$("#memFeed [data-goto-note]").forEach(el =>
         el.onclick = () => go("#/knowledge/" + encodeURIComponent(el.dataset.gotoNote)));
       $$("#memFeed [data-trash]").forEach(btn => btn.onclick = async () => {
@@ -258,62 +269,62 @@ async function renderOverview() {
     const queries = evts.filter(e => e.kind === "search" || e.kind === "ask").slice(0, 6);
     if (queries.length) {
       $("#qlogCard").hidden = false;
-      $("#qlog").innerHTML = queries.map(e => `
+      put("#qlog", queries.map(e => `
         <div class="act-row">
           <span class="act-kind ${e.kind === "ask" ? "manual" : "startup"}">${e.kind === "ask" ? "질문" : "검색"}</span>
           <span style="font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px" title="${esc(e.query || "")}">${esc(e.query || "")}</span>
           ${clientChip(e.client)}
           <span class="act-time">${rel(e.ts)}</span>
-        </div>`).join("");
+        </div>`).join(""));
     }
   }).catch(() => {});
   api("/api/clients").then(rows => {
     if (!rows.length) return;
     $("#clientsCard").hidden = false;
-    $("#clients").innerHTML = rows.map(r => `
+    put("#clients", rows.map(r => `
       <div class="act-row">
         <span style="font-weight:550">${esc(r.client)}</span>
         <span class="act-delta">질의 ${r.queries || 0} · 쓰기 ${r.writes || 0}</span>
         <span class="act-time">${rel(r.last)}</span>
-      </div>`).join("");
+      </div>`).join(""));
   }).catch(() => {});
 
   loadNotes().then(notes => {
     const hot = [...notes].filter(n => n.hits > 0).sort((a, b) => b.hits - a.hits).slice(0, 6);
     if (hot.length) {
       $("#hotCard").hidden = false;
-      $("#hot").innerHTML = hot.map(n => `
+      put("#hot", hot.map(n => `
         <div class="act-row" style="cursor:pointer" data-path="${esc(n.path)}">
           <span style="font-weight:550">${esc(n.title)}</span>
           <span class="chip brand">🔥 ${n.hits}</span>
           <span class="act-time">${rel(n.last_hit)}</span>
-        </div>`).join("");
+        </div>`).join(""));
       $$("#hot .act-row").forEach(r =>
         r.onclick = () => go("#/knowledge/" + encodeURIComponent(r.dataset.path)));
     }
     const rec = [...notes].sort((a, b) => b.mtime - a.mtime).slice(0, 6);
-    $("#recent").innerHTML = rec.length ? rec.map(n => `
+    put("#recent", rec.length ? rec.map(n => `
       <div class="act-row" style="cursor:pointer" data-path="${esc(n.path)}">
         <span style="font-weight:550">${esc(n.title)}</span>
         ${n.tags.slice(0, 2).map(t => `<span class="chip">#${esc(t)}</span>`).join("")}
         <span class="act-time">${rel(n.mtime)}</span>
-      </div>`).join("") : `<div class="empty">노트가 없습니다</div>`;
+      </div>`).join("") : `<div class="empty">노트가 없습니다</div>`);
     $$("#recent .act-row").forEach(r =>
       r.onclick = () => go("#/knowledge/" + encodeURIComponent(r.dataset.path)));
   }).catch(() => {});
 
-  $("#sys").innerHTML = [
+  put("#sys", [
     ["프로바이더", esc(o.provider || "-")],
     ["LLM", esc(o.llm_model || "-")],
     ["임베딩", esc(o.embed_model || "-")],
     ["벡터 인덱스", o.vector_index === "ivf-int8"
       ? 'IVF-int8 <span style="color:var(--text-3)">(대규모 자동 전환)</span>'
       : '정확 검색 <span style="color:var(--text-3)">(소규모 볼트 기본)</span>'],
-    ["볼트", `<span class="kv-v mono">${esc(o.vault || "-")}</span>`],
-    ["DB", `<span class="kv-v mono">${esc(o.db || "-")}</span>`],
+    ["볼트", `<span class="kv-v mono" title="${esc(o.vault || "")}">${esc(shortPath(o.vault))}</span>`],
+    ["DB", `<span class="kv-v mono" title="${esc(o.db || "")}">${esc(shortPath(o.db))}</span>`],
     ["볼트 감시", o.watcher_alive ? '<span style="color:var(--ok)">실시간 동기화 중</span>' : '<span style="color:var(--warn)">꺼짐</span>'],
     ["업타임", uptime(o.uptime_s)],
-  ].map(([k, v]) => `<div class="kv-row"><span class="kv-k">${k}</span><span class="kv-v">${v}</span></div>`).join("");
+  ].map(([k, v]) => `<div class="kv-row"><span class="kv-k">${k}</span><span class="kv-v">${v}</span></div>`).join(""));
 }
 
 function uptime(s) {
@@ -380,7 +391,7 @@ async function renderKnowledge(selPath) {
       <div class="note-rows" id="noteRows"></div>
     </div>
     <div class="kn-pane detail-pane" id="notePane">
-      <div class="empty">${icoDoc()} 노트를 선택하세요</div>
+      <div class="empty">${icoDoc()} 노트를 선택하세요<span class="empty-hint">↑ ↓ 이동 · Enter 열기</span></div>
     </div>
   </div></div>`;
 
@@ -952,7 +963,7 @@ function drawFragments(rows) {
   }
   box.innerHTML = rows.map(r => `<div class="hit mem-frag" data-path="${esc(r.path)}">
     <div class="row1">
-      <span class="chip type-${esc(r.type || "note")}">${esc(FRAG_LABEL[r.type] || r.type || "노트")}</span>
+      ${r.type ? `<span class="chip type-${esc(r.type)}">${esc(FRAG_LABEL[r.type] || r.type)}</span>` : ""}
       ${r.anchor ? `<span class="chip brand">📌</span>` : ""}
       <span class="title">${esc(r.note)}</span>
       ${r.case ? `<span class="chip">${esc(r.case)}</span>` : ""}
@@ -1070,6 +1081,7 @@ async function drawCaseBrief(caseId) {
   try { drawFragments((await api(`/api/recall?${p}`)).results); } catch { /* brief still shown */ }
 }
 
+
 async function renderSearch() {
   const Q = S.search;
   const m = $("#main");
@@ -1102,6 +1114,33 @@ async function renderSearch() {
 
   const input = $("#q");
   input.focus();
+  async function drawSearchIdle() {
+    const box = $("#answerBox");
+    if (!box) return;
+    let tags = [], recent = [];
+    try { tags = await api("/api/tags"); } catch {}
+    try { recent = (await loadNotes()).slice().sort((a, b) => b.mtime - a.mtime).slice(0, 5); } catch {}
+    const ex = EXAMPLE_QUERIES.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+    box.innerHTML = `<div class="search-idle">
+      <div class="si-block"><div class="si-h">이렇게 물어보세요</div>
+        <div class="si-chips">${ex.map(q =>
+          `<button class="si-chip" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div></div>
+      ${tags.length ? `<div class="si-block"><div class="si-h">태그로 좁히기</div>
+        <div class="si-chips">${tags.slice(0, 8).map(t =>
+          `<button class="si-chip dim" data-q="tag:${esc(t.tag)} ">#${esc(t.tag)} <span class="si-n">${t.count}</span></button>`).join("")}</div></div>` : ""}
+      ${recent.length ? `<div class="si-block"><div class="si-h">최근 노트</div>
+        <div class="si-recent">${recent.map(n =>
+          `<div class="si-note" data-goto="${esc(n.path)}">${esc(n.title)}<span class="si-when">${rel(n.mtime)}</span></div>`).join("")}</div></div>` : ""}
+      <div class="si-hint">Enter로 질문 · '검색만'은 LLM 없이 즉시 · 연산자 <code>tag: folder: type:</code> 지원</div>
+    </div>`;
+    $$(".si-chip", box).forEach(c => c.onclick = () => {
+      input.value = c.dataset.q;
+      if (c.dataset.q.endsWith(" ")) input.focus(); else doSearch();
+    });
+    $$(".si-note", box).forEach(el => el.onclick =
+      () => go("#/knowledge/" + encodeURIComponent(el.dataset.goto)));
+  }
+  if (!Q.q) drawSearchIdle();      // empty state is the tutorial, filled from THIS vault
   // rotate example questions while the box is empty · the empty state is the tutorial
   const rot = setInterval(() => {
     if (!document.body.contains(input)) { clearInterval(rot); return; }
