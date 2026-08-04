@@ -377,6 +377,7 @@ async function renderKnowledge(selPath) {
       <div class="kn-pane-head"><span class="kn-pane-title">지식 계층</span></div>
       <div class="tree" id="tree"></div>
     </div>
+    <div class="kn-gutter" data-g="tree" title="드래그로 폭 조절 · 더블클릭 초기화"></div>
     <div class="kn-pane list-pane">
       <div class="kn-pane-head">
         <input class="note-filter" id="noteFilter" type="text" placeholder="필터…" value="${esc(K.filter)}">
@@ -391,6 +392,7 @@ async function renderKnowledge(selPath) {
       </div>
       <div class="note-rows" id="noteRows"></div>
     </div>
+    <div class="kn-gutter" data-g="list" title="드래그로 폭 조절 · 더블클릭 초기화"></div>
     <div class="kn-pane detail-pane" id="notePane">
       <div class="empty">${icoDoc()} 노트를 선택하세요<span class="empty-hint">↑ ↓ 이동 · Enter 열기</span></div>
     </div>
@@ -401,6 +403,7 @@ async function renderKnowledge(selPath) {
   $("#noteSort").onchange = e => { K.sort = e.target.value; drawNoteRows(); };
   // new note lands in the folder you're browsing · zero-friction capture
   $("#newNote").onclick = () => newNoteHere(K.folder);
+  initKnResize();
 
   try { await loadNotes(); } catch (e) {
     $("#noteRows").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
@@ -411,6 +414,49 @@ async function renderKnowledge(selPath) {
   drawTree();
   drawNoteRows();
   if (K.sel) drawNoteDetail(K.sel);
+}
+
+// Tolaria-style resizable columns: drag the gutters, widths persist across
+// sessions (localStorage). Double-click a gutter to reset. Edit mode clears
+// the inline grid so `.kn.editing { 1fr }` can fold the panes.
+const KN_W = { tree: [240, 180, 420], list: [320, 230, 540] };  // default, min, max
+function initKnResize() {
+  const kn = $("#kn");
+  if (!kn) return;
+  let w;
+  try { w = JSON.parse(localStorage.getItem("lemory.knw")) || {}; } catch { w = {}; }
+  const clamp = (k, v) => Math.min(KN_W[k][2], Math.max(KN_W[k][1], v ?? KN_W[k][0]));
+  w = { tree: clamp("tree", w.tree), list: clamp("list", w.list) };
+  const apply = () => {
+    if (kn.classList.contains("editing")) { kn.style.gridTemplateColumns = ""; return; }
+    kn.style.gridTemplateColumns = `${w.tree}px 5px ${w.list}px 5px minmax(0,1fr)`;
+  };
+  window.__knApply = apply;
+  apply();
+  $$(".kn-gutter", kn).forEach(g => {
+    const key = g.dataset.g;
+    g.onmousedown = e => {
+      e.preventDefault();
+      const x0 = e.clientX, w0 = w[key];
+      g.classList.add("drag");
+      document.body.classList.add("col-resizing");
+      const move = ev => { w[key] = clamp(key, w0 + ev.clientX - x0); apply(); };
+      const up = () => {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+        g.classList.remove("drag");
+        document.body.classList.remove("col-resizing");
+        localStorage.setItem("lemory.knw", JSON.stringify(w));
+      };
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+    };
+    g.ondblclick = () => {
+      w[key] = KN_W[key][0];
+      apply();
+      localStorage.setItem("lemory.knw", JSON.stringify(w));
+    };
+  });
 }
 
 async function newNoteHere(folder) {
@@ -633,6 +679,40 @@ function mdRender(src) {
   return out.join("\n");
 }
 
+/* Markdown source highlighting for the editor: a color-only token pass that
+   preserves every character, so the transparent textarea above it stays
+   perfectly aligned (colors only · no font-weight, weight shifts glyph
+   widths in CJK fallback fonts and would desync the caret). */
+function hlMarkdown(src) {
+  const e = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const inline = s => e(s)
+    .replace(/`([^`]+)`/g, '<span class="tk-code">`$1`</span>')
+    .replace(/\[\[([^\]]+)\]\]/g, '<span class="tk-wiki">[[$1]]</span>')
+    .replace(/\*\*([^*]+)\*\*/g, '<span class="tk-b">**$1**</span>')
+    .replace(/\[([^\]]*)\]\(([^()\s]+)\)/g, '<span class="tk-link">[$1]($2)</span>')
+    .replace(/(^|\s)(#[\w가-힣][\w가-힣/._-]*)/g, '$1<span class="tk-tag">$2</span>');
+  const lines = src.split("\n");
+  let fence = false, fm = lines[0]?.trim() === "---" && lines.length > 1;
+  let fmFirst = true;
+  return lines.map(ln => {
+    if (fm) {
+      const isEnd = !fmFirst && ln.trim() === "---";
+      fmFirst = false;
+      if (isEnd) fm = false;
+      return `<span class="tk-fm">${e(ln)}</span>`;
+    }
+    if (/^\s*(```|~~~)/.test(ln)) { fence = !fence; return `<span class="tk-fence">${e(ln)}</span>`; }
+    if (fence) return `<span class="tk-codeblk">${e(ln)}</span>`;
+    const h = ln.match(/^#{1,6}\s/);
+    if (h) return `<span class="tk-h">${inline(ln)}</span>`;
+    if (/^>\s?/.test(ln)) return `<span class="tk-q">${inline(ln)}</span>`;
+    if (/^\s*(---|\*\*\*)\s*$/.test(ln)) return `<span class="tk-hr">${e(ln)}</span>`;
+    const m = ln.match(/^(\s*)([-*+]|\d+\.)(\s+)(.*)$/);
+    if (m) return `${e(m[1])}<span class="tk-mark">${e(m[2])}</span>${m[3]}${inline(m[4])}`;
+    return inline(ln);
+  }).join("\n") + "\n";   // trailing \n keeps the last (empty) line's height
+}
+
 async function drawNoteDetail(path) {
   if (window.__edFlush) { window.__edFlush(); window.__edFlush = null; }
   const pane = $("#notePane");
@@ -651,9 +731,14 @@ async function drawNoteDetail(path) {
       <span class="k ${l.kind}">${{ wiki: "링크", mention: "언급", entity: "개체" }[l.kind] || l.kind}</span>${esc(l.title)}</span>`;
 
   const tab = S.knowledge.tab || "read";
+  // clickable breadcrumb: each folder segment scopes the list to that folder
+  const segs = d.path.split("/");
+  const crumbs = segs.map((s, i) => i < segs.length - 1
+    ? `<span class="crumb" data-f="${esc(segs.slice(0, i + 1).join("/"))}">${esc(s)}</span><span class="crumb-sep">›</span>`
+    : `<span class="crumb leaf">${esc(s)}</span>`).join("");
   pane.innerHTML = `<div class="note-detail">
     <div class="nd-title">${esc(d.title)}</div>
-    <div class="nd-path">${esc(d.path)}
+    <div class="nd-path"><span class="crumbs">${crumbs}</span>
       <span class="spacer"></span>
       <button class="icon-btn sm" id="ndRename" title="이름 변경">${icoRename()}</button>
       <button class="icon-btn sm" id="ndDelete" title="휴지통으로">${icoTrash()}</button>
@@ -694,7 +779,10 @@ async function drawNoteDetail(path) {
     // (a click on 본문/연결 brings them back). Without this the preview column
     // is ~230px and CJK wraps to one glyph per line · unreadable.
     const kn = $("#kn");
-    if (kn) kn.classList.toggle("editing", name === "edit");
+    if (kn) {
+      kn.classList.toggle("editing", name === "edit");
+      if (window.__knApply) window.__knApply();   // inline grid vs editing-fold
+    }
     $$("#ndTabs button", pane).forEach(b => b.classList.toggle("active", b.dataset.v === name));
     const body = $("#ndBody", pane);
     if (name === "meta") {
@@ -706,8 +794,30 @@ async function drawNoteDetail(path) {
     try { raw = await api("/api/raw?path=" + encodeURIComponent(path)); }
     catch (e) { body.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
     if (name === "read") {
-      body.innerHTML = `<div class="md-body">${mdRender(raw.content)}</div>`;
+      body.innerHTML = `<div class="nd-read"><div class="md-body">${mdRender(raw.content)}</div>
+        <nav class="nd-toc" id="ndToc" hidden></nav></div>`;
       $$(".md-wiki", body).forEach(a => a.onclick = () => openByTitle(a.dataset.wiki));
+      // TOC for long notes: 3+ headings → sticky outline with scroll-spy
+      const hs = $$(".md-body h1, .md-body h2, .md-body h3, .md-body h4", body);
+      if (hs.length >= 3) {
+        const toc = $("#ndToc", body);
+        toc.innerHTML = `<div class="nd-toc-h">목차</div>` + hs.map((h, i) =>
+          `<div class="nd-toc-item l${h.tagName[1]}" data-i="${i}">${esc(h.textContent)}</div>`).join("");
+        toc.hidden = false;
+        $(".nd-read", body).classList.add("with-toc");
+        const items = $$(".nd-toc-item", toc);
+        items.forEach(el => el.onclick = () =>
+          hs[+el.dataset.i].scrollIntoView({ behavior: "smooth", block: "start" }));
+        const scroller = pane.closest(".kn-pane") || pane;
+        const io = new IntersectionObserver(entries => {
+          entries.forEach(en => {
+            if (!en.isIntersecting) return;
+            const i = hs.indexOf(en.target);
+            items.forEach((el, j) => el.classList.toggle("on", j === i));
+          });
+        }, { root: scroller, rootMargin: "0px 0px -75% 0px" });
+        hs.forEach(h => io.observe(h));
+      }
       return;
     }
     // 편집: dirty tracking + ⌘S + optimistic concurrency + live preview +
@@ -721,15 +831,27 @@ async function drawNoteDetail(path) {
         <button class="btn primary" id="edSave" disabled>저장 <span class="kbd">⌘S</span></button>
       </div>
       <div class="ed-split ${split ? "" : "solo"}" id="edSplit">
-        <div class="ed-col"><textarea class="ed-area" id="edArea" spellcheck="false"></textarea></div>
+        <div class="ed-col ed-wrap">
+          <div class="ed-hl" id="edHl" aria-hidden="true"></div>
+          <textarea class="ed-area" id="edArea" spellcheck="false"></textarea>
+        </div>
         <div class="ed-col ed-preview md-body" id="edPreview"></div>
       </div>
       <div class="wl-menu" id="wlMenu" hidden></div>`;
     const area = $("#edArea", body), btn = $("#edSave", body), st = $("#edState", body);
-    const preview = $("#edPreview", body);
+    const preview = $("#edPreview", body), hl = $("#edHl", body);
     area.value = raw.content;
     let mtime = raw.mtime, dirty = false, autoTimer = null;
-    const renderPreview = () => { preview.innerHTML = mdRender(area.value);
+    // syntax layer + auto-grow: the textarea never scrolls internally (the
+    // detail pane scrolls instead), so highlight and text can never desync
+    const paint = () => {
+      hl.innerHTML = hlMarkdown(area.value);
+      const sc = pane.closest(".kn-pane"), keep = sc ? sc.scrollTop : 0;
+      area.style.height = "auto";
+      area.style.height = area.scrollHeight + 2 + "px";
+      if (sc) sc.scrollTop = keep;
+    };
+    const renderPreview = () => { paint(); preview.innerHTML = mdRender(area.value);
       $$(".md-wiki", preview).forEach(a => a.onclick = () => openByTitle(a.dataset.wiki)); };
     renderPreview();
     $("#edPrev", body).onclick = e => {
@@ -770,7 +892,7 @@ async function drawNoteDetail(path) {
       const rect = area.getBoundingClientRect(), lh = 22;
       const line = c.slice(0, p).split("\n").length;
       wl.style.left = rect.left + 14 + "px";
-      wl.style.top = Math.min(rect.top + line * lh, rect.bottom - 40) + "px";
+      wl.style.top = Math.min(rect.top + line * lh, window.innerHeight - 60) + "px";
       wl.hidden = false;
       $$(".wl-item", wl).forEach(el => el.onclick = () => wlPick(+el.dataset.i));
     }
@@ -857,6 +979,15 @@ async function drawNoteDetail(path) {
   $$("#ndTabs button", pane).forEach(b => b.onclick = () => showTab(b.dataset.v));
   $("#ndRename", pane).onclick = () => renameNote(d.path);
   $("#ndDelete", pane).onclick = () => deleteNote(d.path);
+  $$(".crumb[data-f]", pane).forEach(c => c.onclick = () => {
+    S.knowledge.folder = c.dataset.f;
+    S.knowledge.tag = null;
+    // reveal the whole branch in the tree, ancestors included
+    c.dataset.f.split("/").forEach((_, i, a) =>
+      S.knowledge.open.add(a.slice(0, i + 1).join("/")));
+    drawTree();
+    drawNoteRows();
+  });
   showTab(tab);
 }
 
@@ -1988,6 +2119,24 @@ function icoPlus() { return svg('<path d="M8 3v10M3 8h10"/>'); }
 function icoTrash() { return svg('<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M6.5 7v4M9.5 7v4"/>'); }
 function icoRename() { return svg('<path d="M2.5 11.5 10 4l2 2-7.5 7.5H2.5zM9 5l2 2M8.5 13.5h5"/>'); }
 
+/* -------------------------------------------------------------- statusbar */
+function updateStatusbar(o) {
+  const sb = $("#statusbar");
+  if (!sb) return;
+  if (!o) {
+    $("#sbDot").className = "dot";
+    $("#sbWatch").textContent = "서버 연결 안 됨";
+    return;
+  }
+  $("#sbVault").textContent = (o.vault || "").split("/").filter(Boolean).pop() || "볼트 미설정";
+  $("#sbCounts").textContent =
+    `노트 ${fmtN(o.documents)} · 청크 ${fmtN(o.chunks)} · 연결 ${fmtN(o.links)}`;
+  $("#sbDot").className = "dot " + (o.watcher_alive ? "ok" : "warn");
+  $("#sbWatch").textContent = o.watcher_alive ? "실시간 감시" : "감시 꺼짐";
+  $("#sbSync").textContent = o.last_sync ? "색인 " + rel(+o.last_sync) : "색인 전";
+  if (o.provider) $("#sbProvider").textContent = o.provider;
+}
+
 /* ------------------------------------------------------------------- boot */
 async function boot() {
   initTheme();
@@ -1998,10 +2147,17 @@ async function boot() {
     S.overview = o; S.vaultPath = o.vault;
     $("#vaultName").textContent = (o.vault || "").split("/").filter(Boolean).pop() || "볼트 미설정";
     setWatch(o.watcher_alive);
-  } catch { $("#watchLabel").textContent = "서버 연결 안 됨"; }
+    updateStatusbar(o);
+  } catch { $("#watchLabel").textContent = "서버 연결 안 됨"; updateStatusbar(null); }
+  try {
+    const h = await api("/health");
+    if (h.version) $("#sbVer").textContent = "Lemory v" + h.version;
+  } catch { /* statusbar just omits the version */ }
   setInterval(async () => {
-    try { const o = await api("/api/overview"); setWatch(o.watcher_alive); S.overview = o; }
-    catch { $("#watchDot").className = "dot"; $("#watchLabel").textContent = "서버 연결 안 됨"; }
+    try { const o = await api("/api/overview"); setWatch(o.watcher_alive); S.overview = o;
+      updateStatusbar(o); }
+    catch { $("#watchDot").className = "dot"; $("#watchLabel").textContent = "서버 연결 안 됨";
+      updateStatusbar(null); }
   }, 30000);
 }
 boot();

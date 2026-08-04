@@ -22,6 +22,11 @@
   --r-lg: 10px;
   --r-md: 8px;
   --r-sm: 6px;
+  /* editor syntax tokens (color-only · glyph widths must not change) */
+  --tk-code: #8fd3a7;
+  --tk-wiki: #6cb0ee;
+  --tk-tag: #c792ea;
+  --tk-b: #ffffff;
   color-scheme: dark;
 }
 
@@ -220,7 +225,12 @@ input::placeholder { color: var(--text-3); }
 .kv-v.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; }
 
 /* --------------------------------------------------------------- knowledge */
-.kn { display: grid; grid-template-columns: 240px 320px 1fr; height: 100%; }
+.kn { display: grid; grid-template-columns: 240px 5px 320px 5px minmax(0, 1fr); height: 100%; }
+.kn-gutter { cursor: col-resize; position: relative; z-index: 3;
+  transition: background .12s; }
+.kn-gutter:hover, .kn-gutter.drag { background: var(--brand-soft); }
+body.col-resizing { cursor: col-resize; user-select: none; }
+body.col-resizing iframe { pointer-events: none; }
 .kn-pane { border-right: 1px solid var(--border); overflow-y: auto; min-width: 0; }
 .kn-pane:last-child { border-right: none; }
 .kn-pane-head { position: sticky; top: 0; z-index: 2; background: var(--bg-content);
@@ -443,7 +453,7 @@ input::placeholder { color: var(--text-3); }
 .pal-empty { padding: 22px; text-align: center; color: var(--text-3); font-size: 12.5px; }
 
 /* ------------------------------------------------------------------ toast */
-#toasts { position: fixed; right: 18px; bottom: 18px; z-index: 60;
+#toasts { position: fixed; right: 18px; bottom: 34px; z-index: 60;
   display: flex; flex-direction: column; gap: 8px; }
 .toast { background: var(--surface-2); border: 1px solid var(--border-2);
   border-radius: 9px; padding: 10px 14px; font-size: 12.5px;
@@ -456,9 +466,11 @@ input::placeholder { color: var(--text-3); }
 @media (max-width: 960px) {
   .tiles { grid-template-columns: repeat(2, 1fr); }
   .cols-2 { grid-template-columns: 1fr; }
-  .kn { grid-template-columns: 200px 1fr; }
+  /* !important: the resizable-column inline grid must not win on small screens */
+  .kn { grid-template-columns: 200px 1fr !important; }
+  .kn-gutter { display: none; }
   .kn-pane.detail-pane { display: none; }
-  .kn.show-detail { grid-template-columns: 200px 1fr; }
+  .kn.show-detail { grid-template-columns: 200px 1fr !important; }
   .kn.show-detail .list-pane { display: none; }
   .kn.show-detail .detail-pane { display: block; }
 }
@@ -550,6 +562,10 @@ input::placeholder { color: var(--text-3); }
   --brand-ink: #fffbe8;
   --brand-soft: rgba(184, 134, 11, 0.12);
   --shadow: 0 8px 32px rgba(20, 20, 40, .12);
+  --tk-code: #177245;
+  --tk-wiki: #155eab;
+  --tk-tag: #7c3aad;
+  --tk-b: #000000;
   color-scheme: light;
 }
 .theme-btn { width: 30px; height: 30px; border-radius: var(--r-sm);
@@ -678,8 +694,79 @@ input::placeholder { color: var(--text-3); }
 
 
 /* focus-editing: fold tree+list so the editor+preview get the width */
-.kn.editing .tree-pane, .kn.editing .list-pane { display: none; }
+.kn.editing .tree-pane, .kn.editing .list-pane, .kn.editing .kn-gutter { display: none; }
 .kn.editing { grid-template-columns: 1fr; }
 /* CJK must wrap on word boundaries, never split a syllable run mid-glyph */
 .md-body, .ed-preview { word-break: keep-all; overflow-wrap: anywhere; }
 .ed-preview .md-code, .ed-preview pre { word-break: normal; }
+
+/* ------------------------------------ editor: backdrop syntax highlighting
+   The textarea is transparent text over an identically-metriced highlight
+   layer. The textarea never scrolls internally (auto-grow · the pane
+   scrolls), so the two layers can never drift apart. */
+.ed-wrap { position: relative; display: block; }
+.ed-wrap .ed-area, .ed-hl {
+  font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", monospace;
+  font-size: 13px; line-height: 1.7; tab-size: 2;
+  padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-md);
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: normal;
+  margin: 0; }
+.ed-hl { position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  background: var(--surface); color: var(--text); user-select: none; }
+.ed-wrap .ed-area { position: relative; z-index: 1; display: block; width: 100%;
+  min-height: 62vh; background: transparent; color: transparent;
+  caret-color: var(--text); border-color: transparent; resize: none;
+  overflow: hidden; }
+.ed-wrap .ed-area:focus { border-color: transparent; }
+.ed-wrap:focus-within .ed-hl { border-color: var(--border-2); }
+.tk-h { color: var(--brand); }
+.tk-b { color: var(--tk-b); }
+.tk-code, .tk-codeblk { color: var(--tk-code); }
+.tk-fence, .tk-fm, .tk-hr, .tk-q { color: var(--text-3); }
+.tk-wiki, .tk-link { color: var(--tk-wiki); }
+.tk-tag { color: var(--tk-tag); }
+.tk-mark { color: var(--brand); }
+/* the editor column grows with content · keep the live preview in view */
+.ed-split .ed-preview { position: sticky; top: 8px; align-self: start;
+  max-height: calc(100vh - 210px); }
+
+/* ------------------------------------------------------- read tab: 목차 TOC */
+.nd-read.with-toc { display: grid; grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 22px; align-items: start; }
+.nd-toc { position: sticky; top: 8px; max-height: calc(100vh - 200px);
+  overflow-y: auto; border-left: 1px solid var(--border);
+  padding: 2px 0 2px 12px; font-size: 12px; }
+.nd-toc-h { font-size: 10.5px; font-weight: 650; color: var(--text-3);
+  letter-spacing: .05em; margin-bottom: 6px; }
+.nd-toc-item { padding: 3px 0; color: var(--text-3); cursor: pointer;
+  line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd-toc-item:hover { color: var(--text); }
+.nd-toc-item.on { color: var(--brand); }
+.nd-toc-item.l3 { padding-left: 12px; }
+.nd-toc-item.l4 { padding-left: 24px; }
+@media (max-width: 1200px) {
+  .nd-read.with-toc { display: block; }
+  .nd-toc { display: none; }
+}
+
+/* -------------------------------------------------- note path breadcrumb */
+.crumbs { display: inline-flex; align-items: center; gap: 3px; min-width: 0;
+  overflow: hidden; white-space: nowrap; }
+.crumb[data-f] { cursor: pointer; color: var(--text-3); }
+.crumb[data-f]:hover { color: var(--brand); text-decoration: underline; }
+.crumb.leaf { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; }
+.crumb-sep { color: var(--text-3); opacity: .7; }
+.nd-path .spacer { flex: 1; }
+
+/* --------------------------------------------------------------- statusbar */
+#app { height: calc(100% - 25px); }
+.statusbar { position: fixed; left: 0; right: 0; bottom: 0; height: 25px;
+  z-index: 45; display: flex; align-items: center; gap: 14px; padding: 0 14px;
+  background: var(--bg); border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-3); }
+.statusbar .sb-item { display: inline-flex; align-items: center; gap: 5px;
+  white-space: nowrap; }
+.statusbar .sb-item.strong { color: var(--text-2); font-weight: 600; }
+.statusbar .sb-item.dim { opacity: .8; }
+.statusbar .spacer { flex: 1; }
+@media (max-width: 640px) { .statusbar { display: none; } #app { height: 100%; } }

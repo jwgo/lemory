@@ -2,6 +2,30 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · desktop-grade console shell: 하이라이트 편집기 · 리사이즈 · 상태바 · TOC
+
+Closing the visible gap to desktop knowledge tools (Tolaria-class shells):
+
+- **Syntax-highlighted editor**: the edit tab now colors markdown source ·
+  headings, bold, inline/fenced code, `[[wikilinks]]`, links, tags, quotes,
+  frontmatter. Zero libraries: a transparent-text textarea sits over an
+  identically-metriced highlight layer; the textarea auto-grows instead of
+  scrolling internally, so the two layers can never drift. Color-only tokens
+  (no weight changes · bold shifts CJK fallback glyph widths and would
+  desync the caret). Both themes get their own token palette.
+- **Resizable columns**: drag the gutters between 계층/목록/본문 to set pane
+  widths (clamped 180–420 / 230–540), persisted in localStorage, double-click
+  to reset. Small screens and focus-editing override the custom widths.
+- **Bottom status bar**: vault · 노트/청크/연결 counts · watcher dot ·
+  마지막 색인 age · provider · version, refreshed on the existing 30s poll.
+  Answers "is it alive, is it indexed" from every view.
+- **본문 목차 (TOC)**: notes with 3+ headings get a sticky outline next to
+  the body · click scrolls, scroll-spy highlights the section you're reading.
+- **Clickable breadcrumb**: the note path renders as folder segments · click
+  one to scope the note list to that folder (tree opens the branch).
+- Verified hands-on in the browser (drag, type, click-through, both themes):
+  highlight/textarea alignment measured at 0px drift, JS errors 0.
+
 ## Unreleased · direct authoring: the console writes notes now, production-grade
 
 The console stops being read-mostly · you author notes in it, like Almanac's
