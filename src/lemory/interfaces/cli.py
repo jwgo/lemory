@@ -1180,7 +1180,7 @@ def daemon_cmd(
         try:
             st = dmn.start(data_dir, eng_cfg.vault, port=port)
         except RuntimeError as e:
-            console.print(f"[red]{e}[/red]", markup=False)
+            console.print(f"[red]{escape(str(e))}[/red]")
             raise typer.Exit(1)
         if st.healthy:
             console.print(f"[green]✔ 데몬 시작[/green] pid {st.pid} · "

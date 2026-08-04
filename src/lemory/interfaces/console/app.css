@@ -603,3 +603,17 @@ input::placeholder { color: var(--text-3); }
   font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", monospace;
   tab-size: 2; }
 .ed-area:focus { outline: none; border-color: var(--border-2); }
+
+/* --------------------------------------------------------- shortcut help */
+.sc-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45);
+  display: flex; align-items: center; justify-content: center; z-index: 1200; }
+.sc-card { background: var(--surface); border: 1px solid var(--border-2);
+  border-radius: var(--r-lg); box-shadow: var(--shadow);
+  padding: 18px 22px; min-width: 340px; }
+.sc-title { font-size: 14px; font-weight: 650; margin-bottom: 12px;
+  display: flex; align-items: baseline; gap: 10px; }
+.sc-row { display: flex; align-items: center; gap: 14px; padding: 5px 0;
+  font-size: 12.5px; color: var(--text-2); }
+.sc-key { min-width: 46px; text-align: center; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 5px; padding: 2px 8px;
+  font-size: 11px; font-family: ui-monospace, monospace; color: var(--text); }

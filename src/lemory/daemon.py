@@ -80,6 +80,22 @@ def read_status(data_dir: Path, probe: bool = True) -> DaemonStatus:
     return st
 
 
+def _probe_pid(port: int, timeout: float = 2.0) -> "int | None":
+    """The pid the /health responder reports, or None when unreachable.
+    Lets start() distinguish 'our server came up' from 'a stranger already
+    owns this port' · found live: a stale daemon on the port made start()
+    report success while the new process had died on bind."""
+    import json as _json
+    import urllib.request
+
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(f"http://127.0.0.1:{port}/health", timeout=timeout) as r:
+            return int(_json.loads(r.read().decode()).get("pid", -1))
+    except Exception:
+        return None
+
+
 def _probe(port: int, timeout: float = 2.0) -> bool:
     import urllib.request
 
@@ -136,7 +152,20 @@ def start(data_dir: Path, vault: Path | None, port: int = 8377,
             clean_stale(data_dir)
             raise RuntimeError(
                 f"server exited during startup (code {proc.returncode}).\n{tail}")
-        if _probe(port):
+        got = _probe_pid(port)
+        if got is not None:
+            if got != proc.pid:
+                # someone else answers on this port · our process is (or will
+                # be) dead on bind. Fail loudly instead of adopting a stranger.
+                try:
+                    proc.terminate()
+                except OSError:
+                    pass
+                clean_stale(data_dir)
+                raise RuntimeError(
+                    f"port {port} is already in use by another process "
+                    f"(pid {got}). Stop it or pick another port "
+                    f"(lemory daemon start --port <n>).")
             return DaemonStatus(running=True, pid=proc.pid, port=port,
                                 started_at=time.time(), healthy=True)
         time.sleep(0.5)

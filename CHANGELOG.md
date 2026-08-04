@@ -2,6 +2,27 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · usability pass: shortcuts everywhere, nothing ever lost
+
+- **Data-driven shortcuts + ? help**: one table drives the key handler AND
+  the ?-overlay (Tolaria's command-manifest pattern, console-sized). ⌘1-8
+  jump between the eight views, ⌘N creates an Untitled note and lands in the
+  editor, ⌘K stays the palette, Esc closes overlays. Bare keys never fire
+  inside text fields.
+- **Keyboard-first knowledge list**: ↑/↓ (or j/k) walk the visible note rows
+  with wrap-around and scroll-into-view, Enter opens the note · the mouse
+  becomes optional.
+- **Leave-flush**: switching tab/note or closing the page inside the 1.5s
+  autosave window no longer loses the typing tail · tab switches AWAIT the
+  flush (so the read view shows what you just typed), page unload uses
+  fetch keepalive.
+- **Daemon adopts no strangers** (found live, again): a stale server already
+  on the port made `daemon start` report success while the new process died
+  on bind. /health now reports its pid and start() verifies the responder IS
+  its own child · a foreign pid fails loudly with "port in use by pid N".
+- All five flows browser-verified end-to-end (keynav-open, ⌘4 graph, ?
+  overlay open/close, ⌘N-to-editor, leave-flush), JS errors 0.
+
 ## Unreleased · desktop-grade console: editor, wikilink nav, themes, graph
 
 **The console stops being a dashboard and starts being a workspace** · the

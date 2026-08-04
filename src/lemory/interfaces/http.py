@@ -309,8 +309,11 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         """Liveness + readiness in one cheap call (the daemon's probe target).
         Always 200 once the app is up; `ok` is the readiness verdict."""
         st = engine.status()
+        import os as _os
+
         return {
             "ok": True,
+            "pid": _os.getpid(),   # lets `daemon start` verify the port answers as OUR process
             "version": _version(),
             "services": {
                 "watcher": state["watcher_alive"],

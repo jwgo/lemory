@@ -60,6 +60,82 @@ async function loadNotes(force = false) {
 }
 
 
+
+/* -------------------------------------------------- global shortcuts (사용성) */
+// One data table drives BOTH the key handler and the ? help overlay ·
+// Tolaria's command-manifest pattern, console-sized. mod = ⌘ on mac, Ctrl elsewhere.
+const SHORTCUTS = [
+  { combo: "mod+K", disp: "⌘K", desc: "명령 팔레트 · 이동/검색", act: () => openPalette() },
+  { combo: "mod+N", disp: "⌘N", desc: "새 노트 (제목은 나중에 바꿔도 됨)", act: () => {
+      const t = new Date().toTimeString().slice(0, 8).replaceAll(":", "");
+      createNoteFromPalette(`무제 ${t}`);
+    } },
+  ...["overview", "knowledge", "memory", "graph", "health", "search", "assistant", "settings"]
+    .map((v, i) => ({ combo: `mod+${i + 1}`, disp: `⌘${i + 1}`,
+                      desc: `${["현황","지식","기억","그래프","건강","검색","비서","설정"][i]} 뷰`,
+                      act: () => go("#/" + v) })),
+  { combo: "?", disp: "?", desc: "단축키 도움말", act: () => toggleShortcutHelp() },
+  { combo: "j/k · ↑/↓", disp: "↑↓", desc: "지식 목록에서 노트 이동 (Enter로 열기)", help_only: true },
+];
+
+function toggleShortcutHelp() {
+  const cur = $("#shortcutHelp");
+  if (cur) { cur.remove(); return; }
+  const el = document.createElement("div");
+  el.id = "shortcutHelp";
+  el.className = "sc-overlay";
+  el.innerHTML = `<div class="sc-card">
+    <div class="sc-title">단축키 <span class="view-sub" style="display:inline">? 또는 Esc로 닫기</span></div>
+    ${SHORTCUTS.map(sc => `<div class="sc-row"><span class="sc-key">${esc(sc.disp)}</span>
+      <span>${esc(sc.desc)}</span></div>`).join("")}
+  </div>`;
+  el.onclick = e => { if (e.target === el) el.remove(); };
+  document.body.appendChild(el);
+}
+
+function inTextField(t) {
+  return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+}
+
+document.addEventListener("keydown", e => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (e.key === "Escape") {
+    const h = $("#shortcutHelp");
+    if (h) { h.remove(); return; }
+  }
+  // bare-key shortcuts stay out of text fields; ⌘-combos work everywhere
+  if (!mod && inTextField(e.target)) return;
+  if (mod) {
+    for (const sc of SHORTCUTS) {
+      if (sc.help_only || !sc.combo.startsWith("mod+")) continue;
+      const key = sc.combo.slice(4).toLowerCase();
+      if (e.key.toLowerCase() === key) { e.preventDefault(); sc.act(); return; }
+    }
+    return;
+  }
+  if (e.key === "?") { e.preventDefault(); toggleShortcutHelp(); return; }
+  // knowledge-list keyboard navigation (visible rows, wraps at the ends)
+  if (location.hash.startsWith("#/knowledge") || location.hash === "" ) {
+    const K = S.knowledge;
+    if (!K.rows || !K.rows.length) return;
+    const move = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 }[e.key];
+    if (move !== undefined) {
+      e.preventDefault();
+      const i = Math.max(0, K.rows.indexOf(K.sel));
+      const next = K.rows[(i + move + K.rows.length) % K.rows.length];
+      K.sel = next;
+      drawNoteRows();
+      const row = $(`.note-row[data-path="${CSS.escape(next)}"]`);
+      if (row) row.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    if (e.key === "Enter" && K.sel) { e.preventDefault(); drawNoteDetail(K.sel); }
+  }
+});
+window.addEventListener("beforeunload", () => {
+  if (window.__edFlush) window.__edFlush();
+});
+
 /* ------------------------------------------------------------------- theme */
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
@@ -402,6 +478,7 @@ function drawNoteRows() {
     hits: (a, b) => (b.hits || 0) - (a.hits || 0),
   };
   rows = [...rows].sort(sorters[K.sort]);
+  K.rows = rows.map(n => n.path);   // keyboard nav operates on what's visible
 
   $("#noteRows").innerHTML = rows.length ? rows.map(n => `
     <div class="note-row ${K.sel === n.path ? "active" : ""}" data-path="${esc(n.path)}">
@@ -502,6 +579,7 @@ function mdRender(src) {
 }
 
 async function drawNoteDetail(path) {
+  if (window.__edFlush) { window.__edFlush(); window.__edFlush = null; }
   const pane = $("#notePane");
   if (!pane) return;
   pane.innerHTML = `<div class="note-detail"><div class="skel" style="height:22px;width:220px"></div>
@@ -549,6 +627,10 @@ async function drawNoteDetail(path) {
         ${c.text.length > 400 ? `<div class="more">더 보기</div>` : ""}</div>`).join("")}</div>`;
 
   async function showTab(name) {
+    if (window.__edFlush && S.knowledge.tab === "edit" && name !== "edit") {
+      try { await window.__edFlush(); } catch { /* keepalive still delivered */ }
+      window.__edFlush = null;
+    }
     S.knowledge.tab = name;
     $$("#ndTabs button", pane).forEach(b => b.classList.toggle("active", b.dataset.v === name));
     const body = $("#ndBody", pane);
@@ -582,6 +664,18 @@ async function drawNoteDetail(path) {
       mark(true);
       clearTimeout(autoTimer);
       autoTimer = setTimeout(() => save(true), 1500);
+    };
+    // leave-flush: switching tab/note or closing the page must not lose the
+    // sub-1.5s tail of typing. keepalive lets the PUT finish during unload.
+    window.__edFlush = () => {
+      if (!dirty) return Promise.resolve();
+      clearTimeout(autoTimer);
+      dirty = false;
+      // keepalive: the PUT survives page unload; tab switches AWAIT it so
+      // the read view renders what was just typed, not a stale disk state
+      return fetch("/api/note", { method: "PUT", keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, content: area.value, expect_mtime: mtime }) });
     };
     async function save(auto = false) {
       if (!dirty) return;
