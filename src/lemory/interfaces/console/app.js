@@ -387,6 +387,7 @@ async function renderKnowledge(selPath) {
           <option value="chunks">분량</option>
           <option value="hits">많이 찾은 순</option>
         </select>
+        <button class="icon-btn" id="newNote" title="새 노트 (⌘N)${K.folder ? " · " + esc(K.folder) + "에" : ""}">${icoPlus()}</button>
       </div>
       <div class="note-rows" id="noteRows"></div>
     </div>
@@ -398,6 +399,8 @@ async function renderKnowledge(selPath) {
   $("#noteSort").value = K.sort;
   $("#noteFilter").oninput = e => { K.filter = e.target.value; drawNoteRows(); };
   $("#noteSort").onchange = e => { K.sort = e.target.value; drawNoteRows(); };
+  // new note lands in the folder you're browsing · zero-friction capture
+  $("#newNote").onclick = () => newNoteHere(K.folder);
 
   try { await loadNotes(); } catch (e) {
     $("#noteRows").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
@@ -408,6 +411,47 @@ async function renderKnowledge(selPath) {
   drawTree();
   drawNoteRows();
   if (K.sel) drawNoteDetail(K.sel);
+}
+
+async function newNoteHere(folder) {
+  const title = prompt(folder ? `새 노트 제목 (${folder}에 생성):` : "새 노트 제목:");
+  if (!title || !title.trim()) return;
+  const path = (folder ? folder + "/" : "") + title.trim();
+  try {
+    const r = await api("/api/note", { method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, content: `# ${title.trim()}\n\n` }) });
+    S.notes = null; S.titles = null;
+    S.knowledge.tab = "edit";
+    await renderKnowledge(r.saved);
+    toast(`'${title.trim()}' 생성`, "ok");
+  } catch (e) { toast(e.message, "err"); }
+}
+
+async function deleteNote(path) {
+  if (!confirm(`'${path}' 을 휴지통으로 옮길까요?\n(.trash에서 복구 가능)`)) return;
+  try {
+    await api("/api/note/delete", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }) });
+    S.notes = null; S.titles = null;
+    if (S.knowledge.sel === path) S.knowledge.sel = null;
+    await renderKnowledge();
+    toast("휴지통으로 이동", "ok");
+  } catch (e) { toast(e.message, "err"); }
+}
+
+async function renameNote(path) {
+  const next = prompt("새 경로/제목:", path.replace(/\.md$/, ""));
+  if (!next || !next.trim() || next.trim() === path.replace(/\.md$/, "")) return;
+  try {
+    const r = await api("/api/note/rename", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ src: path, dst: next.trim() }) });
+    S.notes = null; S.titles = null;
+    await renderKnowledge(r.renamed);
+    toast("이름 변경", "ok");
+  } catch (e) { toast(e.message, "err"); }
 }
 
 function buildTree(notes) {
@@ -610,6 +654,9 @@ async function drawNoteDetail(path) {
   pane.innerHTML = `<div class="note-detail">
     <div class="nd-title">${esc(d.title)}</div>
     <div class="nd-path">${esc(d.path)}
+      <span class="spacer"></span>
+      <button class="icon-btn sm" id="ndRename" title="이름 변경">${icoRename()}</button>
+      <button class="icon-btn sm" id="ndDelete" title="휴지통으로">${icoTrash()}</button>
       <a class="btn ghost" style="height:24px;padding:0 8px;font-size:11.5px" href="${obsidian}">${icoExt()} Obsidian에서 열기</a>
     </div>
     ${d.tags.length ? `<div class="nd-tags">${d.tags.map(t => `<span class="chip brand">#${esc(t)}</span>`).join("")}</div>` : ""}
@@ -643,6 +690,11 @@ async function drawNoteDetail(path) {
       window.__edFlush = null;
     }
     S.knowledge.tab = name;
+    // edit mode is a writing surface · give it room by folding the tree+list
+    // (a click on 본문/연결 brings them back). Without this the preview column
+    // is ~230px and CJK wraps to one glyph per line · unreadable.
+    const kn = $("#kn");
+    if (kn) kn.classList.toggle("editing", name === "edit");
     $$("#ndTabs button", pane).forEach(b => b.classList.toggle("active", b.dataset.v === name));
     const body = $("#ndBody", pane);
     if (name === "meta") {
@@ -658,24 +710,77 @@ async function drawNoteDetail(path) {
       $$(".md-wiki", body).forEach(a => a.onclick = () => openByTitle(a.dataset.wiki));
       return;
     }
-    // 편집: dirty tracking + ⌘S + optimistic concurrency (mtime token)
+    // 편집: dirty tracking + ⌘S + optimistic concurrency + live preview +
+    // [[wikilink]] autocomplete. A real authoring surface, not a text box.
+    const split = S.knowledge.preview ?? true;
     body.innerHTML = `
       <div class="ed-bar">
         <span class="ed-state" id="edState">저장됨</span><span class="spacer"></span>
+        <span class="switch-lbl">미리보기</span>
+        <span class="switch sm ${split ? "on" : ""}" id="edPrev" title="편집·미리보기 나란히"></span>
         <button class="btn primary" id="edSave" disabled>저장 <span class="kbd">⌘S</span></button>
       </div>
-      <textarea class="ed-area" id="edArea" spellcheck="false"></textarea>`;
+      <div class="ed-split ${split ? "" : "solo"}" id="edSplit">
+        <div class="ed-col"><textarea class="ed-area" id="edArea" spellcheck="false"></textarea></div>
+        <div class="ed-col ed-preview md-body" id="edPreview"></div>
+      </div>
+      <div class="wl-menu" id="wlMenu" hidden></div>`;
     const area = $("#edArea", body), btn = $("#edSave", body), st = $("#edState", body);
+    const preview = $("#edPreview", body);
     area.value = raw.content;
     let mtime = raw.mtime, dirty = false, autoTimer = null;
+    const renderPreview = () => { preview.innerHTML = mdRender(area.value);
+      $$(".md-wiki", preview).forEach(a => a.onclick = () => openByTitle(a.dataset.wiki)); };
+    renderPreview();
+    $("#edPrev", body).onclick = e => {
+      const on = !e.target.classList.contains("on");
+      e.target.classList.toggle("on", on);
+      $("#edSplit", body).classList.toggle("solo", !on);
+      S.knowledge.preview = on;
+    };
     const mark = v => { dirty = v; btn.disabled = !v;
       st.textContent = v ? "수정됨 · 1.5초 뒤 자동 저장" : "저장됨";
       st.classList.toggle("dirty", v); };
     area.oninput = () => {                 // Tolaria-style autosave debounce
       mark(true);
+      renderPreview();
+      wlAuto();
       clearTimeout(autoTimer);
       autoTimer = setTimeout(() => save(true), 1500);
     };
+
+    // ---- [[wikilink]] autocomplete: type '[[' and pick a note by title
+    const wl = $("#wlMenu", body);
+    let wlItems = [], wlSel = 0, wlStart = -1;
+    async function wlAuto() {
+      const c = area.value, p = area.selectionStart;
+      const open = c.lastIndexOf("[[", p - 1);
+      if (open < 0 || c.slice(open, p).includes("]]") || c.slice(open, p).includes("\n")) {
+        wl.hidden = true; wlStart = -1; return;
+      }
+      wlStart = open;
+      const q = c.slice(open + 2, p).toLowerCase();
+      if (!S.titles) { try { S.titles = (await api("/api/titles")).titles; } catch { S.titles = []; } }
+      wlItems = S.titles.filter(t => t.title.toLowerCase().includes(q)).slice(0, 8);
+      if (!wlItems.length) { wl.hidden = true; return; }
+      wlSel = 0;
+      wl.innerHTML = wlItems.map((t, i) =>
+        `<div class="wl-item ${i === 0 ? "sel" : ""}" data-i="${i}">${esc(t.title)}</div>`).join("");
+      // position under the caret line (approximate · good enough, no lib)
+      const rect = area.getBoundingClientRect(), lh = 22;
+      const line = c.slice(0, p).split("\n").length;
+      wl.style.left = rect.left + 14 + "px";
+      wl.style.top = Math.min(rect.top + line * lh, rect.bottom - 40) + "px";
+      wl.hidden = false;
+      $$(".wl-item", wl).forEach(el => el.onclick = () => wlPick(+el.dataset.i));
+    }
+    function wlPick(i) {
+      const t = wlItems[i]; if (!t) return;
+      const p = area.selectionStart;
+      area.setRangeText(t.title + "]]", wlStart + 2, p, "end");
+      wl.hidden = true; mark(true); renderPreview();
+      area.focus();
+    }
     // leave-flush: switching tab/note or closing the page must not lose the
     // sub-1.5s tail of typing. keepalive lets the PUT finish during unload.
     window.__edFlush = () => {
@@ -706,12 +811,20 @@ async function drawNoteDetail(path) {
         } else toast(e.message, "err");
       }
     }
-    btn.onclick = save;
+    btn.onclick = () => save();
     area.onkeydown = e => {
+      if (!wl.hidden) {                       // wikilink menu owns arrows/enter
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault();
+          wlSel = (wlSel + (e.key === "ArrowDown" ? 1 : wlItems.length - 1)) % wlItems.length;
+          $$(".wl-item", wl).forEach((el, i) => el.classList.toggle("sel", i === wlSel));
+          return; }
+        if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); wlPick(wlSel); return; }
+        if (e.key === "Escape") { wl.hidden = true; return; }
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); save(); }
       if (e.key === "Tab") { e.preventDefault();
         const p = area.selectionStart;
-        area.setRangeText("  ", p, area.selectionEnd, "end"); mark(true); }
+        area.setRangeText("  ", p, area.selectionEnd, "end"); mark(true); renderPreview(); }
     };
   }
 
@@ -742,6 +855,8 @@ async function drawNoteDetail(path) {
   }
 
   $$("#ndTabs button", pane).forEach(b => b.onclick = () => showTab(b.dataset.v));
+  $("#ndRename", pane).onclick = () => renameNote(d.path);
+  $("#ndDelete", pane).onclick = () => deleteNote(d.path);
   showTab(tab);
 }
 
@@ -1869,6 +1984,9 @@ function icoGear() { return svg('<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v
 function icoExt() { return svg('<path d="M6.5 3.5H3v9.5h9.5V9M9 2.5h4.5V7M13 3 7.5 8.5"/>'); }
 function icoChev() { return svg('<path d="m6 3.5 4.5 4.5L6 12.5"/>'); }
 function icoRefresh(cls = "") { return svg('<path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.8v2.7h-2.7"/>', `class="${cls}"`); }
+function icoPlus() { return svg('<path d="M8 3v10M3 8h10"/>'); }
+function icoTrash() { return svg('<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M6.5 7v4M9.5 7v4"/>'); }
+function icoRename() { return svg('<path d="M2.5 11.5 10 4l2 2-7.5 7.5H2.5zM9 5l2 2M8.5 13.5h5"/>'); }
 
 /* ------------------------------------------------------------------- boot */
 async function boot() {

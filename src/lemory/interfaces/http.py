@@ -144,6 +144,11 @@ class NoteWriteBody(BaseModel):
     expect_mtime: float | None = None
 
 
+class RenameBody(BaseModel):
+    src: str
+    dst: str
+
+
 def remote_auth_error(client_host: str, auth_header: str,
                       api_token: str) -> tuple[str, int] | None:
     """Remote access (the mobile story): non-localhost CLIENTS must present
@@ -751,6 +756,35 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             raise HTTPException(code, str(e))
         return {"saved": rel,
                 "mtime": engine.safe_path(rel).stat().st_mtime}
+
+    @app.post("/api/note/rename")
+    def rename_note(request: Request, body: RenameBody):
+        """Move/rename a note within the vault (the editor's rename affordance)."""
+        try:
+            rel = engine.rename_note(body.src, body.dst, client=_client(request))
+        except ValueError as e:
+            code = 409 if "already exists" in str(e) else 400
+            raise HTTPException(code, str(e))
+        return {"renamed": rel}
+
+    @app.post("/api/note/delete")
+    def delete_note(request: Request, body: TrashBody):
+        """Move a note to the vault's .trash (recoverable). Console edit
+        surface: unlike the AI-write trash guard, a human deleting their own
+        note through their own console is allowed on any note."""
+        try:
+            dest = engine.trash_note(body.path, client=_client(request),
+                                     human=True)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"trashed": body.path, "moved_to": dest}
+
+    @app.get("/api/titles")
+    def titles():
+        """Note titles + paths for the editor's [[wikilink]] autocomplete.
+        Cheap: one column scan, no chunks."""
+        return {"titles": [{"title": d.title, "path": d.path}
+                           for d in engine.store.all_docs()]}
 
     @app.get("/graph", include_in_schema=False)
     def graph_page():

@@ -2,6 +2,35 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · direct authoring: the console writes notes now, production-grade
+
+The console stops being read-mostly · you author notes in it, like Almanac's
+viewer-plus and Tolaria's editor, at web-console cost.
+
+- **New note, folder-aware**: a `+` in the note list (and ⌘N) creates a note
+  in the folder you're browsing and drops you in the editor.
+- **Rename / delete** from the note detail header · rename moves the file
+  and reindexes both paths (wikilinks target titles, so they keep resolving);
+  delete trashes to `.trash` (recoverable). A new `human=True` path lets the
+  user delete their OWN note through their OWN console · the AI-write trash
+  guard (lemory_generated marker) still protects them from the *agent*, never
+  from themselves.
+- **Live preview**: edit tab is a split · markdown source left, rendered
+  preview right, updating as you type (frontmatter folds, wikilinks click
+  through). Toggle with the 미리보기 switch.
+- **`[[wikilink]]` autocomplete**: type `[[`, get a title picker (↑↓ Enter),
+  backed by `GET /api/titles`. No CDN, no editor library.
+- **Focus editing**: entering the edit tab folds the tree+note-list so the
+  editor+preview get the full width · found live: without it the preview
+  column was ~230px and CJK wrapped to one glyph per line (unreadable). Also
+  fixed the preview inheriting `.ed-col`'s flex, which laid its headings out
+  as flex items.
+- Backend: engine `write_note`/`rename_note`/`trash_note(human=)`/`read_note`
+  facade verbs; HTTP `PUT /api/note`, `POST /api/note/rename` (409 on
+  clobber), `POST /api/note/delete`, `GET /api/titles`. All browser-verified
+  end to end (create → type → live preview → wikilink autocomplete → rename
+  → delete), JS errors 0.
+
 ## Unreleased · dogfood UX pass: touched every screen, fixed the friction
 
 Walked all eight views + palette as a real user (screenshot → critique →

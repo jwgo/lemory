@@ -287,30 +287,35 @@ def append_to_note(engine, path: str, content: str, client: str = "") -> str:
     return rel
 
 
-def trash_ai_note(engine, path: str, client: str = "") -> str:
-    """Undo for the write path: move an AI-written note to <vault>/.trash
-    (Obsidian's own trash folder, so it shows up in Obsidian's trash too).
+def trash_ai_note(engine, path: str, client: str = "", human: bool = False) -> str:
+    """Undo for the write path: move a note to <vault>/.trash (Obsidian's own
+    trash folder, so it shows up in Obsidian's trash too).
 
-    Guarded twice: the path must stay inside the vault, and the note's
-    frontmatter must carry `lemory_generated: true` · the machine marker
-    Lemory stamps on notes it CREATES (save_memory / import-chats / a hook,
-    or an append that created a fresh note). Human-authored notes · including
-    ones with a `source:` field, which is a common human clipping/citation
-    pattern · are refused; this endpoint can never delete something the user
-    wrote, and never an existing note that Lemory only appended to."""
+    Two callers, two trust levels:
+      * AI-write undo (default): guarded twice · the path stays inside the
+        vault AND the note carries `lemory_generated: true`, the machine
+        marker Lemory stamps on notes it CREATES. Human-authored notes are
+        refused, so the dashboard's undo can never delete something the user
+        wrote, nor an existing note Lemory only appended to.
+      * `human=True` (the console's delete button): the user deleting their
+        OWN note through their OWN console · allowed on any note (still
+        path-guarded, still recoverable from .trash). The marker check is
+        skipped because the marker exists to protect the user FROM the AI,
+        not from themselves."""
     vault = engine.cfg.resolved_vault()
     target = _safe_target(vault, path)
     if not target.is_file():
         raise ValueError(f"no such note: {path}")
-    head = target.read_text(encoding="utf-8", errors="replace")[:400]
-    ai_written = False
-    if head.startswith("---") and head.count("---") >= 2:
-        frontmatter = head.split("---", 2)[1]
-        ai_written = re.search(r"(?m)^lemory_generated:\s*true\s*$", frontmatter) is not None
-    if not ai_written:
-        raise ValueError(
-            "refusing: not a Lemory-generated note (no 'lemory_generated: true' "
-            "marker). Only notes Lemory created can be trashed here.")
+    if not human:
+        head = target.read_text(encoding="utf-8", errors="replace")[:400]
+        ai_written = False
+        if head.startswith("---") and head.count("---") >= 2:
+            frontmatter = head.split("---", 2)[1]
+            ai_written = re.search(r"(?m)^lemory_generated:\s*true\s*$", frontmatter) is not None
+        if not ai_written:
+            raise ValueError(
+                "refusing: not a Lemory-generated note (no 'lemory_generated: true' "
+                "marker). Only notes Lemory created can be trashed here.")
     trash = vault / ".trash"
     trash.mkdir(exist_ok=True)
     dest = trash / target.name

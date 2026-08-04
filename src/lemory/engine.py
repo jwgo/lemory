@@ -242,10 +242,10 @@ class Engine:
 
         return append_to_note(self, path, content, client=client)
 
-    def trash_note(self, path: str, client: str = "") -> str:
+    def trash_note(self, path: str, client: str = "", human: bool = False) -> str:
         from .ingestion.memory import trash_ai_note
 
-        return trash_ai_note(self, path, client=client)
+        return trash_ai_note(self, path, client=client, human=human)
 
     def pending_notes(self) -> list[dict]:
         from .ingestion.memory import list_pending
@@ -292,6 +292,36 @@ class Engine:
             self.store.log_event("append", client=client or "console", path=rel,
                                  detail={"edit": True, "chars": len(content)})
         return rel
+
+    def rename_note(self, src: str, dst: str, client: str = "") -> str:
+        """Move/rename a note within the vault, keeping its history. Both ends
+        are path-guarded; the destination must not already exist (no silent
+        clobber). Reindexes both paths so search and the graph follow the move.
+
+        Wikilinks that point at the old TITLE keep resolving · they target the
+        title, not the path, and only the filename changed. A path-based link
+        (rare in Obsidian) would need a vault-wide rewrite, which we
+        deliberately don't do here (surprising, destructive); the drift
+        scanner surfaces any broken path link afterward."""
+        src = src if src.endswith(".md") else src + ".md"
+        dst = dst if dst.endswith(".md") else dst + ".md"
+        s_target = self.safe_path(src)
+        d_target = self.safe_path(dst)
+        if not s_target.is_file():
+            raise ValueError(f"no such note: {src}")
+        if d_target.exists():
+            raise ValueError(f"already exists: {dst}")
+        d_target.parent.mkdir(parents=True, exist_ok=True)
+        s_target.rename(d_target)
+        vault = self.cfg.resolved_vault()
+        s_rel, d_rel = str(s_target.relative_to(vault)), str(d_target.relative_to(vault))
+        # drop the old path from the index, add the new one
+        self.store.delete_document(s_rel)
+        self.index(paths={d_rel})
+        if self.cfg.event_log:
+            self.store.log_event("append", client=client or "console", path=d_rel,
+                                 detail={"renamed_from": s_rel})
+        return d_rel
 
     def safe_path(self, rel: str) -> "Path":
         """Resolve a vault-relative path, rejecting traversal out of the

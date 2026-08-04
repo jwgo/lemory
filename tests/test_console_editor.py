@@ -80,3 +80,58 @@ def test_console_js_has_no_unclosed_async_fills(client):
     bare = re.findall(r'\$\("#(tiles|acts|memFeed|qlog|clients|hot|recent|sys)"\)\.innerHTML\s*=', section)
     assert not bare, f"overview async fill bypasses put(): {bare}"
     assert "const put = (sel, html)" in js       # the guard helper exists
+
+
+def test_rename_note_moves_and_reindexes(engine):
+    engine.index()
+    engine.write_note("옛이름", "# 옛이름\n\n본문 유지.\n", client="console")
+    new = engine.rename_note("옛이름.md", "폴더/새이름", client="console")
+    assert new == "폴더/새이름.md"
+    assert not engine.safe_path("옛이름.md").exists()
+    assert "본문 유지" in engine.read_note(new)
+    # old path gone from search, new path findable
+    paths = {h.path for h in engine.search("본문 유지", k=5)}
+    assert new in paths and "옛이름.md" not in paths
+
+
+def test_rename_refuses_clobber(engine):
+    import pytest
+    engine.index()
+    engine.write_note("a", "x", client="console")
+    engine.write_note("b", "y", client="console")
+    with pytest.raises(ValueError, match="already exists"):
+        engine.rename_note("a.md", "b")
+
+
+def test_human_delete_allows_any_note(engine):
+    # a plain human note has no lemory_generated marker; the AI-undo path
+    # refuses it, the human console path trashes it
+    import pytest
+    engine.index()
+    engine.write_note("내 노트", "# 내 노트\n손으로 썼다.\n", client="console")
+    with pytest.raises(ValueError, match="refusing"):
+        engine.trash_note("내 노트.md")               # AI-undo path: refused
+    dest = engine.trash_note("내 노트.md", human=True)  # human path: allowed
+    assert dest.startswith(".trash/")
+    assert not engine.safe_path("내 노트.md").exists()
+
+
+def test_http_authoring_endpoints(client, engine):
+    # create → rename → titles → delete, all through the console API
+    r = client.put("/api/note", json={"path": "초안", "content": "# 초안\n\n[[Dana Petrov]]\n"})
+    assert r.status_code == 200
+
+    r = client.post("/api/note/rename", json={"src": "초안.md", "dst": "문서/정식"})
+    assert r.status_code == 200 and r.json()["renamed"] == "문서/정식.md"
+
+    titles = client.get("/api/titles").json()["titles"]
+    assert any(t["path"] == "문서/정식.md" for t in titles)
+
+    r = client.post("/api/note/delete", json={"path": "문서/정식.md"})
+    assert r.status_code == 200 and r.json()["moved_to"].startswith(".trash/")
+    assert client.get("/api/raw", params={"path": "문서/정식.md"}).status_code == 404
+
+    # rename onto an existing note → 409
+    client.put("/api/note", json={"path": "x", "content": "1"})
+    client.put("/api/note", json={"path": "y", "content": "2"})
+    assert client.post("/api/note/rename", json={"src": "x.md", "dst": "y"}).status_code == 409
