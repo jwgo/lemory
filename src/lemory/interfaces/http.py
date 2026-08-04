@@ -138,6 +138,12 @@ class TrashBody(BaseModel):
     path: str
 
 
+class NoteWriteBody(BaseModel):
+    path: str
+    content: str
+    expect_mtime: float | None = None
+
+
 def remote_auth_error(client_host: str, auth_header: str,
                       api_token: str) -> tuple[str, int] | None:
     """Remote access (the mobile story): non-localhost CLIENTS must present
@@ -717,6 +723,40 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         if d is None:
             raise HTTPException(404, f"note not found: {path}")
         return d
+
+    @app.get("/api/raw")
+    def raw_note(path: str):
+        """Full markdown + mtime · what the console editor opens. The mtime
+        travels back on save as the optimistic-concurrency token."""
+        try:
+            content = engine.read_note(path)
+        except ValueError as e:
+            raise HTTPException(404, str(e))
+        return {"path": path, "content": content,
+                "mtime": engine.safe_path(path).stat().st_mtime}
+
+    @app.put("/api/note")
+    def save_note(request: Request, body: NoteWriteBody):
+        """Save a note from the console editor (human edit surface): path
+        guard, conflict check, git checkpoint, instant reindex."""
+        try:
+            rel = engine.write_note(body.path, body.content,
+                                    client=_client(request),
+                                    expect_mtime=body.expect_mtime)
+        except ValueError as e:
+            code = 409 if str(e).startswith("conflict") else 400
+            raise HTTPException(code, str(e))
+        return {"saved": rel,
+                "mtime": engine.safe_path(rel).stat().st_mtime}
+
+    @app.get("/graph", include_in_schema=False)
+    def graph_page():
+        """The whole-vault interactive graph (the `lemory graph` HTML),
+        served for the console's 그래프 view."""
+        from .graph_html import render_graph_html
+
+        engine.index()
+        return HTMLResponse(render_graph_html(engine))
 
     @app.get("/api/conflicts")
     def conflicts(threshold: float = 0.80, limit: int = 30):

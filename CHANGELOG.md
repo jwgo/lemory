@@ -2,6 +2,38 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · desktop-grade console: editor, wikilink nav, themes, graph
+
+**The console stops being a dashboard and starts being a workspace** · the
+Tolaria (Tauri/React desktop KB) UI was read at source level (504 component
+tests, 145 e2e specs · the shortlist is in the commit) and codealmanac's
+wiki viewer alongside; what fits a memory engine's console was absorbed, at
+web-console cost instead of a desktop stack:
+
+- **Note body + editor tabs** (지식 상세: 본문 | 편집 | 연결·색인). 본문 is
+  rendered markdown from a small self-contained renderer (no CDN · headings,
+  lists, task boxes, tables, fenced code, quotes, ==mark==, frontmatter as a
+  folded block) with **clickable wikilinks** that navigate in-console. 편집
+  is a real editor: ⌘S, Tab-indent, dirty state, **1.5s autosave debounce**
+  (Tolaria's number), and **optimistic concurrency** · the mtime token from
+  open travels back on save, a disk change under the editor 409s instead of
+  being clobbered. Server side is one facade verb (`engine.write_note`) with
+  path guard, git checkpoint, instant reindex, event-log entry.
+- **⌘K create-from-query** (their quick-open affordance): a palette query
+  matching nothing becomes the new note's title · Enter creates it and lands
+  straight in the editor.
+- **Light/dark theme toggle**, persisted, same semantic-token design system
+  (one `:root[data-theme=light]` block · the variables were the theme system
+  all along).
+- **그래프 view**: the whole-vault interactive graph (`lemory graph`'s HTML)
+  embedded as a console route (`GET /graph`).
+- Backend: `GET /api/raw`, `PUT /api/note` (409 on stale token), engine verbs
+  `read_note`/`write_note`. Everything browser-verified live: render →
+  wikilink nav → edit → autosave → theme → graph, JS errors 0.
+- Deliberately NOT absorbed (their desktop-app territory, our engine focus):
+  BlockNote WYSIWYG, spreadsheets, whiteboards, multi-window. The console
+  edits honestly in markdown source · Obsidian stays the rich editor.
+
 ## Unreleased · production architecture: engine / daemon / interfaces, enforced
 
 **The layers are now real, and a test keeps them real** (docs/ARCHITECTURE.md).

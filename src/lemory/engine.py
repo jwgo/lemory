@@ -257,6 +257,42 @@ class Engine:
 
         return approve_memory(self, path, client=client)
 
+    def read_note(self, rel: str) -> str:
+        """Full markdown of a vault note (path-guarded)."""
+        target = self.safe_path(rel)
+        if not target.is_file():
+            raise ValueError(f"no such note: {rel}")
+        return target.read_text(encoding="utf-8", errors="replace")
+
+    def write_note(self, rel: str, content: str, client: str = "",
+                   expect_mtime: float | None = None) -> str:
+        """Full-content save of a note · the console editor's verb.
+
+        This is a HUMAN edit surface (the console is the user's own tool),
+        so unlike AI writes it may modify existing notes · but with the same
+        professionalism a desktop editor ships: path guard, optimistic
+        concurrency (`expect_mtime` rejects overwriting a note that changed
+        under the editor), git checkpoint when enabled, immediate reindex,
+        and an event-log entry so the timeline shows the edit."""
+        rel = rel if rel.endswith(".md") else rel + ".md"
+        target = self.safe_path(rel)
+        if expect_mtime is not None and target.is_file():
+            if abs(target.stat().st_mtime - expect_mtime) > 0.001:
+                raise ValueError(
+                    "conflict: the note changed on disk since it was opened · "
+                    "reload before saving")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        rel = str(target.relative_to(self.cfg.resolved_vault()))
+        from .ingestion.memory import _git_checkpoint
+
+        _git_checkpoint(self, rel, client or "console", "edit")
+        self.index(paths={rel})
+        if self.cfg.event_log:
+            self.store.log_event("append", client=client or "console", path=rel,
+                                 detail={"edit": True, "chars": len(content)})
+        return rel
+
     def safe_path(self, rel: str) -> "Path":
         """Resolve a vault-relative path, rejecting traversal out of the
         vault. THE path guard · every interface resolves user paths here."""

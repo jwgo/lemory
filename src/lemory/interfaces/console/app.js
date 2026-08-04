@@ -59,11 +59,27 @@ async function loadNotes(force = false) {
   return S.notes;
 }
 
+
+/* ------------------------------------------------------------------- theme */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem("lemory-theme", t);
+  const b = $("#themeBtn");
+  if (b) b.textContent = t === "light" ? "🌙" : "☀️";
+}
+function initTheme() {
+  applyTheme(localStorage.getItem("lemory-theme") || "dark");
+  const b = $("#themeBtn");
+  if (b) b.onclick = () =>
+    applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+}
+
 /* ----------------------------------------------------------------- router */
 const routes = {
   overview: renderOverview,
   knowledge: renderKnowledge,
   memory: renderMemory,
+  graph: renderGraph,
   health: renderHealth,
   search: renderSearch,
   assistant: renderAssistant,
@@ -406,6 +422,85 @@ function drawNoteRows() {
   });
 }
 
+
+/* ------------------------------------------------- markdown renderer (본문) */
+// Small, self-contained renderer · no CDN (the console must work offline).
+// Covers the markdown a vault actually uses; anything exotic degrades to
+// escaped text, never to broken HTML.
+function mdRender(src) {
+  const wiki = t => t.replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g,
+    (_, target, label) => `<a class="md-wiki" data-wiki="${esc(target.trim())}">${esc(label || target)}</a>`);
+  const inline = t => {
+    t = esc(t);
+    t = t.replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`);
+    t = wiki(t);
+    t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    t = t.replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+    t = t.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    t = t.replace(/==([^=]+)==/g, "<mark>$1</mark>");
+    return t;
+  };
+  const lines = src.replace(/\r/g, "").split("\n");
+  // frontmatter: render as a folded meta block, not as body text
+  let i = 0, fm = null;
+  if (lines[0] === "---") {
+    const end = lines.indexOf("---", 1);
+    if (end > 0) { fm = lines.slice(1, end); i = end + 1; }
+  }
+  const out = [];
+  if (fm && fm.length)
+    out.push(`<details class="md-fm"><summary>frontmatter</summary><pre>${esc(fm.join("\n"))}</pre></details>`);
+  let list = null, quote = false;
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  const closeQuote = () => { if (quote) { out.push("</blockquote>"); quote = false; } };
+  while (i < lines.length) {
+    const ln = lines[i];
+    if (/^```/.test(ln)) {                       // fenced code
+      closeList(); closeQuote();
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      out.push(`<pre class="md-code"><code>${esc(buf.join("\n"))}</code></pre>`);
+      continue;
+    }
+    const h = ln.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { closeList(); closeQuote();
+      out.push(`<h${h[1].length + 1}>${inline(h[2])}</h${h[1].length + 1}>`); i++; continue; }
+    if (/^\s*([-*+]|\d+\.)\s+/.test(ln)) {
+      closeQuote();
+      const ordered = /^\s*\d+\./.test(ln);
+      const kind = ordered ? "ol" : "ul";
+      if (list !== kind) { closeList(); out.push(`<${kind}>`); list = kind; }
+      const item = ln.replace(/^\s*([-*+]|\d+\.)\s+/, "");
+      const task = item.match(/^\[([ xX])\]\s+(.*)$/);
+      out.push(task
+        ? `<li class="md-task"><input type="checkbox" disabled ${task[1] !== " " ? "checked" : ""}>${inline(task[2])}</li>`
+        : `<li>${inline(item)}</li>`);
+      i++; continue;
+    }
+    if (/^>\s?/.test(ln)) { closeList();
+      if (!quote) { out.push("<blockquote>"); quote = true; }
+      out.push(`<p>${inline(ln.replace(/^>\s?/, ""))}</p>`); i++; continue; }
+    if (/^\s*(---|\*\*\*)\s*$/.test(ln)) { closeList(); closeQuote(); out.push("<hr>"); i++; continue; }
+    if (/^\|.*\|\s*$/.test(ln)) {              // simple table
+      closeList(); closeQuote();
+      const rows = [];
+      while (i < lines.length && /^\|.*\|\s*$/.test(lines[i])) rows.push(lines[i++]);
+      const cells = r => r.replace(/^\||\|$/g, "").split("|").map(c => inline(c.trim()));
+      const body = rows.filter(r => !/^\|[\s:|-]+\|$/.test(r));
+      out.push('<div class="md-table"><table>' + body.map((r, ri) =>
+        `<tr>${cells(r).map(c => ri === 0 ? `<th>${c}</th>` : `<td>${c}</td>`).join("")}</tr>`).join("") + "</table></div>");
+      continue;
+    }
+    if (!ln.trim()) { closeList(); closeQuote(); i++; continue; }
+    closeList(); closeQuote();
+    out.push(`<p>${inline(ln)}</p>`); i++;
+  }
+  closeList(); closeQuote();
+  return out.join("\n");
+}
+
 async function drawNoteDetail(path) {
   const pane = $("#notePane");
   if (!pane) return;
@@ -422,6 +517,7 @@ async function drawNoteDetail(path) {
   const linkPill = l => `<span class="link-pill" data-goto="${esc(l.path)}">
       <span class="k ${l.kind}">${{ wiki: "링크", mention: "언급", entity: "개체" }[l.kind] || l.kind}</span>${esc(l.title)}</span>`;
 
+  const tab = S.knowledge.tab || "read";
   pane.innerHTML = `<div class="note-detail">
     <div class="nd-title">${esc(d.title)}</div>
     <div class="nd-path">${esc(d.path)}
@@ -433,6 +529,13 @@ async function drawNoteDetail(path) {
       <span>청크 ${d.chunks.length}</span>
       <span title="이 노트가 검색·질문 결과에 오른 횟수">참조 ${d.hits || 0}회${d.hits ? " · 마지막 " + rel(d.last_hit) : ""}</span>
     </div>
+    <div class="seg nd-tabs" id="ndTabs">
+      <button data-v="read">본문</button><button data-v="edit">편집</button><button data-v="meta">연결 · 색인</button>
+    </div>
+    <div id="ndBody"><div class="skel" style="height:80px"></div></div>
+  </div>`;
+
+  const paneMeta = `
     ${localGraphSVG(d)}
     <div class="nd-sec"><div class="nd-sec-title">나가는 연결 · ${d.links_out.length}</div>
       ${d.links_out.length ? `<div class="link-grid">${d.links_out.map(linkPill).join("")}</div>` : `<div class="view-sub">없음</div>`}</div>
@@ -443,34 +546,117 @@ async function drawNoteDetail(path) {
     <div class="nd-sec"><div class="nd-sec-title">색인된 내용</div>
       ${d.chunks.map(c => `<div class="chunk">${subHeading(d.title, c.heading) ? `<div class="h">${esc(subHeading(d.title, c.heading))}</div>` : ""}
         <div class="x">${esc(c.text)}</div>
-        ${c.text.length > 400 ? `<div class="more">더 보기</div>` : ""}</div>`).join("")}</div>
-  </div>`;
+        ${c.text.length > 400 ? `<div class="more">더 보기</div>` : ""}</div>`).join("")}</div>`;
 
-  // related notes load async · content similarity, not just links
-  api("/api/related?path=" + encodeURIComponent(path) + "&k=6").then(rel_ => {
-    const sec = $("#relatedSec", pane);
-    if (!sec) return;
-    sec.innerHTML = `<div class="nd-sec-title">관련 노트 <span class="view-sub" style="display:inline">내용 유사도 기준</span></div>` +
-      (rel_.length
-        ? `<div class="link-grid">${rel_.map(r => `<span class="link-pill" data-goto="${esc(r.path)}">
-             <span class="k entity">${(r.score * 100).toFixed(0)}%</span>${esc(r.title)}</span>`).join("")}</div>`
-        : `<div class="view-sub">없음</div>`);
-    $$("[data-goto]", sec).forEach(p => p.onclick = () => {
+  async function showTab(name) {
+    S.knowledge.tab = name;
+    $$("#ndTabs button", pane).forEach(b => b.classList.toggle("active", b.dataset.v === name));
+    const body = $("#ndBody", pane);
+    if (name === "meta") {
+      body.innerHTML = paneMeta;
+      wireMeta();
+      return;
+    }
+    let raw;
+    try { raw = await api("/api/raw?path=" + encodeURIComponent(path)); }
+    catch (e) { body.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+    if (name === "read") {
+      body.innerHTML = `<div class="md-body">${mdRender(raw.content)}</div>`;
+      $$(".md-wiki", body).forEach(a => a.onclick = () => openByTitle(a.dataset.wiki));
+      return;
+    }
+    // 편집: dirty tracking + ⌘S + optimistic concurrency (mtime token)
+    body.innerHTML = `
+      <div class="ed-bar">
+        <span class="ed-state" id="edState">저장됨</span><span class="spacer"></span>
+        <button class="btn primary" id="edSave" disabled>저장 <span class="kbd">⌘S</span></button>
+      </div>
+      <textarea class="ed-area" id="edArea" spellcheck="false"></textarea>`;
+    const area = $("#edArea", body), btn = $("#edSave", body), st = $("#edState", body);
+    area.value = raw.content;
+    let mtime = raw.mtime, dirty = false, autoTimer = null;
+    const mark = v => { dirty = v; btn.disabled = !v;
+      st.textContent = v ? "수정됨 · 1.5초 뒤 자동 저장" : "저장됨";
+      st.classList.toggle("dirty", v); };
+    area.oninput = () => {                 // Tolaria-style autosave debounce
+      mark(true);
+      clearTimeout(autoTimer);
+      autoTimer = setTimeout(() => save(true), 1500);
+    };
+    async function save(auto = false) {
+      if (!dirty) return;
+      clearTimeout(autoTimer);
+      st.textContent = "저장 중…";
+      try {
+        const r = await api("/api/note", { method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path, content: area.value, expect_mtime: mtime }) });
+        mtime = r.mtime; mark(false);
+        if (!auto) toast("저장했습니다", "ok");   // autosave stays quiet
+        S.notes = null;              // list stats refresh on next visit
+      } catch (e) {
+        mark(true);
+        if (String(e.message).includes("conflict")) {
+          toast("충돌: 디스크에서 노트가 바뀌었어요. 본문 탭에서 확인 후 다시 편집하세요", "err");
+        } else toast(e.message, "err");
+      }
+    }
+    btn.onclick = save;
+    area.onkeydown = e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); save(); }
+      if (e.key === "Tab") { e.preventDefault();
+        const p = area.selectionStart;
+        area.setRangeText("  ", p, area.selectionEnd, "end"); mark(true); }
+    };
+  }
+
+  function wireMeta() {
+    api("/api/related?path=" + encodeURIComponent(path) + "&k=6").then(rel_ => {
+      const sec = $("#relatedSec", pane);
+      if (!sec) return;
+      sec.innerHTML = `<div class="nd-sec-title">관련 노트 <span class="view-sub" style="display:inline">내용 유사도 기준</span></div>` +
+        (rel_.length
+          ? `<div class="link-grid">${rel_.map(r => `<span class="link-pill" data-goto="${esc(r.path)}">
+               <span class="k entity">${(r.score * 100).toFixed(0)}%</span>${esc(r.title)}</span>`).join("")}</div>`
+          : `<div class="view-sub">없음</div>`);
+      $$("[data-goto]", sec).forEach(p => p.onclick = () => {
+        S.knowledge.sel = p.dataset.goto;
+        drawNoteRows();
+        drawNoteDetail(p.dataset.goto);
+      });
+    }).catch(() => {});
+    $$("[data-goto]", pane).forEach(p => p.onclick = () => {
       S.knowledge.sel = p.dataset.goto;
       drawNoteRows();
       drawNoteDetail(p.dataset.goto);
     });
-  }).catch(() => {});
+    $$(".chunk .more", pane).forEach(btn => btn.onclick = () => {
+      btn.previousElementSibling.classList.add("open");
+      btn.remove();
+    });
+  }
 
-  $$("[data-goto]", pane).forEach(p => p.onclick = () => {
-    S.knowledge.sel = p.dataset.goto;
-    drawNoteRows();
-    drawNoteDetail(p.dataset.goto);
-  });
-  $$(".chunk .more", pane).forEach(btn => btn.onclick = () => {
-    btn.previousElementSibling.classList.add("open");
-    btn.remove();
-  });
+  $$("#ndTabs button", pane).forEach(b => b.onclick = () => showTab(b.dataset.v));
+  showTab(tab);
+}
+
+function openByTitle(title) {
+  // wikilink navigation: resolve a note title to its path via the loaded list
+  const t = title.toLowerCase();
+  const hit = (S.notes || []).find(n => n.title.toLowerCase() === t)
+    || (S.notes || []).find(n => n.title.toLowerCase().startsWith(t));
+  if (hit) { S.knowledge.sel = hit.path; drawNoteRows(); drawNoteDetail(hit.path); }
+  else toast(`'${title}' 노트를 찾지 못했어요`, "err");
+
+}
+
+
+/* ------------------------------------------------------------------ 그래프 */
+function renderGraph() {
+  const m = $("#main");
+  m.innerHTML = `<div class="view wide" style="display:flex;flex-direction:column">
+    <iframe id="graphFrame" src="/graph" style="flex:1;border:0;width:100%"
+      title="볼트 전체 그래프"></iframe></div>`;
 }
 
 /* ----------------------------------------------------------------- health */
@@ -1404,6 +1590,7 @@ const PAL_VIEWS = [
   ["overview", "현황으로 이동", icoHome],
   ["knowledge", "지식으로 이동", icoFolder],
   ["memory", "기억으로 이동", icoDoc],
+  ["graph", "그래프로 이동", icoFolder],
   ["search", "검색으로 이동", icoSearch],
   ["settings", "설정으로 이동", icoGear],
 ];
@@ -1416,6 +1603,19 @@ function openPalette() {
   drawPalette("");
   inp.focus();
 }
+
+async function createNoteFromPalette(title) {
+  try {
+    const r = await api("/api/note", { method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: title, content: `# ${title}\n\n` }) });
+    S.notes = null;
+    S.knowledge.tab = "edit";        // land straight in the editor
+    go("#/knowledge/" + encodeURIComponent(r.saved));
+    toast(`'${title}' 노트를 만들었어요`, "ok");
+  } catch (e) { toast(e.message, "err"); }
+}
+
 function closePalette() { $("#palette").hidden = true; }
 
 async function drawPalette(q) {
@@ -1433,6 +1633,13 @@ async function drawPalette(q) {
       palItems.push({
         label: n.title, ico: icoDoc, sub: n.path,
         act: () => go("#/knowledge/" + encodeURIComponent(n.path)),
+      });
+    // Tolaria's quick-open affordance: a query that matches nothing becomes
+    // the new note's title · zero-friction capture from anywhere (⌘K → 제목 → Enter)
+    if (q && !matches.length)
+      palItems.push({
+        label: `새 노트 "${q}" 만들기`, ico: icoDoc, sub: "지식에 생성 후 편집",
+        act: () => createNoteFromPalette(q),
       });
   } catch { /* server down · views only */ }
 
@@ -1532,6 +1739,7 @@ function icoRefresh(cls = "") { return svg('<path d="M13.5 8a5.5 5.5 0 1 1-1.6-3
 
 /* ------------------------------------------------------------------- boot */
 async function boot() {
+  initTheme();
   nav();
   // sidebar vault name + watcher dot even when landing on a non-overview view
   try {
