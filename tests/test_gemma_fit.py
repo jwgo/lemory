@@ -3,7 +3,7 @@ and _contextual_query folds the antecedent (prior assistant turn) into the
 retrieval query."""
 
 import lemory.providers.gemma as g
-from lemory.interfaces.http import _contextual_query
+from lemory.assistant import contextual_query as _contextual_query
 
 
 class FakeLLM:

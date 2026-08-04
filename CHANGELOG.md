@@ -2,6 +2,37 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · production architecture: engine / daemon / interfaces, enforced
+
+**The layers are now real, and a test keeps them real** (docs/ARCHITECTURE.md).
+
+- **Engine facade:** ~30 verbs on `Engine` (remember/recall/resume_case/
+  consolidate/extract_skills/context/persona/…) are now the ONLY way the
+  CLI, HTTP server, MCP, proxy and hooks reach domain logic. Every deep
+  `from ..ingestion/..retrieval import` in the interface layer was removed
+  (40+ call sites), including the private-helper leak
+  (`_safe_target` → `engine.safe_path`, `_has_module` → `config.has_module`).
+- **tests/test_architecture.py:** four boundary rules that fail CI on
+  violation · interfaces call only the facade, the engine side never
+  imports interfaces, daemon.py stays process-level (talks HTTP like any
+  client), no private names cross module lines. The checker caught a real
+  leak on its first run.
+- **lemory.assistant:** the conversation service extracted out of the HTTP
+  handlers (remember-intent, anaphora repair, grounded-turn assembly,
+  proxy preamble) · the /api/assistant/chat handler is transport only now,
+  and any future surface (TUI, bot) reuses the same service.
+- **`lemory daemon start|stop|status|logs`:** a managed background server
+  with pidfile + liveness (stale pidfiles after crash/reboot are detected
+  and cleaned, never trusted), startup failure surfaces the log tail in
+  the error, SIGTERM-then-KILL stop (WAL keeps the DB safe). Verified
+  live: start → healthy in ~1s → logs → stop.
+- **GET /health:** liveness+readiness in one call (version, watcher,
+  auto-consolidate, proxy readiness, index counts, uptime) · the daemon's
+  probe target, and anyone's monitoring hook.
+- Found live during the smoke test: loopback probes must bypass
+  HTTP(S)_PROXY env vars (ProxyHandler({})) · in proxy environments the
+  daemon looked dead while uvicorn was up.
+
 ## Unreleased · competitiveness sweep: 103 review passes, 6 fixes (docs/REVIEW.md)
 
 A full self-audit against the current market, item by item, with verdicts and

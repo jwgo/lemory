@@ -352,7 +352,7 @@ def test_health_view_apis(engine):
 
 # ------------------------------------------------------- assistant upgrades
 def test_remember_intent_patterns():
-    from lemory.interfaces.http import _remember_intent as ri
+    from lemory.assistant import remember_intent as ri
 
     assert ri("기억해줘: 환불은 비동기 큐로 처리") == "환불은 비동기 큐로 처리"
     assert ri("기억해 줘 회의는 매주 화요일") == "회의는 매주 화요일"
@@ -363,7 +363,7 @@ def test_remember_intent_patterns():
 
 
 def test_contextual_query_for_followups():
-    from lemory.interfaces.http import _contextual_query as cq
+    from lemory.assistant import contextual_query as cq
 
     msgs = [{"role": "user", "content": "결제 모듈 환불 정책이 뭐야?"},
             {"role": "assistant", "content": "비동기 큐로 처리합니다"},

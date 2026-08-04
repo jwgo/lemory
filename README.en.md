@@ -107,7 +107,9 @@ answers, no key, no daemon), so search works with no setup. Run it bare
 (`lemory up`) and it prompts for the vault; pass `--key <KEY>` for Gemini. Model
 and search settings live in the dashboard's **Settings**.
 
-Then just **keep `lemory serve` running**: it's the always-on backend for the
+Then **`lemory daemon start` keeps the backend running** (survives the
+terminal; `status`/`logs`/`stop` manage it, stale pidfiles are auto-cleaned;
+`lemory serve` still works for foreground). It's the always-on backend for the
 Obsidian plugin, Claude/MCP, and the web dashboard, and it re-indexes your
 edits within seconds. One-off `lemory ask "..."` works without it. The full
 day-to-day flow (when to keep it on, when to re-index) is in the

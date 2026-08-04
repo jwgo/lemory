@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -95,7 +96,7 @@ def _start(vault: Optional[Path], key: Optional[str] = None, port: int = 8377,
     """Shared onboarding flow behind `up` (and the deprecated setup/init aliases).
     A plain function, not a command, so the aliases can call it without typer's
     OptionInfo defaults leaking through."""
-    from ..config import _has_module, load_config, save_global_env
+    from ..config import has_module, load_config, save_global_env
 
     # 1) vault — argument, or prompt when run bare
     interactive = vault is None
@@ -117,14 +118,14 @@ def _start(vault: Optional[Path], key: Optional[str] = None, port: int = 8377,
     extra = ""
     if key or load_config().resolved_gemini_key():
         mode_desc = "Gemini (키 감지 · 답변·클라우드 임베딩)"
-    elif _has_module("llama_cpp"):
+    elif has_module("llama_cpp"):
         extra = 'provider = "local"\n'
         mode_desc = "온디바이스 e5-small-ko-v2 임베딩 + Gemma 4 답변 (키 0)"
         ram = _machine_ram_gb()
         if 0 < ram < 8:
             console.print(f"[yellow]![/yellow] RAM {ram:.0f}GB · Gemma 4 E4B는 8GB+ 권장. "
                           "대시보드 '설정 › 모델'에서 E2B로 낮출 수 있어요.")
-    elif _has_module("fastembed"):
+    elif has_module("fastembed"):
         extra = 'provider = "local"\n'
         # fastembed ships as a base dep, so local search always works; offer to
         # add on-device answers (Gemma via llama.cpp) — but only when interactive.
@@ -137,7 +138,7 @@ def _start(vault: Optional[Path], key: Optional[str] = None, port: int = 8377,
             with console.status("설치 중... (llama-cpp-python 빌드에 몇 분 걸릴 수 있어요)"):
                 r = subprocess.run([sys.executable, "-m", "pip", "install", "lemory[llama]"])
             importlib.invalidate_caches()  # let find_spec see the just-installed package
-            if r.returncode == 0 and _has_module("llama_cpp"):
+            if r.returncode == 0 and has_module("llama_cpp"):
                 mode_desc = "온디바이스 e5-small-ko-v2 임베딩 + Gemma 4 답변 (키 0)"
             else:
                 console.print('[yellow]![/yellow] 설치 실패 · 수동: pip install "lemory[llama]"')
@@ -324,11 +325,9 @@ def context(
 ):
     """Pre-assembled vault context (stats, recent, hot, hubs, tags) · pipe
     this into any agent for instant situational awareness."""
-    from ..ingestion.memory import context_block
-
     eng = _engine(vault)
     eng.index()
-    print(context_block(eng, max_chars=max_chars))
+    print(eng.context(max_chars=max_chars))
 
 
 @app.command()
@@ -348,11 +347,9 @@ def remember(
     vault: Optional[Path] = typer.Option(None),
 ):
     """Save a typed memory fragment as a new Markdown note (indexed instantly)."""
-    from ..ingestion.fragments import remember as _remember
-
     eng = _engine(vault)
     tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
-    path = _remember(eng, content, type=type, topic=topic, case=case, phase=phase,
+    path = eng.remember(content, type=type, topic=topic, case=case, phase=phase,
                      status=status, anchor=anchor, title=title, folder=folder,
                      tags=tag_list, client="cli")
     console.print(f"[green]saved[/green] {path} [dim]({type})[/dim]")
@@ -374,11 +371,9 @@ def recall(
     vault: Optional[Path] = typer.Option(None),
 ):
     """Recall memory fragments, scoped by type/case/topic/status/recency."""
-    from ..retrieval.recall import recall as _recall
-
     eng = _engine(vault)
     eng.index()
-    rows = _recall(eng, query=query, type=type, case=case, topic=topic,
+    rows = eng.recall(query=query, type=type, case=case, topic=topic,
                    status=status, since_days=since, k=k)
     if not rows:
         console.print("[yellow]해당하는 기억 없음[/yellow]")
@@ -402,14 +397,12 @@ def case_cmd(
     vault: Optional[Path] = typer.Option(None),
 ):
     """Resume a work thread: next steps, unresolved items, decisions, timeline."""
-    from ..retrieval.recall import resume_case
-
     eng = _engine(vault)
     eng.index()
     try:
         # markup off: the brief carries literal `[open]` status markers and
         # [[wikilinks]], which Rich would otherwise swallow as style tags
-        console.print(resume_case(eng, case)["brief"], markup=False)
+        console.print(eng.resume_case(case)["brief"], markup=False)
     except ValueError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
@@ -421,11 +414,9 @@ def cases_cmd(
     vault: Optional[Path] = typer.Option(None),
 ):
     """Work threads, most recently touched first — what was I in the middle of?"""
-    from ..retrieval.recall import open_cases
-
     eng = _engine(vault)
     eng.index()
-    rows = open_cases(eng, limit=limit)
+    rows = eng.open_cases(limit=limit)
     if not rows:
         console.print("[yellow]케이스 없음 — lemory remember --case <id> 로 시작[/yellow]")
         return
@@ -449,11 +440,9 @@ def anchor(
     vault: Optional[Path] = typer.Option(None),
 ):
     """Pin a note as core memory — injected into every session's context."""
-    from ..ingestion.fragments import set_anchor
-
     eng = _engine(vault)
     try:
-        rel = set_anchor(eng, path, on=not off, client="cli")
+        rel = eng.set_anchor(path, on=not off, client="cli")
     except ValueError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
@@ -465,10 +454,8 @@ def pending_cmd(vault: Optional[Path] = typer.Option(None)):
     """승인 대기 중인 AI 메모리 목록 (memory_approval 모드).
 
     승인: lemory approve <path> · 거절: 대시보드 undo 또는 파일 삭제."""
-    from ..ingestion.memory import list_pending
-
     eng = _engine(vault)
-    rows = list_pending(eng)
+    rows = eng.pending_notes()
     if not rows:
         console.print(_t("[green]승인 대기 없음[/green]", "[green]nothing pending[/green]"))
         return
@@ -488,10 +475,8 @@ def approve_cmd(
     vault: Optional[Path] = typer.Option(None),
 ):
     """대기 중인 AI 메모리를 승인해 인덱스에 편입."""
-    from ..ingestion.memory import approve_memory
-
     eng = _engine(vault)
-    rel = approve_memory(eng, path, client="cli")
+    rel = eng.approve_note(path, client="cli")
     console.print(f"[green]approved[/green] {rel} · 검색 가능해졌습니다")
 
 
@@ -503,12 +488,10 @@ def suggest_links_cmd(
 ):
     """Unlinked mentions as [[link]] suggestions · notes that reference each
     other in text but were never linked. Zero LLM; reads the existing graph."""
-    from ..retrieval.links import suggest_links
-
     eng = _engine(vault)
     eng.index()
     try:
-        rows = suggest_links(eng, path=note, k=k)
+        rows = eng.link_suggestions(path=note, k=k)
     except ValueError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
@@ -639,13 +622,11 @@ def drift_cmd(
     깨진 [[위키링크]], 존재하지 않는 파일로 가는 링크, 해소되지 않은
     중복 플래그. --prompt는 발견 사항을 그대로 고치라는 에이전트용
     프롬프트로 렌더링한다 (mex 스타일 sync, 볼트 판)."""
-    from ..retrieval.drift import detect_drift, render_repair_prompt
-
     eng = _engine(vault)
     eng.index()
-    findings = detect_drift(eng)
+    findings = eng.find_drift()
     if as_prompt:
-        console.print(render_repair_prompt(findings, str(eng.cfg.resolved_vault())))
+        console.print(eng.drift_repair_prompt(findings))
         return
     total = sum(len(v) for k, v in findings.items() if isinstance(v, list))
     if total == 0:
@@ -713,10 +694,8 @@ def import_chats(
 ):
     """Import a ChatGPT/Claude conversation export as vault notes (searchable,
     dated, idempotent · re-running on a newer export only adds new chats)."""
-    from ..ingestion.chat_import import import_conversations
-
     eng = _engine(vault)
-    written = import_conversations(eng, file, folder=folder, limit=limit)
+    written = eng.import_chats(file, folder=folder, limit=limit)
     if written:
         console.print(f"[green]{len(written)}개 대화[/green]를 {folder}/ 에 저장하고 색인했습니다.")
     else:
@@ -735,13 +714,11 @@ def connect_cmd(
     노트입니다 · 검색·수정·삭제 모두 다른 노트와 동일. pull(state)를
     정의하면 커서가 저장돼 증분 수집이 됩니다. 재실행은 멱등(같은 id는
     같은 파일을 덮어씀)이고 삭제는 절대 하지 않습니다."""
-    from ..ingestion.connectors import run_connector
-
     if not script.is_file():
         console.print(f"[red]파일이 없습니다:[/red] {script}")
         raise typer.Exit(1)
     eng = _engine(vault)
-    rep = run_connector(eng, script, folder=folder)
+    rep = eng.run_connector(script, folder=folder)
     if rep.written:
         console.print(f"[green]{len(rep.written)}개 노트[/green]를 가져와 색인했습니다:")
         for rel in rep.written[:10]:
@@ -1088,11 +1065,9 @@ def enrich(
     max_docs: int = typer.Option(50, help="Notes to enrich in this pass"),
 ):
     """Optional: LLM entity extraction to densify the graph (uses quota)."""
-    from ..ingestion import Indexer
-
     eng = _engine(vault)
     eng.index()
-    n = Indexer(eng).enrich_entities(max_docs=max_docs)
+    n = eng.enrich_entities(max_docs=max_docs)
     console.print(f"[green]enriched[/green] {n} notes, links now: {eng.store.link_count()}")
 
 
@@ -1107,11 +1082,9 @@ def distill(
     출력은 볼트 안의 평범한 마크다운 노트 · 다른 노트처럼 검색되고, 열어보고,
     지울 수 있습니다. 원본 세션은 절대 수정하지 않으며 출처를 [[위키링크]]로
     남깁니다. 키가 없으면 온디바이스 Gemma로 돕니다."""
-    from ..ingestion.distill import distill as _distill
-
     eng = _engine(vault)
     eng.index()
-    written = _distill(eng, folder=folder, out_folder=out)
+    written = eng.distill(folder=folder, out_folder=out)
     if written:
         console.print(f"[green]distilled[/green] {len(written)} digest note(s):")
         for rel in written[:10]:
@@ -1133,11 +1106,9 @@ def consolidate(
     새 기억(기억요약 팩트·타입 있는 파편)을 장면 노트에 녹이고 페르소나를
     점진 갱신합니다. 커서 기반 증분이라 세션 끝날 때마다 돌려도 됩니다.
     장면 수는 상한(scene_cap)이 있어 새 파일 대신 통합이 기본입니다."""
-    from ..ingestion.pyramid import consolidate as _consolidate
-
     eng = _engine(vault)
     eng.index()
-    rep = _consolidate(eng, use_llm=None if not no_llm else False)
+    rep = eng.consolidate(use_llm=None if not no_llm else False)
     if rep.atoms == 0:
         console.print("승격할 새 기억 없음 (커서 이후 변경분 0)")
         return
@@ -1165,19 +1136,17 @@ def skills_cmd(
     게이트가 핵심이다: 반복되는 작업 클래스가 아니거나, 이 대화를 못 본
     에이전트가 실행할 수 없으면 아무것도 쓰지 않는다 (안 쓰는 게 정답인
     경우가 대부분). LLM 필수 · 판정 없는 추출은 케이스 덤프일 뿐이다."""
-    from ..ingestion.skill_extract import extract_skills, list_skills
-
     eng = _engine(vault)
     eng.index()
     if action == "extract":
-        written = extract_skills(eng, cases=[case] if case else None)
+        written = eng.extract_skills(cases=[case] if case else None)
         if not written:
             console.print("추출된 스킬 없음 (게이트 통과 실패 또는 완결된 케이스 없음)")
             return
         for rel in written:
             console.print(f"[green]skill[/green] {rel}")
         return
-    rows = list_skills(eng)
+    rows = eng.skills()
     if not rows:
         console.print("스킬 없음 · lemory skills extract 로 완결된 케이스에서 추출")
         return
@@ -1190,13 +1159,66 @@ def skills_cmd(
     console.print(table)
 
 
+@app.command("daemon")
+def daemon_cmd(
+    action: str = typer.Argument(..., help="start | stop | status | logs"),
+    vault: Optional[Path] = typer.Option(None),
+    port: int = typer.Option(8377),
+    n: int = typer.Option(50, "--lines", "-n", help="logs: 마지막 몇 줄"),
+):
+    """서버를 백그라운드 데몬으로 관리합니다 (pidfile·로그·헬스체크 포함).
+
+    `lemory serve`는 포그라운드, `lemory daemon start`는 터미널을 닫아도
+    살아 있는 관리형 프로세스입니다. 상태 파일은 데이터 폴더(daemon.pid /
+    daemon.log)에 있고, 재부팅 뒤 남은 낡은 pidfile은 자동 정리됩니다."""
+    from .. import daemon as dmn
+
+    eng_cfg = _engine(vault).cfg
+    data_dir = eng_cfg.resolved_data_dir()
+
+    if action == "start":
+        try:
+            st = dmn.start(data_dir, eng_cfg.vault, port=port)
+        except RuntimeError as e:
+            console.print(f"[red]{e}[/red]", markup=False)
+            raise typer.Exit(1)
+        if st.healthy:
+            console.print(f"[green]✔ 데몬 시작[/green] pid {st.pid} · "
+                          f"http://127.0.0.1:{st.port} (콘솔·MCP·프록시 준비됨)")
+        else:
+            console.print(f"[yellow]시작됨(pid {st.pid})[/yellow] · 아직 색인 중일 수 "
+                          f"있어요. `lemory daemon status`로 확인하세요")
+        return
+    if action == "stop":
+        stopped = dmn.stop(data_dir)
+        console.print("[green]✔ 데몬 종료[/green]" if stopped
+                      else "실행 중인 데몬 없음")
+        return
+    if action == "status":
+        st = dmn.read_status(data_dir)
+        if st.running:
+            health = ("[green]healthy[/green]" if st.healthy
+                      else "[yellow]응답 없음 (색인 중?)[/yellow]")
+            up = f" · {int(time.time() - st.started_at)}s up" if st.started_at else ""
+            console.print(f"[green]●[/green] pid {st.pid} · port {st.port} · {health}{up}")
+        elif st.stale_pidfile:
+            dmn.clean_stale(data_dir)
+            console.print("[yellow]○ 죽은 pidfile 정리함[/yellow] · 실행 중 아님")
+        else:
+            console.print("○ 실행 중 아님 · lemory daemon start")
+        return
+    if action == "logs":
+        console.print(dmn.logs(data_dir, n=n), markup=False)
+        return
+    console.print(f"[red]알 수 없는 동작:[/red] {action} (start | stop | status | logs)")
+    raise typer.Exit(1)
+
+
 @app.command()
 def persona(vault: Optional[Path] = typer.Option(None)):
     """현재 페르소나 노트(L3)를 출력합니다."""
-    from ..ingestion.pyramid import persona_block
-
     eng = _engine(vault)
-    body = persona_block(eng, max_chars=4000)
+    body = eng.persona(max_chars=4000)
     if body:
         console.print(body, markup=False)
     else:

@@ -78,11 +78,8 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         """Read a note's full markdown by its vault-relative path (as returned
         by search_notes/recent_notes). Filesystem-style memory access: search
         first, then drill into the exact note. offset/limit are line-based."""
-        from ..ingestion.memory import _safe_target
-
-        vault = engine.cfg.resolved_vault()
         try:
-            target = _safe_target(vault, path)  # rejects .., abs paths, siblings
+            target = engine.safe_path(path)  # rejects .., abs paths, siblings
         except ValueError:
             return json.dumps({"error": f"no such note: {path}"})
         if not target.is_file():
@@ -98,11 +95,9 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
     def list_notes(folder: str = "", limit: int = 100) -> str:
         """List note paths (optionally under a folder), newest-modified first ·
         browse the vault like a filesystem."""
-        from ..ingestion.memory import _safe_target
-
         vault = engine.cfg.resolved_vault()
         try:
-            base = _safe_target(vault, folder) if folder else vault
+            base = engine.safe_path(folder) if folder else vault
         except ValueError:
             return json.dumps({"error": f"no such folder: {folder}"})
         if not base.is_dir():
@@ -116,10 +111,8 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
     def related_notes(path: str, k: int = 8) -> str:
         """Notes related to a given note by content similarity (the note
         itself is the query). Use after read_note to explore context."""
-        from ..retrieval.search import related_notes as _related
-
         engine.index()
-        return json.dumps(_related(engine, path, k=k), ensure_ascii=False)
+        return json.dumps(engine.related(path, k=k), ensure_ascii=False)
 
     @mcp.tool(annotations=RO)
     def vault_status() -> str:
@@ -137,10 +130,8 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         a scene path for the full narrative, or recall/search_notes for
         specifics · at most ~3 searches per turn; if 3 searches find nothing,
         the information is not in memory, so answer from what you have."""
-        from ..ingestion.memory import context_block
-
         engine.index()
-        return context_block(engine, max_chars=max_chars)
+        return engine.context(max_chars=max_chars)
 
     @mcp.tool(annotations=WRITE)
     def consolidate_memory() -> str:
@@ -148,10 +139,8 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         typed fragments) fold into L2 scene notes (living narratives, capped
         count) and the L3 persona note. Incremental and idempotent · call at
         session end after reflect. Everything written is a plain vault note."""
-        from ..ingestion.pyramid import consolidate
-
         engine.index()
-        rep = consolidate(engine)
+        rep = engine.consolidate()
         return json.dumps({
             "atoms": rep.atoms,
             "scenes_updated": rep.scenes_updated,
@@ -168,10 +157,8 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         recurring, transferable, executable-by-a-stranger workflow, nothing
         is written · an empty result is the normal outcome. Skills land in
         스킬/*.md and are immediately searchable."""
-        from ..ingestion.skill_extract import extract_skills as _extract
-
         engine.index()
-        written = _extract(engine, cases=[case] if case.strip() else None)
+        written = engine.extract_skills(cases=[case] if case.strip() else None)
         return json.dumps({"skills_written": written}, ensure_ascii=False)
 
     @mcp.tool(annotations=WRITE)
@@ -181,11 +168,9 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         decisions, preferences worth remembering across sessions). The note is
         immediately indexed and searchable, and visible in Obsidian. Never
         overwrites existing notes. `tags` is comma-separated."""
-        from ..ingestion.memory import save_memory as _save
-
         tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
         try:
-            path = _save(engine, content, title=title, folder=folder, tags=tag_list, client=client)
+            path = engine.remember_note(content, title=title, folder=folder, tags=tag_list, client=client)
         except ValueError as e:
             return json.dumps({"error": str(e)})
         out: dict = {"saved": str(path)}
@@ -223,11 +208,9 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         pins the fragment into every future session's opening context; use it
         only for things that are always relevant.
         """
-        from ..ingestion.fragments import remember as _remember
-
         tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
         try:
-            path = _remember(engine, content, type=type, topic=topic, case=case,
+            path = engine.remember(content, type=type, topic=topic, case=case,
                              phase=phase, status=status, anchor=anchor,
                              title=title, tags=tag_list, client=client)
         except ValueError as e:
@@ -252,10 +235,8 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
 
         Prefer this over search_notes when you want remembered facts rather
         than the user's own notes."""
-        from ..retrieval.recall import recall as _recall
-
         engine.index()
-        rows = _recall(engine, query=query, type=type, case=case, topic=topic,
+        rows = engine.recall(query=query, type=type, case=case, topic=topic,
                        status=status, since_days=since_days, k=k)
         return json.dumps(rows, ensure_ascii=False)
 
@@ -269,13 +250,11 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         `next_steps` and `notes_touched` are newline-separated lists. The next
         steps are what `resume_case` hands the next session, so write them as
         instructions to a stranger."""
-        from ..ingestion.fragments import reflect as _reflect
-
         def _lines(s: str) -> list[str]:
             return [ln.strip() for ln in s.splitlines() if ln.strip()]
 
         try:
-            path = _reflect(engine, summary, decisions=_lines(decisions),
+            path = engine.reflect(summary, decisions=_lines(decisions),
                             errors_resolved=_lines(errors_resolved),
                             next_steps=_lines(next_steps), case=case, phase=phase,
                             notes_touched=_lines(notes_touched), client=client)
@@ -289,11 +268,9 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         errors, and the next steps the last session recorded. Call this when
         picking a case back up — it is the cheapest way to stop re-deriving
         what already happened. `brief` is a paste-ready summary."""
-        from ..retrieval.recall import resume_case as _resume
-
         engine.index()
         try:
-            return json.dumps(_resume(engine, case), ensure_ascii=False)
+            return json.dumps(engine.resume_case(case), ensure_ascii=False)
         except ValueError as e:
             return json.dumps({"error": str(e)})
 
@@ -301,20 +278,16 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
     def list_cases(limit: int = 20) -> str:
         """Work threads with fragments, most recently touched first, with a
         count of unresolved errors each — "what was I in the middle of?"."""
-        from ..retrieval.recall import open_cases
-
         engine.index()
-        return json.dumps(open_cases(engine, limit=limit), ensure_ascii=False)
+        return json.dumps(engine.open_cases(limit=limit), ensure_ascii=False)
 
     @mcp.tool(annotations=WRITE)
     def anchor_note(path: str, pinned: bool = True) -> str:
         """Pin (or unpin) a note as core memory — it is injected into every
         future session's opening context via vault_context. Keep the pinned
         set small; it costs tokens on every session."""
-        from ..ingestion.fragments import set_anchor
-
         try:
-            rel = set_anchor(engine, path, on=pinned, client=client)
+            rel = engine.set_anchor(path, on=pinned, client=client)
         except ValueError as e:
             return json.dumps({"error": str(e)})
         return json.dumps({"path": rel, "anchor": bool(pinned)}, ensure_ascii=False)
@@ -325,11 +298,9 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         another note's title without linking it. Pass a vault-relative path
         for one note's suggestions (both directions), or leave empty for the
         vault's top suggestions. Each row carries the mention's sentence."""
-        from ..retrieval.links import suggest_links as _suggest
-
         engine.index()
         try:
-            rows = _suggest(engine, path=path or None, k=k)
+            rows = engine.link_suggestions(path=path or None, k=k)
         except ValueError as e:
             return json.dumps({"error": str(e)})
         return json.dumps({"suggestions": rows}, ensure_ascii=False)
@@ -339,10 +310,8 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         """Append a timestamped section to an existing vault note (running
         logs, decision records). Creates the note if missing. Cannot modify
         existing content · append-only by design."""
-        from ..ingestion.memory import append_to_note
-
         try:
-            rel = append_to_note(engine, path, content, client=client)
+            rel = engine.append_note(path, content, client=client)
         except ValueError as e:
             return json.dumps({"error": str(e)})
         return json.dumps({"appended": rel}, ensure_ascii=False)

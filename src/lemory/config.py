@@ -26,7 +26,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def _has_module(name: str) -> bool:
+def has_module(name: str) -> bool:
     """True if `name` is importable. Safe under the test pattern that sets
     sys.modules[name] = None to simulate an absent optional dependency
     (find_spec raises ValueError there rather than returning None)."""
@@ -36,6 +36,9 @@ def _has_module(name: str) -> bool:
         return find_spec(name) is not None
     except (ImportError, ValueError):
         return False
+
+
+_has_module = has_module  # internal alias (pre-facade name)
 
 
 class LemoryConfig(BaseSettings):

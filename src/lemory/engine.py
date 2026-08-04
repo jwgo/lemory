@@ -225,6 +225,166 @@ class Engine:
         if self._llm is not None:
             self._llm.close()
 
+    # ------------------------------------------------------------- the facade
+    # Interfaces (CLI/HTTP/MCP/proxy/hooks) call THESE, never the ingestion/
+    # retrieval modules directly · enforced by tests/test_architecture.py.
+    # Each verb is a thin delegation; the point is a single, stable surface:
+    # the engine is the product, the interfaces are adapters around it.
+
+    # ---- notes: write / undo / approve
+    def remember_note(self, content: str, **kw):
+        from .ingestion.memory import save_memory
+
+        return save_memory(self, content, **kw)
+
+    def append_note(self, path: str, content: str, client: str = "") -> str:
+        from .ingestion.memory import append_to_note
+
+        return append_to_note(self, path, content, client=client)
+
+    def trash_note(self, path: str, client: str = "") -> str:
+        from .ingestion.memory import trash_ai_note
+
+        return trash_ai_note(self, path, client=client)
+
+    def pending_notes(self) -> list[dict]:
+        from .ingestion.memory import list_pending
+
+        return list_pending(self)
+
+    def approve_note(self, path: str, client: str = "") -> str:
+        from .ingestion.memory import approve_memory
+
+        return approve_memory(self, path, client=client)
+
+    def safe_path(self, rel: str) -> "Path":
+        """Resolve a vault-relative path, rejecting traversal out of the
+        vault. THE path guard · every interface resolves user paths here."""
+        from pathlib import Path as _P
+
+        from .ingestion.memory import _safe_target
+
+        return _P(_safe_target(self.cfg.resolved_vault(), rel))
+
+    # ---- agent working memory (typed fragments / threads / anchors)
+    def remember(self, content: str, **kw):
+        from .ingestion.fragments import remember
+
+        return remember(self, content, **kw)
+
+    def reflect(self, summary: str, **kw):
+        from .ingestion.fragments import reflect
+
+        return reflect(self, summary, **kw)
+
+    def set_anchor(self, path: str, on: bool = True, client: str = "") -> str:
+        from .ingestion.fragments import set_anchor
+
+        return set_anchor(self, path, on=on, client=client)
+
+    def anchors(self, limit: int = 12) -> list[dict]:
+        from .ingestion.fragments import anchored
+
+        return anchored(self, limit=limit)
+
+    def recall(self, query: str = "", **kw) -> list[dict]:
+        from .retrieval.recall import recall
+
+        return recall(self, query=query, **kw)
+
+    def resume_case(self, case: str, **kw) -> dict:
+        from .retrieval.recall import resume_case
+
+        return resume_case(self, case, **kw)
+
+    def open_cases(self, limit: int = 20) -> list[dict]:
+        from .retrieval.recall import open_cases
+
+        return open_cases(self, limit=limit)
+
+    # ---- memory pyramid (L1 → L2 scenes → L3 persona) and skills
+    def consolidate(self, use_llm: bool | None = None):
+        from .ingestion.pyramid import consolidate
+
+        return consolidate(self, use_llm=use_llm)
+
+    def consolidate_due(self, now: float | None = None) -> bool:
+        from .ingestion.pyramid import auto_consolidate_due
+
+        return auto_consolidate_due(self, now=now)
+
+    def scene_map(self, limit: int = 10) -> list[dict]:
+        from .ingestion.pyramid import scene_index
+
+        return scene_index(self, limit=limit)
+
+    def persona(self, max_chars: int = 1200) -> str:
+        from .ingestion.pyramid import persona_block
+
+        return persona_block(self, max_chars=max_chars)
+
+    def distill(self, **kw) -> list[str]:
+        from .ingestion.distill import distill
+
+        return distill(self, **kw)
+
+    def extract_skills(self, cases: "list[str] | None" = None) -> list[str]:
+        from .ingestion.skill_extract import extract_skills
+
+        return extract_skills(self, cases=cases)
+
+    def skills(self) -> list[dict]:
+        from .ingestion.skill_extract import list_skills
+
+        return list_skills(self)
+
+    # ---- context assembly / discovery
+    def context(self, max_chars: int = 2400) -> str:
+        from .ingestion.memory import context_block
+
+        return context_block(self, max_chars=max_chars)
+
+    def related(self, path: str, k: int = 8) -> list[dict]:
+        from .retrieval.search import related_notes
+
+        return related_notes(self, path, k=k)
+
+    def link_suggestions(self, path: "str | None" = None, k: int = 12) -> list[dict]:
+        from .retrieval.links import suggest_links
+
+        return suggest_links(self, path=path, k=k)
+
+    def find_drift(self, **kw):
+        from .retrieval.drift import detect_drift
+
+        return detect_drift(self, **kw)
+
+    def drift_repair_prompt(self, findings) -> str:
+        from .retrieval.drift import render_repair_prompt
+
+        return render_repair_prompt(findings, str(self.cfg.resolved_vault()))
+
+    def run_connector(self, script, folder: str = ""):
+        from .ingestion.connectors import run_connector
+
+        return run_connector(self, script, folder=folder)
+
+    def enrich_entities(self, max_docs: int = 50) -> int:
+        from .ingestion import Indexer
+
+        return Indexer(self).enrich_entities(max_docs=max_docs)
+
+    # ---- sessions (chat capture / import)
+    def log_session(self, messages: list[dict], answer: str, **kw) -> "str | None":
+        from .ingestion.chat_import import log_assistant_session
+
+        return log_assistant_session(self, messages, answer, **kw)
+
+    def import_chats(self, file, folder: str = "chats", limit: "int | None" = None) -> list[str]:
+        from .ingestion.chat_import import import_conversations
+
+        return import_conversations(self, file, folder=folder, limit=limit)
+
 
 def create_engine(**overrides) -> Engine:
     return Engine(load_config(**overrides))

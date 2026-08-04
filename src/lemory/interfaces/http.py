@@ -78,6 +78,15 @@ TUNABLE_FIELDS: dict[str, type] = {
     "answer_gpu_layers": int,
 }
 
+def _version() -> str:
+    try:
+        from importlib.metadata import version
+
+        return version("lemory")
+    except Exception:
+        return "unknown"
+
+
 ACTIVITY_KEY = "console_activity"
 ACTIVITY_MAX = 60
 
@@ -174,50 +183,7 @@ def _log_activity(engine: Engine, kind: str, rep) -> None:
         log.exception("failed to record activity")
 
 
-def _remember_intent(text: str) -> str | None:
-    """Chat-native write path: '기억해줘: 환불은 큐로' / '…라고 기억해' →
-    the content to save, else None. Rule-based on purpose · works with a
-    small on-device brain that can't be trusted with tool-calling."""
-    import re as _re
 
-    t = text.strip()
-    m = _re.match(r"^(?:기억해\s*줘?|저장해\s*줘?|메모해\s*줘?|remember)\s*[:,]?\s*(.+)$", t,
-                  _re.IGNORECASE | _re.DOTALL)
-    if m and len(m.group(1).strip()) >= 4:
-        return m.group(1).strip()
-    m = _re.match(r"^(.+?)\s*(?:이?라고|고|을|를)?\s*(?:기억해\s*줘?|저장해\s*줘?|메모해\s*줘?)\.?$", t,
-                  _re.DOTALL)
-    if m and len(m.group(1).strip()) >= 8:
-        return m.group(1).strip()
-    return None
-
-
-_ANAPHORA = ("그거", "그건", "그때", "그게", "그 ", "이거", "이건", "아까", "방금",
-             "걔", "쟤", "거기", "it ", "that ", "this ")
-
-
-def _contextual_query(question: str, msgs: list[dict]) -> str:
-    """Follow-up repair: retrieval on '그건 언제였지?' alone finds nothing ·
-    when the turn is short or anaphoric, retrieve on the recent conversation
-    plus this one. The antecedent of '그 사람/그거' usually lives in the
-    ASSISTANT's last answer (e.g. it named '김지수'), not just the user's
-    previous question · so fold in both. Generation still sees the raw turn
-    (history covers it)."""
-    q = question.strip()
-    anaphoric = len(q) <= 16 or any(q.startswith(a) or f" {a}" in f" {q}" for a in _ANAPHORA)
-    if not anaphoric:
-        return question
-    prev_user = [m for m in msgs[:-1] if m.get("role") == "user"]
-    prev_asst = [m for m in msgs[:-1] if m.get("role") == "assistant"]
-    if not prev_user and not prev_asst:
-        return question
-    parts = []
-    if prev_user:
-        parts.append(str(prev_user[-1]["content"])[:160])
-    if prev_asst:  # the answer that introduced the entity the user now refers to
-        parts.append(str(prev_asst[-1]["content"])[:160])
-    parts.append(question)
-    return " ".join(parts)
 
 
 def build_app(engine: Engine, watch: bool = True) -> FastAPI:
@@ -231,11 +197,10 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         _log_activity(engine, "startup", rep)
         if watch:
             def _watch():
-                from ..ingestion import watch as _w
                 state["watcher_alive"] = True
                 try:
-                    _w(engine, on_sync=lambda r: _log_activity(engine, "watch", r)
-                       if r.changed else None)
+                    engine.watch(on_sync=lambda r: _log_activity(engine, "watch", r)
+                                 if r.changed else None)
                 except Exception:
                     # a dead watcher means silently-stale search results —
                     # make the failure loud in the server log
@@ -252,15 +217,13 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             poll every minute; when new atoms have been idle for a few
             minutes, run one consolidate pass. The toggle is read each tick,
             so flipping it in 설정 takes effect without a restart."""
-            from ..ingestion.pyramid import auto_consolidate_due, consolidate
-
             while not state.get("shutdown"):
                 time.sleep(60)
                 if not getattr(engine.cfg, "auto_consolidate", False):
                     continue
                 try:
-                    if auto_consolidate_due(engine):
-                        rep = consolidate(engine)
+                    if engine.consolidate_due():
+                        rep = engine.consolidate()
                         if rep.atoms:
                             log.info("auto-consolidate: %d atoms → %d scene(s)%s",
                                      rep.atoms,
@@ -276,7 +239,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         yield
         state["shutdown"] = True
 
-    app = FastAPI(title="Lemory", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Lemory", version=_version(), lifespan=lifespan)
 
     # DNS-rebinding defense. This server has no auth and exposes write/delete
     # endpoints (/memory, /append, /memory/trash, /index). It binds 127.0.0.1,
@@ -334,6 +297,25 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     @app.get("/status")
     def status():
         return engine.status()
+
+    @app.get("/health")
+    def health():
+        """Liveness + readiness in one cheap call (the daemon's probe target).
+        Always 200 once the app is up; `ok` is the readiness verdict."""
+        st = engine.status()
+        return {
+            "ok": True,
+            "version": _version(),
+            "services": {
+                "watcher": state["watcher_alive"],
+                "auto_consolidate": bool(getattr(engine.cfg, "auto_consolidate", False)),
+                "proxy": bool(engine.cfg.resolved_openai_key()
+                              or getattr(engine.cfg, "proxy_upstream_key", "")),
+            },
+            "index": {"documents": st["documents"], "chunks": st["chunks"],
+                      "last_sync": st["last_sync"]},
+            "uptime_seconds": int(time.time() - state["started_at"]),
+        }
 
     @app.post("/index")
     def index(body: IndexBody):
@@ -463,9 +445,10 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
 
     @app.post("/api/assistant/chat")
     def assistant_chat(request: Request, body: ChatBody):
-        """Grounded, streaming chat over the vault. Retrieves for the latest
-        user turn, streams a cited answer from the on-device assistant brain."""
-        from ..retrieval.answer import SYSTEM, build_context
+        """Grounded, streaming chat over the vault · transport only, the
+        conversation logic lives in lemory.assistant."""
+        from .. import assistant as asst
+
         cfg = engine.cfg
         msgs = [m for m in body.messages
                 if m.get("role") in ("user", "assistant") and str(m.get("content", "")).strip()]
@@ -473,25 +456,10 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             raise HTTPException(400, "마지막 메시지는 사용자 메시지여야 합니다")
         question = str(msgs[-1]["content"])
 
-        # chat-native write path: "…기억해줘" saves a real vault note (with
-        # the same consolidation/approval pipeline as every other AI write)
-        # and confirms — no LLM round-trip, no tool-calling needed.
-        mem = _remember_intent(question)
+        mem = asst.remember_intent(question)
         if mem is not None:
-            from ..ingestion.memory import save_memory
-
-            try:
-                path = save_memory(engine, mem, client=_client(request) or "assistant")
-                related = getattr(path, "related", [])
-                lines = [f"기억했습니다 → `{path}`"]
-                if engine.cfg.memory_approval:
-                    lines.append("(승인 대기 · 건강 탭에서 승인하면 검색에 편입됩니다)")
-                for r in related:
-                    flag = " · 중복일 수 있음" if r.get("near_duplicate") else ""
-                    lines.append(f"관련 기억: [[{r['title']}]]{flag}")
-                confirm = "\n".join(lines)
-            except ValueError as e:
-                confirm = f"저장 실패: {e}"
+            confirm = asst.save_from_chat(engine, mem,
+                                          client=_client(request) or "assistant")
 
             def gen_mem():
                 yield "data: " + json.dumps({"sources": []}, ensure_ascii=False) + "\n\n"
@@ -500,55 +468,25 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
 
             return StreamingResponse(gen_mem(), media_type="text/event-stream")
 
-        retrieval_q = _contextual_query(question, msgs)
-        hits = engine.search(retrieval_q, k=cfg.assistant_k)
-        context = build_context(
-            hits, store=engine.store,
-            neighbor_chars=cfg.context_neighbor_chars,
-        ) if hits else "(관련 노트를 찾지 못했습니다.)"
-        system = (SYSTEM + "\n\nNOTES (cite as [n]):\n" + context)
-        # first turn of a session: fold in situational vault context
-        # (Zep-style) so "요새 나 뭐 하고 있었지?" answers without retrieval luck
-        if not [m for m in msgs[:-1] if m.get("role") == "assistant"]:
-            from ..ingestion.memory import context_block
-
-            try:
-                system += "\n\nVAULT CONTEXT (배경 상황, 필요할 때만 활용):\n" + \
-                    context_block(engine, max_chars=1600)
-            except Exception:
-                pass
-        history = [{"role": m["role"], "content": str(m["content"])} for m in msgs[:-1][-6:]]
-        sources = [{"n": i + 1, "title": h.title, "path": h.path,
-                    "snippet": h.text[:180]} for i, h in enumerate(hits)]
-        if cfg.event_log:
-            engine.store.log_event("assistant", client=_client(request), query=question,
-                                   detail={"top": [h.path for h in hits[:3]]})
-        if hits:
-            engine.store.record_hits([h.doc_id for h in hits])
+        turn = asst.prepare_chat_turn(engine, msgs, client=_client(request))
 
         def deltas():
             from ..providers import gemma
             yield from gemma.chat_stream(
-                system, history, question,
+                turn.system, turn.history, turn.question,
                 repo=cfg.assistant_gguf_repo, file=cfg.assistant_gguf_file,
                 n_ctx=cfg.answer_n_ctx, gpu_layers=cfg.answer_gpu_layers)
 
         def gen():
             try:
-                yield "data: " + json.dumps({"sources": sources}, ensure_ascii=False) + "\n\n"
+                yield "data: " + json.dumps({"sources": turn.sources}, ensure_ascii=False) + "\n\n"
                 parts: list[str] = []
                 for delta in deltas():
                     parts.append(delta)
                     yield "data: " + json.dumps({"delta": delta}, ensure_ascii=False) + "\n\n"
-                # the write half of the memory loop: persist the finished
-                # conversation as a dated session note so today's chat is
-                # tomorrow's searchable memory (assistant_log_sessions=false
-                # keeps conversations ephemeral). Never breaks the stream.
                 logged = None
-                try:
-                    from ..ingestion.chat_import import log_assistant_session
-                    logged = log_assistant_session(engine, msgs, "".join(parts),
-                                                   session=body.session)
+                try:  # capture never breaks the stream
+                    logged = engine.log_session(msgs, "".join(parts), session=body.session)
                 except Exception:
                     log.warning("assistant session logging failed", exc_info=True)
                 yield "data: " + json.dumps({"done": True, "logged": logged},
@@ -562,19 +500,15 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     def context(max_chars: int = 2400):
         """Pre-assembled vault context (Zep-style): stats, recent activity,
         frequently referenced notes, hubs, tags · one cheap local call."""
-        from ..ingestion.memory import context_block
-
-        return {"context": context_block(engine, max_chars=max_chars)}
+        return {"context": engine.context(max_chars=max_chars)}
 
     @app.post("/memory")
     def memory(request: Request, body: MemoryBody):
         """Write path: persist a memory as a new Markdown note in the vault."""
-        from ..ingestion.memory import save_memory
-
         try:
-            path = save_memory(engine, body.content, title=body.title,
-                               folder=body.folder, tags=body.tags,
-                               client=_client(request))
+            path = engine.remember_note(body.content, title=body.title,
+                                        folder=body.folder, tags=body.tags,
+                                        client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"saved": str(path), "related": getattr(path, "related", [])}
@@ -585,13 +519,11 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     def memory_fragment(request: Request, body: FragmentBody):
         """Write a typed fragment (fact/decision/error/preference/procedure/
         relation/episode), optionally tied to a work thread."""
-        from ..ingestion.fragments import remember
-
         try:
-            path = remember(engine, body.content, type=body.type, topic=body.topic,
-                            case=body.case, phase=body.phase, status=body.status,
-                            anchor=body.anchor, title=body.title, tags=body.tags,
-                            client=_client(request))
+            path = engine.remember(body.content, type=body.type, topic=body.topic,
+                                   case=body.case, phase=body.phase, status=body.status,
+                                   anchor=body.anchor, title=body.title, tags=body.tags,
+                                   client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"saved": str(path), "type": body.type,
@@ -601,41 +533,33 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     def api_recall(q: str = "", type: str = "", case: str = "", topic: str = "",
                    status: str = "", since_days: int = 0, k: int = 8):
         """Scoped fragment recall, ranked by the hybrid retriever."""
-        from ..retrieval.recall import recall
-
         engine.index()
-        return {"results": recall(engine, query=q, type=type, case=case,
-                                  topic=topic, status=status,
-                                  since_days=since_days, k=k)}
+        return {"results": engine.recall(query=q, type=type, case=case,
+                                         topic=topic, status=status,
+                                         since_days=since_days, k=k)}
 
     @app.get("/api/cases")
     def api_cases(limit: int = 20):
         """Work threads, most recently touched first, with unresolved counts."""
-        from ..retrieval.recall import open_cases
-
         engine.index()
-        return {"cases": open_cases(engine, limit=limit)}
+        return {"cases": engine.open_cases(limit=limit)}
 
     @app.get("/api/case")
     def api_case(case: str):
         """One work thread, reconstructed: next steps, unresolved items,
         decisions, timeline."""
-        from ..retrieval.recall import resume_case
-
         engine.index()
         try:
-            return resume_case(engine, case)
+            return engine.resume_case(case)
         except ValueError as e:
             raise HTTPException(400, str(e))
 
     @app.post("/memory/anchor")
     def memory_anchor(request: Request, body: AnchorBody):
         """Pin/unpin a note as core memory (injected into /context)."""
-        from ..ingestion.fragments import set_anchor
-
         try:
-            rel = set_anchor(engine, body.path, on=body.pinned,
-                             client=_client(request))
+            rel = engine.set_anchor(body.path, on=body.pinned,
+                                    client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"path": rel, "anchor": body.pinned}
@@ -643,41 +567,33 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     @app.get("/api/anchors")
     def api_anchors(limit: int = 12):
         """The pinned core memory set."""
-        from ..ingestion.fragments import anchored
-
         engine.index()
-        return {"anchors": anchored(engine, limit=limit)}
+        return {"anchors": engine.anchors(limit=limit)}
 
     # ---- memory pyramid (L2 scenes + L3 persona) ------------------------
 
     @app.get("/api/persona")
     def api_persona():
         """The L3 persona note: body + whether it exists."""
-        from ..ingestion.pyramid import persona_block
-
         engine.index()
-        body = persona_block(engine, max_chars=4000)
+        body = engine.persona(max_chars=4000)
         return {"path": engine.cfg.persona_note, "body": body,
                 "exists": bool(body)}
 
     @app.get("/api/scenes")
     def api_scenes(limit: int = 24):
         """The L2 scene map, hottest first."""
-        from ..ingestion.pyramid import scene_index
-
         engine.index()
-        return {"scenes": scene_index(engine, limit=limit)}
+        return {"scenes": engine.scene_map(limit=limit)}
 
     @app.post("/memory/consolidate")
     def memory_consolidate(request: Request):
         """Run one pyramid promotion pass (L1 atoms → scenes → persona).
         Incremental; returns what happened. Uses the LLM when available,
         deterministic fallback otherwise."""
-        from ..ingestion.pyramid import consolidate
-
         engine.index()
         try:
-            rep = consolidate(engine)
+            rep = engine.consolidate()
         except Exception as e:
             raise HTTPException(500, f"consolidate failed: {e}")
         return {"atoms": rep.atoms, "scenes_updated": rep.scenes_updated,
@@ -688,20 +604,16 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     @app.get("/api/skills")
     def api_skills():
         """Reusable skill notes extracted from finished work threads."""
-        from ..ingestion.skill_extract import list_skills
-
         engine.index()
-        return {"skills": list_skills(engine)}
+        return {"skills": engine.skills()}
 
     @app.post("/memory/skills-extract")
     def memory_skills_extract(request: Request):
         """Run the skill gate over finished cases; writes 스킬/*.md for the
         few that pass. Empty result is the normal outcome."""
-        from ..ingestion.skill_extract import extract_skills
-
         engine.index()
         try:
-            written = extract_skills(engine)
+            written = engine.extract_skills()
         except Exception as e:
             raise HTTPException(500, f"skill extraction failed: {e}")
         return {"skills_written": written}
@@ -709,11 +621,9 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     @app.post("/append")
     def append(request: Request, body: AppendBody):
         """Append-only write to an existing note (creates it if missing)."""
-        from ..ingestion.memory import append_to_note
-
         try:
-            rel = append_to_note(engine, body.path, body.content,
-                                 client=_client(request))
+            rel = engine.append_note(body.path, body.content,
+                                     client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"appended": rel}
@@ -722,10 +632,8 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     def memory_trash(request: Request, body: TrashBody):
         """Undo an AI write: move the note to <vault>/.trash. Refuses notes
         without `source:` frontmatter, so human-authored files are untouchable."""
-        from ..ingestion.memory import trash_ai_note
-
         try:
-            dest = trash_ai_note(engine, body.path, client=_client(request))
+            dest = engine.trash_note(body.path, client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"trashed": body.path, "moved_to": dest}
@@ -733,33 +641,25 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     @app.get("/api/pending")
     def api_pending():
         """AI writes awaiting approval (memory_approval mode)."""
-        from ..ingestion.memory import list_pending
-
-        return list_pending(engine)
+        return engine.pending_notes()
 
     @app.get("/api/drift")
     def api_drift():
         """Memory-vs-reality scan: broken wikilinks, dead file links,
         unresolved duplicate flags (same engine as `lemory drift`)."""
-        from ..retrieval.drift import detect_drift
-
-        return detect_drift(engine)
+        return engine.find_drift()
 
     @app.get("/api/suggest_links")
     def api_suggest_links(path: str = "", k: int = 12):
         """Unlinked mentions as [[link]] proposals with sentence evidence."""
-        from ..retrieval.links import suggest_links
-
-        return suggest_links(engine, path=path or None, k=k)
+        return engine.link_suggestions(path=path or None, k=k)
 
     @app.post("/memory/approve")
     def memory_approve(request: Request, body: TrashBody):
         """Approve a pending AI-written note so it enters the index.
         (Reject = the existing /memory/trash undo.)"""
-        from ..ingestion.memory import approve_memory
-
         try:
-            rel = approve_memory(engine, body.path, client=_client(request))
+            rel = engine.approve_note(body.path, client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"approved": rel}
@@ -835,9 +735,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
     def related(path: str, k: int = 8):
         """Related notes by content similarity (the note itself is the query ·
         no LLM, no new embeddings)."""
-        from ..retrieval.search import related_notes
-
-        return related_notes(engine, path, k=k)
+        return engine.related(path, k=k)
 
     @app.get("/api/tags")
     def tags():

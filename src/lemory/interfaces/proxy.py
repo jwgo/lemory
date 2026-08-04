@@ -41,9 +41,7 @@ _HOP_HEADERS = {"host", "content-length", "authorization", "connection",
 
 
 def _memory_system_message(engine, messages: list[dict]) -> str:
-    from ..ingestion.memory import context_block
-
-    parts = ["<lemory-memory>", context_block(engine, max_chars=1800)]
+    parts = ["<lemory-memory>", engine.context(max_chars=1800)]
     last_user = next((str(m.get("content", "")) for m in reversed(messages)
                       if m.get("role") == "user"), "").strip()
     if last_user:
@@ -82,11 +80,8 @@ def _capture(engine, messages: list[dict], answer: str, session: str) -> None:
 
     def _run():
         try:
-            from ..ingestion.chat_import import log_assistant_session
-
-            rel = log_assistant_session(engine, messages, answer,
-                                        session=session, force=True,
-                                        folder="chats/proxy")
+            rel = engine.log_session(messages, answer, session=session,
+                                     force=True, folder="chats/proxy")
             if rel and engine.cfg.event_log:
                 engine.store.log_event("memory", client="proxy", path=rel,
                                        detail={"turns": len(messages) + 1})

@@ -86,14 +86,12 @@ def capture_session(engine, event: dict, client: str = "claude-code-hook") -> st
     if not summary or summary.upper().startswith("NOTHING"):
         return None
 
-    from ..ingestion.memory import save_memory
 
     cwd = event.get("cwd") or ""
     project = Path(cwd).name if cwd else ""
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     title = f"세션 {stamp}" + (f" · {project}" if project else "")
-    return save_memory(
-        engine, summary, title=title, folder="memories/sessions",
+    return engine.remember_note( summary, title=title, folder="memories/sessions",
         tags=["session", "claude-code"], source="claude-code session",
         client=client,
     )

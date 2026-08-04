@@ -102,7 +102,9 @@ e5-small-ko-v2 임베딩 + Gemma 4 답변)으로 돌아요. 키도, 데몬도, �
 필요 없어요. 그냥 `lemory up`만 치면 볼트 위치를 물어봐요. 모델과 검색
 설정은 대시보드 **설정** 탭에서 바꿔요.
 
-그다음엔 **`lemory serve`만 켜두면 돼요.** 옵시디언 플러그인, Claude/MCP,
+그다음엔 **`lemory daemon start` 한 줄로 켜두세요** (터미널 닫아도 유지 ·
+`status`/`logs`/`stop`으로 관리, 죽은 pidfile 자동 정리). 포그라운드가
+좋으면 `lemory serve`도 그대로예요. 옵시디언 플러그인, Claude/MCP,
 웹 대시보드가 전부 여기에 붙고, 노트를 고치면 몇 초 안에 다시 색인돼요.
 `lemory ask "..."` 한 줄은 서버 없이도 돼요. 언제 켜두고 언제 재색인하는지는
 [가이드](docs/GUIDE.ko.md)에 있어요.
