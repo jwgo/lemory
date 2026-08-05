@@ -2,6 +2,33 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · design system v2: the console gets a real visual language
+
+A token-first redesign of the whole console (app.css rewritten around a
+single ramp) · every color, size, shadow and motion now comes from :root
+tokens, so components stop inventing values and both themes derive from the
+same semantics.
+
+- **Tokens**: layered graphite palette (chrome darker than canvas, cards
+  above both), hairline rgba borders, semantic hue set (ok/warn/danger/info/
+  purple/teal/pink + soft variants) that chips, badges and link-kinds all
+  share, type scale (10.5–26px), elevation levels (card sheen + e1–e3),
+  motion tokens, and a global `:focus-visible` ring for keyboard users.
+- **Note detail header**: restructured to a desktop-app pattern · breadcrumb
+  + actions on top, 20px title, meta line with inline tags, and **underline
+  tabs** instead of a pill group. The whole header is **sticky** inside the
+  pane, so title/tabs stay in reach on long notes (TOC scroll-spy verified
+  against it).
+- **Sidebar**: brand mark in a lemon tile, active nav with surface+sheen,
+  hover reveals each view's ⌘n shortcut (data-kbd), footer reorganized
+  (palette hint, then watch-dot + theme toggle in one row).
+- **Primary buttons** get a subtle gradient + inner highlight; inputs sit in
+  inset wells; palette/overlays gained blur + pop-in motion; empty count
+  chips vanish (`:empty`) instead of rendering as gray dots (found live).
+- Light theme re-derived token-by-token (own scrollbars, shadows, hues).
+- Verified hands-on across all 8 views + palette + both themes; JS errors 0;
+  493 tests pass.
+
 ## Unreleased · desktop-grade console shell: 하이라이트 편집기 · 리사이즈 · 상태바 · TOC
 
 Closing the visible gap to desktop knowledge tools (Tolaria-class shells):

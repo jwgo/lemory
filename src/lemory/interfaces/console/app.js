@@ -737,22 +737,24 @@ async function drawNoteDetail(path) {
     ? `<span class="crumb" data-f="${esc(segs.slice(0, i + 1).join("/"))}">${esc(s)}</span><span class="crumb-sep">›</span>`
     : `<span class="crumb leaf">${esc(s)}</span>`).join("");
   pane.innerHTML = `<div class="note-detail">
-    <div class="nd-title">${esc(d.title)}</div>
-    <div class="nd-path"><span class="crumbs">${crumbs}</span>
-      <span class="spacer"></span>
-      <button class="icon-btn sm" id="ndRename" title="이름 변경">${icoRename()}</button>
-      <button class="icon-btn sm" id="ndDelete" title="휴지통으로">${icoTrash()}</button>
-      <a class="btn ghost" style="height:24px;padding:0 8px;font-size:11.5px" href="${obsidian}">${icoExt()} Obsidian에서 열기</a>
-    </div>
-    ${d.tags.length ? `<div class="nd-tags">${d.tags.map(t => `<span class="chip brand">#${esc(t)}</span>`).join("")}</div>` : ""}
-    <div class="nd-meta">
-      <span>수정 ${rel(d.mtime)}</span><span>색인 ${rel(d.indexed_at)}</span>
-      <span>청크 ${d.chunks.length}</span>
-      <span title="이 노트가 검색·질문 결과에 오른 횟수">참조 ${d.hits || 0}회${d.hits ? " · 마지막 " + rel(d.last_hit) : ""}</span>
-    </div>
-    <div class="seg nd-tabs" id="ndTabs">
-      <button data-v="read">본문</button><button data-v="edit">편집</button><button data-v="meta">연결 · 색인</button>
-    </div>
+    <header class="nd-head">
+      <div class="nd-path"><span class="crumbs">${crumbs}</span>
+        <span class="spacer"></span>
+        <button class="icon-btn sm" id="ndRename" title="이름 변경">${icoRename()}</button>
+        <button class="icon-btn sm" id="ndDelete" title="휴지통으로">${icoTrash()}</button>
+        <a class="btn ghost sm" href="${obsidian}">${icoExt()} Obsidian</a>
+      </div>
+      <div class="nd-title">${esc(d.title)}</div>
+      <div class="nd-meta">
+        ${d.tags.length ? `<span class="nd-tags">${d.tags.map(t => `<span class="chip brand">#${esc(t)}</span>`).join("")}</span>` : ""}
+        <span>수정 ${rel(d.mtime)}</span><span>색인 ${rel(d.indexed_at)}</span>
+        <span>청크 ${d.chunks.length}</span>
+        <span title="이 노트가 검색·질문 결과에 오른 횟수">참조 ${d.hits || 0}회${d.hits ? " · 마지막 " + rel(d.last_hit) : ""}</span>
+      </div>
+      <div class="nd-tabs" id="ndTabs">
+        <button data-v="read">본문</button><button data-v="edit">편집</button><button data-v="meta">연결 · 색인</button>
+      </div>
+    </header>
     <div id="ndBody"><div class="skel" style="height:80px"></div></div>
   </div>`;
 
