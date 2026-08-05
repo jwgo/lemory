@@ -899,3 +899,41 @@ body.col-resizing iframe { pointer-events: none; }
 .statusbar .sb-item.dim { opacity: .8; }
 .statusbar .spacer { flex: 1; }
 @media (max-width: 640px) { .statusbar { display: none; } #app { height: 100%; } }
+
+/* ------------------------------------------------- note list: snippet line */
+.note-row .snip { margin-top: 2px; font-size: 11.5px; color: var(--text-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  word-break: break-all; }
+
+/* -------------------------------------------- frontmatter property inspector */
+.props { margin: 2px 0 16px; display: flex; flex-direction: column; gap: 1px; }
+.props:empty { display: none; }
+.prop-row { display: flex; align-items: center; gap: 10px; padding: 3px 6px;
+  border-radius: var(--r-sm); font-size: var(--fs-sm); min-height: 27px; }
+.prop-row:hover { background: var(--surface-2); }
+.prop-k { flex: 0 0 112px; color: var(--text-3); font-family: var(--mono);
+  font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; }
+.prop-v { flex: 1; display: flex; align-items: center; flex-wrap: wrap;
+  gap: 4px; min-width: 0; }
+.prop-txt { cursor: text; color: var(--text-2);
+  border-bottom: 1px dashed transparent; }
+.prop-row:hover .prop-txt { border-bottom-color: var(--border-2); }
+.prop-chip .pc-x { margin-left: 4px; cursor: pointer; opacity: .45;
+  font-weight: 600; font-style: normal; }
+.prop-chip .pc-x:hover { opacity: 1; color: var(--danger); }
+.prop-li { height: 19px; font-size: 11px; background: transparent;
+  border: 1px dashed var(--border); border-radius: 999px; padding: 0 8px;
+  width: 46px; }
+.prop-li:focus { border-style: solid; border-color: var(--brand); box-shadow: none; }
+.prop-v .prop-ed { height: 23px; font-size: var(--fs-sm); flex: 1; min-width: 120px; }
+.prop-x { opacity: 0; color: var(--text-3); width: 18px; flex: 0 0 18px;
+  transition: opacity var(--t); }
+.prop-row:hover .prop-x { opacity: .8; }
+.prop-x:hover { color: var(--danger); }
+.prop-add { align-self: flex-start; font-size: var(--fs-xs); color: var(--text-3);
+  padding: 3px 7px; border-radius: var(--r-sm); margin-top: 2px; }
+.prop-add:hover { background: var(--surface-2); color: var(--text-2); }
+.prop-new { display: flex; gap: 6px; padding: 4px 6px; }
+.prop-new input { height: 25px; font-size: 12px; }
+/* the raw frontmatter fold is redundant while the inspector is shown */
+.props.on + .md-body > .md-fm { display: none; }

@@ -2,6 +2,25 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · property inspector · list snippets · palette chord fix
+
+- **Frontmatter property inspector** (본문 탭 상단): flat `key: value` /
+  `key: [list]` frontmatter renders as an editable panel · click a value to
+  edit inline, tag lists are chips with ×-remove and a +input, `+ 속성` adds
+  a new key (comma value → list). Saves go through the same optimistic-
+  concurrency PUT as the editor (409 on disk conflict) and round-trip the
+  YAML byte-cleanly. Nested YAML we can't round-trip safely stays as the
+  read-only folded block · the inspector never guesses.
+- **Note list snippets**: every row now carries a one-line content preview
+  (first real chunk, headings/frontmatter stripped, server-side in
+  `doc_overview_rows`) · scanning the list stops requiring opening notes.
+- **⌘K/Ctrl+K fix** (found live): the palette chord was bound in TWO keydown
+  handlers, so one keypress opened and instantly closed it — on every OS.
+  The SHORTCUTS table is now the only owner (and toggles).
+- Verified in-browser end to end: add/edit/remove property → disk YAML
+  checked → cleanup; snippet rows on all 11 notes; Ctrl+K opens. JS errors
+  0; 494 tests pass (new store-level snippet test included).
+
 ## Unreleased · design system v2: the console gets a real visual language
 
 A token-first redesign of the whole console (app.css rewritten around a

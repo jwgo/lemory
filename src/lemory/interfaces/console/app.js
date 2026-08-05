@@ -72,7 +72,8 @@ async function loadNotes(force = false) {
 // One data table drives BOTH the key handler and the ? help overlay ·
 // Tolaria's command-manifest pattern, console-sized. mod = ⌘ on mac, Ctrl elsewhere.
 const SHORTCUTS = [
-  { combo: "mod+K", disp: "⌘K", desc: "명령 팔레트 · 이동/검색", act: () => openPalette() },
+  { combo: "mod+K", disp: "⌘K", desc: "명령 팔레트 · 이동/검색",
+    act: () => $("#palette").hidden ? openPalette() : closePalette() },
   { combo: "mod+N", disp: "⌘N", desc: "새 노트 (제목은 나중에 바꿔도 됨)", act: () => {
       const t = new Date().toTimeString().slice(0, 8).replaceAll(":", "");
       createNoteFromPalette(`무제 ${t}`);
@@ -584,6 +585,7 @@ function drawNoteRows() {
   $("#noteRows").innerHTML = rows.length ? rows.map(n => `
     <div class="note-row ${K.sel === n.path ? "active" : ""}" data-path="${esc(n.path)}">
       <div class="t">${esc(n.title)}</div>
+      ${n.snippet ? `<div class="snip">${esc(n.snippet)}</div>` : ""}
       <div class="meta">
         <span>${rel(n.mtime)}</span><span>${n.chunks}청크</span>
         <span>↗${n.links_out} ↘${n.links_in}</span>
@@ -713,6 +715,131 @@ function hlMarkdown(src) {
   }).join("\n") + "\n";   // trailing \n keeps the last (empty) line's height
 }
 
+/* ------------------------------------------- frontmatter property inspector
+   Flat `key: value` and `key: [a, b]` only — that's what vault notes use.
+   Anything nested renders as the plain folded block instead (never guess at
+   YAML we can't round-trip safely). */
+function fmParse(content) {
+  if (!content.startsWith("---\n")) return null;
+  const end = content.indexOf("\n---", 4);
+  if (end < 0) return null;
+  const head = content.slice(4, end);
+  const nl = content.indexOf("\n", end + 1);
+  const body = nl < 0 ? "" : content.slice(nl + 1);
+  const fm = [];
+  for (const ln of head.split("\n")) {
+    if (!ln.trim()) continue;
+    const m = ln.match(/^([A-Za-z0-9_가-힣.-]+):\s*(.*)$/);
+    if (!m) return { complex: true };
+    let v = m[2].trim();
+    if (v.startsWith("[") && v.endsWith("]"))
+      v = v.slice(1, -1).split(",").map(s => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+    else v = v.replace(/^["']|["']$/g, "");
+    fm.push([m[1], v]);
+  }
+  return { fm, body };
+}
+function fmSerialize(fm, body) {
+  if (!fm.length) return body;
+  const q = s => /[:#\[\]{}"',]/.test(s) ? JSON.stringify(s) : s;
+  const lines = fm.map(([k, v]) => Array.isArray(v)
+    ? `${k}: [${v.map(q).join(", ")}]`
+    : `${k}: ${q(String(v))}`);
+  return `---\n${lines.join("\n")}\n---\n${body}`;
+}
+
+function drawProps(box, path, raw) {
+  if (!box) return;
+  const parsed = fmParse(raw.content);
+  if (parsed && parsed.complex) { box.remove(); return; }   // fold stays visible
+  const fm = parsed ? parsed.fm : [];
+  const bodyText = parsed ? parsed.body : raw.content;
+  let mtime = raw.mtime;
+
+  async function save() {
+    try {
+      const content = fmSerialize(fm, bodyText);
+      const r = await api("/api/note", { method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, content, expect_mtime: mtime }) });
+      mtime = r.mtime;
+      S.notes = null; S.tags = null;
+      // tags/keys may have changed → refresh the detail (props sit at the
+      // top, so the scroll reset is invisible while editing them)
+      drawNoteDetail(path);
+    } catch (e) {
+      toast(String(e.message).includes("conflict")
+        ? "충돌: 디스크에서 노트가 바뀌었어요. 다시 열어 주세요" : e.message, "err");
+    }
+  }
+
+  const KEY_RE = /^[A-Za-z0-9_가-힣.-]+$/;
+  function render() {
+    box.classList.toggle("on", fm.length > 0);
+    box.innerHTML = fm.map(([k, v], i) => `
+      <div class="prop-row">
+        <span class="prop-k">${esc(k)}</span>
+        <div class="prop-v">
+          ${Array.isArray(v)
+            ? v.map((x, j) => `<span class="chip prop-chip">${esc(x)}<b class="pc-x" data-i="${i}" data-j="${j}" title="빼기">×</b></span>`).join("")
+              + `<input class="prop-li" data-i="${i}" placeholder="+" size="3">`
+            : `<span class="prop-txt" data-i="${i}">${v === "" ? "비어 있음" : esc(String(v))}</span>`}
+        </div>
+        <button class="prop-x" data-i="${i}" title="속성 삭제">×</button>
+      </div>`).join("") +
+      `<div class="prop-new" id="propNew" hidden>
+         <input id="propNk" placeholder="키" size="10">
+         <input id="propNv" placeholder="값 (쉼표로 목록)" size="18">
+       </div>
+       <button class="prop-add" id="propAdd">+ 속성</button>`;
+
+    // scalar: click → inline input, Enter/blur commits when changed
+    $$(".prop-txt", box).forEach(el => el.onclick = () => {
+      const i = +el.dataset.i;
+      const inp = document.createElement("input");
+      inp.className = "prop-ed";
+      inp.value = Array.isArray(fm[i][1]) ? "" : String(fm[i][1]);
+      el.replaceWith(inp); inp.focus(); inp.select();
+      let done = false;
+      const commit = () => {
+        if (done) return; done = true;
+        if (inp.value !== String(fm[i][1])) { fm[i][1] = inp.value; save(); }
+        else render();
+      };
+      inp.onblur = commit;
+      inp.onkeydown = e => { if (e.key === "Enter") commit();
+        if (e.key === "Escape") { done = true; render(); } };
+    });
+    // list: chip × removes, trailing input adds
+    $$(".pc-x", box).forEach(el => el.onclick = () => {
+      fm[+el.dataset.i][1].splice(+el.dataset.j, 1); save();
+    });
+    $$(".prop-li", box).forEach(el => el.onkeydown = e => {
+      if (e.key !== "Enter" || !el.value.trim()) return;
+      fm[+el.dataset.i][1].push(el.value.trim()); save();
+    });
+    $$(".prop-x", box).forEach(el => el.onclick = () => {
+      fm.splice(+el.dataset.i, 1); save();
+    });
+    $("#propAdd", box).onclick = () => {
+      const row = $("#propNew", box);
+      row.hidden = false; $("#propNk", box).focus();
+    };
+    const tryAdd = e => {
+      if (e.key === "Escape") { $("#propNew", box).hidden = true; return; }
+      if (e.key !== "Enter") return;
+      const k = $("#propNk", box).value.trim(), v = $("#propNv", box).value.trim();
+      if (!KEY_RE.test(k)) { toast("키는 글자·숫자·_-. 만 가능해요", "err"); return; }
+      if (fm.some(([ek]) => ek === k)) { toast(`'${k}' 속성이 이미 있어요`, "err"); return; }
+      fm.push([k, v.includes(",") ? v.split(",").map(s => s.trim()).filter(Boolean) : v]);
+      save();
+    };
+    $("#propNk", box).onkeydown = tryAdd;
+    $("#propNv", box).onkeydown = tryAdd;
+  }
+  render();
+}
+
 async function drawNoteDetail(path) {
   if (window.__edFlush) { window.__edFlush(); window.__edFlush = null; }
   const pane = $("#notePane");
@@ -796,9 +923,13 @@ async function drawNoteDetail(path) {
     try { raw = await api("/api/raw?path=" + encodeURIComponent(path)); }
     catch (e) { body.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
     if (name === "read") {
-      body.innerHTML = `<div class="nd-read"><div class="md-body">${mdRender(raw.content)}</div>
+      body.innerHTML = `<div class="nd-read"><div class="nd-main">
+          <div class="props" id="ndProps"></div>
+          <div class="md-body">${mdRender(raw.content)}</div>
+        </div>
         <nav class="nd-toc" id="ndToc" hidden></nav></div>`;
       $$(".md-wiki", body).forEach(a => a.onclick = () => openByTitle(a.dataset.wiki));
+      drawProps($("#ndProps", body), path, raw);
       // TOC for long notes: 3+ headings → sticky outline with scroll-spy
       const hs = $$(".md-body h1, .md-body h2, .md-body h3, .md-body h4", body);
       if (hs.length >= 3) {
@@ -2049,8 +2180,9 @@ $("#palette").addEventListener("mousedown", e => { if (e.target === $("#palette"
 $("#paletteHint").onclick = openPalette;
 
 document.addEventListener("keydown", e => {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); $("#palette").hidden ? openPalette() : closePalette(); }
-  else if (e.key === "Escape" && !$("#palette").hidden) closePalette();
+  // mod+K itself lives in the SHORTCUTS table · binding it here too made the
+  // two handlers open-then-close the palette on one keypress (found live)
+  if (e.key === "Escape" && !$("#palette").hidden) closePalette();
   else if (e.key === "/" && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== "INPUT"
            && document.activeElement.tagName !== "SELECT") { e.preventDefault(); go("#/search"); }
 });

@@ -238,6 +238,15 @@ def _loads_or(raw, default):
         return default
 
 
+def _snippet(text: str, limit: int = 150) -> str:
+    """One-line preview of a chunk: drop heading/marker lines, flatten space."""
+    lines = [ln.strip() for ln in (text or "").splitlines()]
+    body = [ln for ln in lines
+            if ln and not ln.startswith("#") and not ln.startswith("---")]
+    flat = " ".join(" ".join(body).split())
+    return flat[:limit]
+
+
 class Store:
     def __init__(self, db_path: Path | str,
                  ann_threshold: int = 20_000, ann_nprobe: int = 48):
@@ -596,6 +605,11 @@ class Store:
             "SELECT src_doc AS d, COUNT(*) AS n FROM links GROUP BY src_doc")}
         inl = {r["d"]: r["n"] for r in c.execute(
             "SELECT dst_doc AS d, COUNT(*) AS n FROM links GROUP BY dst_doc")}
+        # first real chunk per doc → one-line preview under the title
+        # (bare column with a single MIN() picks that row · SQLite guarantee)
+        snippets = {r["d"]: _snippet(r["text"]) for r in c.execute(
+            "SELECT doc_id AS d, text, MIN(ord) FROM chunks "
+            "WHERE heading != ? GROUP BY doc_id", (self.ENRICH_HEADING,))}
         hits = self.hit_stats()
         rows = []
         for r in c.execute("SELECT id, path, title, tags, mtime FROM documents"):
@@ -606,6 +620,7 @@ class Store:
                 "mtime": r["mtime"], "chunks": chunks.get(r["id"], 0),
                 "links_out": outl.get(r["id"], 0), "links_in": inl.get(r["id"], 0),
                 "hits": h[0], "last_hit": h[1],
+                "snippet": snippets.get(r["id"], ""),
             })
         return rows
 

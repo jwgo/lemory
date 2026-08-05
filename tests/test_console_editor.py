@@ -135,3 +135,17 @@ def test_http_authoring_endpoints(client, engine):
     client.put("/api/note", json={"path": "x", "content": "1"})
     client.put("/api/note", json={"path": "y", "content": "2"})
     assert client.post("/api/note/rename", json={"src": "x.md", "dst": "y"}).status_code == 409
+
+
+def test_overview_rows_carry_snippet(engine):
+    """The note list shows a one-line preview · first real chunk, headings
+    and frontmatter markers stripped, whitespace flattened."""
+    engine.index()
+    engine.write_note("스니펫", "---\ntags: [x]\n---\n# 스니펫\n\n첫 문단이 미리보기가 된다.\n\n다음 문단.\n",
+                      client="console")
+    rows = {r["path"]: r for r in engine.store.doc_overview_rows()}
+    snip = rows["스니펫.md"]["snippet"]
+    assert snip.startswith("첫 문단이 미리보기가 된다.")
+    assert "#" not in snip and "\n" not in snip
+    # every indexed note gets one
+    assert all("snippet" in r for r in rows.values())
