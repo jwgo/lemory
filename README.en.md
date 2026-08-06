@@ -371,20 +371,35 @@ script, nothing is mocked).
 | **Scope operators** `tag:` `folder:` `path:`<br><img src="docs/assets/demo9_en.gif" width="420"> | **Time-aware** "…lately" → latest decision ranks first<br><img src="docs/assets/demo10_en.gif" width="420"> |
 | **Typo repair** FoundatoinDB → FoundationDB<br><img src="docs/assets/demo12_en.gif" width="420"> | **Full-scale validation** KorQuAD 9,663 paras × 60,407 Q<br><img src="docs/assets/demo11_en.gif" width="420"> |
 
-## The dashboard
+## The console
 
-`lemory serve` → `127.0.0.1:8377`. Not a second Obsidian, a view of the
-*middleware*:
+`lemory serve` → `127.0.0.1:8377`. Not a second Obsidian — a workspace over
+the *middleware*, with desktop-app manners at web-console cost: a token-based
+design system (light/dark), ⌘K palette, ⌘1–8 view jumps, a `?` shortcut
+overlay, and a bottom status bar (vault · counts · watcher · index age).
 
-- **현황**: the timeline. AI memory feed (with undo), recent queries and
-  their sources, per-client usage (`claude-desktop` vs `cursor` vs `cli`),
-  index activity, which vector index is active
-- **지식**: per-note detail. Chunks as indexed, links in/out, a local graph
-  that shows the *mention* edges Obsidian's graph can't see, related notes
-  by content, reference counts
-- **검색**: hybrid/vector/BM25 playground with score bars and latency readout
-- **설정**: retrieval knobs with live apply; the timeline itself is a
-  setting (`event_log`) and all of it stays in your local SQLite file
+- **현황 Overview**: the timeline. AI memory feed (with undo), recent
+  queries and their sources, per-client usage (`claude-desktop` vs `cursor`
+  vs `cli`), index activity, which vector index is active
+- **지식 Knowledge**: a three-pane workspace (drag the gutters; widths are
+  remembered). Rows carry one-line content previews; the detail pane has a
+  sticky header, a clickable path breadcrumb, and a scroll-spy TOC on long
+  notes. And it *writes*: new note / rename / trash, a syntax-highlighted
+  editor with live preview, `[[wikilink]]` autocomplete, 1.5s autosave
+  (disk conflicts 409 instead of clobbering), and a frontmatter **property
+  inspector** (tags as chips, add/remove inline)
+- **기억 Memory**: the pyramid (persona · scenes · anchors · cases · skills)
+  plus typed recall
+- **그래프 Graph**: the whole-vault interactive graph
+- **건강 Health**: pending approvals, contradiction pairs, drift, link
+  suggestions — triaged on one screen
+- **검색 Search**: hybrid/vector/BM25 playground with score bars and latency
+  readout; the idle state is a tutorial built from your own vault
+- **비서 Assistant**: streaming chat over the vault on an on-device model,
+  with citations
+- **설정 Settings**: retrieval knobs and model picks with live apply; the
+  timeline itself is a setting (`event_log`) and all of it stays in your
+  local SQLite file
 
 <img src="docs/assets/console-knowledge.png" alt="Knowledge tab: note detail, local graph, related notes" width="820">
 
