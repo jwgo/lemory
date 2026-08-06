@@ -15,6 +15,7 @@ Safety rules:
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
@@ -325,10 +326,98 @@ def trash_ai_note(engine, path: str, client: str = "", human: bool = False) -> s
         n += 1
     target.rename(dest)
     rel = str(Path(path))
+    _trash_map_set(engine, dest.name, rel)   # restore knows the home folder
     engine.index(paths={rel})  # removes it from the index
     if engine.cfg.event_log:
         engine.store.log_event("trash", client=client, path=rel)
     return str(dest.relative_to(vault))
+
+
+# ---------------------------------------------------------------- trash bin
+# The console's recoverable-delete story: .trash is flat (Obsidian's own
+# convention), so a meta-table remembers where each file came FROM. Restore
+# puts it back in its home folder; a name clash suffixes instead of clobbers.
+_TRASH_MAP_KEY = "trash_map"
+
+
+def _trash_map(engine) -> dict:
+    raw = engine.store.get_meta(_TRASH_MAP_KEY)
+    try:
+        return json.loads(raw) if raw else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _trash_map_set(engine, name: str, original: str) -> None:
+    m = _trash_map(engine)
+    m[name] = original
+    engine.store.set_meta(_TRASH_MAP_KEY, json.dumps(m, ensure_ascii=False))
+
+
+def _trash_entry(engine, name: str) -> Path:
+    """Path-guard for trash operations: `name` must be a bare filename that
+    resolves inside <vault>/.trash — no separators, no traversal."""
+    if Path(name).name != name or name in (".", ".."):
+        raise ValueError(f"invalid trash entry: {name}")
+    p = engine.cfg.resolved_vault() / ".trash" / name
+    if not p.is_file():
+        raise ValueError(f"no such trash entry: {name}")
+    return p
+
+
+def list_trash(engine) -> list[dict]:
+    """Contents of <vault>/.trash, newest first, with original locations."""
+    trash = engine.cfg.resolved_vault() / ".trash"
+    if not trash.is_dir():
+        return []
+    m = _trash_map(engine)
+    rows = []
+    for p in trash.iterdir():
+        if not p.is_file() or p.suffix.lower() != ".md":
+            continue
+        st = p.stat()
+        rows.append({"name": p.name, "original": m.get(p.name, ""),
+                     "mtime": st.st_mtime, "size": st.st_size})
+    rows.sort(key=lambda r: -r["mtime"])
+    return rows
+
+
+def restore_note(engine, name: str, client: str = "") -> str:
+    """Move a trashed note back to its original folder (vault root if the
+    origin is unknown). Never clobbers: an occupied destination suffixes."""
+    src = _trash_entry(engine, name)
+    vault = engine.cfg.resolved_vault()
+    m = _trash_map(engine)
+    original = m.get(name, "")
+    dest = _safe_target(vault, original) if original else vault / name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    n = 2
+    while dest.exists():
+        dest = dest.with_name(f"{dest.stem} {n}{dest.suffix}")
+        n += 1
+    src.rename(dest)
+    if name in m:
+        del m[name]
+        engine.store.set_meta(_TRASH_MAP_KEY, json.dumps(m, ensure_ascii=False))
+    rel = str(dest.relative_to(vault))
+    engine.index(paths={rel})
+    if engine.cfg.event_log:
+        engine.store.log_event("restore", client=client, path=rel)
+    return rel
+
+
+def purge_note(engine, name: str, client: str = "") -> str:
+    """Permanently delete one file from .trash. The only destructive verb in
+    the whole write surface, and it only ever reaches inside .trash."""
+    src = _trash_entry(engine, name)
+    src.unlink()
+    m = _trash_map(engine)
+    if name in m:
+        del m[name]
+        engine.store.set_meta(_TRASH_MAP_KEY, json.dumps(m, ensure_ascii=False))
+    if engine.cfg.event_log:
+        engine.store.log_event("purge", client=client, path=name)
+    return name
 
 
 _PENDING_RE = re.compile(r"(?m)^lemory_pending:\s*true\s*$")

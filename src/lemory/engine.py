@@ -247,6 +247,21 @@ class Engine:
 
         return trash_ai_note(self, path, client=client, human=human)
 
+    def list_trash(self) -> list[dict]:
+        from .ingestion.memory import list_trash
+
+        return list_trash(self)
+
+    def restore_note(self, name: str, client: str = "") -> str:
+        from .ingestion.memory import restore_note
+
+        return restore_note(self, name, client=client)
+
+    def purge_note(self, name: str, client: str = "") -> str:
+        from .ingestion.memory import purge_note
+
+        return purge_note(self, name, client=client)
+
     def pending_notes(self) -> list[dict]:
         from .ingestion.memory import list_pending
 

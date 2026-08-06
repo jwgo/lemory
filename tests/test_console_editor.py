@@ -149,3 +149,56 @@ def test_overview_rows_carry_snippet(engine):
     assert "#" not in snip and "\n" not in snip
     # every indexed note gets one
     assert all("snippet" in r for r in rows.values())
+
+
+def test_trash_restore_roundtrip(engine):
+    """Delete → bin remembers the home folder → restore puts it back there."""
+    engine.index()
+    rel = engine.write_note("메모/복구테스트", "# 복구\n\n내용.\n", client="console")
+    engine.trash_note(rel, client="console", human=True)
+    assert not engine.safe_path(rel).exists()
+    bin_ = engine.list_trash()
+    entry = next(r for r in bin_ if r["original"] == rel)
+    back = engine.restore_note(entry["name"], client="console")
+    assert back == rel and engine.safe_path(rel).is_file()
+    # restored note is searchable again
+    assert any(h.path == rel for h in engine.search("복구 내용", k=5))
+
+
+def test_restore_never_clobbers(engine):
+    engine.index()
+    rel = engine.write_note("충돌복구", "v1", client="console")
+    engine.trash_note(rel, client="console", human=True)
+    engine.write_note("충돌복구", "v2", client="console")   # home is occupied
+    entry = engine.list_trash()[0]
+    back = engine.restore_note(entry["name"])
+    assert back != rel and engine.safe_path(back).read_text(encoding="utf-8") == "v1"
+    assert engine.safe_path(rel).read_text(encoding="utf-8") == "v2"
+
+
+def test_purge_is_guarded_to_trash(engine):
+    engine.index()
+    rel = engine.write_note("영구삭제", "x", client="console")
+    engine.trash_note(rel, client="console", human=True)
+    name = engine.list_trash()[0]["name"]
+    engine.purge_note(name)
+    assert engine.list_trash() == []
+    # purge cannot reach outside .trash
+    with pytest.raises(ValueError):
+        engine.purge_note("../영구삭제.md")
+    with pytest.raises(ValueError):
+        engine.purge_note("없는파일.md")
+
+
+def test_http_trash_endpoints(client, engine):
+    engine.index()
+    client.put("/api/note", json={"path": "일지/휴지통", "content": "# 휴지통\n본문"})
+    client.post("/api/note/delete", json={"path": "일지/휴지통.md"})
+    rows = client.get("/api/trash").json()
+    assert rows and rows[0]["original"] == "일지/휴지통.md"
+    r = client.post("/api/trash/restore", json={"name": rows[0]["name"]})
+    assert r.json()["restored"] == "일지/휴지통.md"
+    client.post("/api/note/delete", json={"path": "일지/휴지통.md"})
+    name = client.get("/api/trash").json()[0]["name"]
+    assert client.post("/api/trash/purge", json={"name": name}).json()["purged"] == name
+    assert client.get("/api/trash").json() == []

@@ -149,6 +149,10 @@ class RenameBody(BaseModel):
     dst: str
 
 
+class TrashEntryBody(BaseModel):
+    name: str
+
+
 def remote_auth_error(client_host: str, auth_header: str,
                       api_token: str) -> tuple[str, int] | None:
     """Remote access (the mobile story): non-localhost CLIENTS must present
@@ -778,6 +782,29 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"trashed": body.path, "moved_to": dest}
+
+    @app.get("/api/trash")
+    def trash_list():
+        """The recoverable-delete bin: name, original folder, when, size."""
+        return engine.list_trash()
+
+    @app.post("/api/trash/restore")
+    def trash_restore(request: Request, body: TrashEntryBody):
+        try:
+            rel = engine.restore_note(body.name, client=_client(request))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"restored": rel}
+
+    @app.post("/api/trash/purge")
+    def trash_purge(request: Request, body: TrashEntryBody):
+        """Permanent delete of ONE trash entry · the only destructive verb,
+        and it cannot reach outside <vault>/.trash."""
+        try:
+            engine.purge_note(body.name, client=_client(request))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"purged": body.name}
 
     @app.get("/api/titles")
     def titles():

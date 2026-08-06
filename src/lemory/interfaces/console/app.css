@@ -937,3 +937,18 @@ body.col-resizing iframe { pointer-events: none; }
 .prop-new input { height: 25px; font-size: 12px; }
 /* the raw frontmatter fold is redundant while the inspector is shown */
 .props.on + .md-body > .md-fm { display: none; }
+
+/* ------------------------------------------ saved views · trash · drag-move */
+.view-item .view-x { margin-left: auto; opacity: 0; color: var(--text-3);
+  font-weight: 600; font-style: normal; padding: 0 3px; }
+.view-item:hover .view-x { opacity: .7; }
+.view-item .view-x:hover { color: var(--danger); opacity: 1; }
+.btn.danger { color: var(--danger); border-color: rgba(240, 85, 91, .35); }
+.btn.danger:hover { background: var(--danger-soft); border-color: var(--danger); }
+.trash-row { cursor: default; }
+.trash-row .meta { align-items: center; }
+.trash-row .meta .spacer { flex: 1; }
+.note-row.dragging { opacity: .45; }
+.tree-item.drop { background: var(--brand-soft);
+  box-shadow: inset 0 0 0 1px var(--brand); }
+.prop-new[hidden] { display: none; }  /* author display beats [hidden] otherwise */

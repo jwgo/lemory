@@ -2,6 +2,33 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · gap audit vs Tolaria: trash bin · drag-move · saved views
+
+An honest re-audit of "did we really absorb them?" found three console gaps
+that couldn't be excused as editor-only territory. All three closed:
+
+- **Trash bin with restore**: `.trash` was a one-way street (files moved,
+  origin forgotten, no UI). Now a meta-table remembers each file's home
+  folder; the 지식 tree gets a 휴지통 section listing entries (origin, age,
+  size) with 복구 (back to its home folder · never clobbers, suffixes on
+  conflict) and 영구 삭제 (the only destructive verb in the write surface,
+  path-guarded to never reach outside `.trash`). Engine verbs
+  `list_trash`/`restore_note`/`purge_note` + HTTP `/api/trash{,/restore,/purge}`.
+- **Drag a note onto a tree folder to move it** · rename under the hood, so
+  both paths reindex and wikilinks keep resolving; drop-target highlight,
+  same-folder no-op.
+- **Saved views** (Tolaria's Saved Views, console-sized): bookmark the
+  current folder/tag/filter/sort as a named view pinned at the top of the
+  tree · click applies, × deletes, persisted per browser.
+- Fixed live: `.prop-new { display:flex }` was overriding the `[hidden]`
+  attribute, showing the add-property inputs uninvited.
+- docs/COMPETITIVE.md Tolaria section updated with the console-shell absorb
+  table and the (still deliberate) non-absorptions.
+- Verified in-browser: delete → bin shows origin → restore lands back in
+  리서치/ → drag-move to 회의록 confirmed on disk → view save/apply/delete.
+  JS errors 0; engine/HTTP tests added (roundtrip, no-clobber restore,
+  purge guard).
+
 ## Unreleased · property inspector · list snippets · palette chord fix
 
 - **Frontmatter property inspector** (본문 탭 상단): flat `key: value` /

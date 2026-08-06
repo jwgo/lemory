@@ -56,7 +56,9 @@ const S = {
   notes: null,          // /api/notes rows
   tags: null,
   vaultPath: null,
-  knowledge: { folder: "", filter: "", sort: "mtime", sel: null, open: new Set([""]) },
+  knowledge: { folder: "", filter: "", sort: "mtime", sel: null, open: new Set([""]),
+               trash: false },
+  trash: null,          // /api/trash rows, cached per knowledge-view visit
   memory: { q: "", type: "", sel: null },
   search: { q: "", mode: "hybrid", graph: true, k: 8 },
 };
@@ -389,6 +391,7 @@ async function renderKnowledge(selPath) {
           <option value="chunks">분량</option>
           <option value="hits">많이 찾은 순</option>
         </select>
+        <button class="icon-btn" id="saveView" title="현재 폴더·태그·필터·정렬을 뷰로 저장">${icoView()}</button>
         <button class="icon-btn" id="newNote" title="새 노트 (⌘N)${K.folder ? " · " + esc(K.folder) + "에" : ""}">${icoPlus()}</button>
       </div>
       <div class="note-rows" id="noteRows"></div>
@@ -404,6 +407,7 @@ async function renderKnowledge(selPath) {
   $("#noteSort").onchange = e => { K.sort = e.target.value; drawNoteRows(); };
   // new note lands in the folder you're browsing · zero-friction capture
   $("#newNote").onclick = () => newNoteHere(K.folder);
+  $("#saveView").onclick = saveCurrentView;
   initKnResize();
 
   try { await loadNotes(); } catch (e) {
@@ -411,6 +415,7 @@ async function renderKnowledge(selPath) {
     return;
   }
   if (!S.tags) { try { S.tags = await api("/api/tags"); } catch { S.tags = []; } }
+  try { S.trash = await api("/api/trash"); } catch { S.trash = []; }
 
   drawTree();
   drawNoteRows();
@@ -501,6 +506,54 @@ async function renameNote(path) {
   } catch (e) { toast(e.message, "err"); }
 }
 
+/* saved views: a named snapshot of the list state (folder/tag/filter/sort) ·
+   Tolaria's Saved Views at web-console cost, persisted per browser */
+function loadViews() {
+  try { return JSON.parse(localStorage.getItem("lemory.views")) || []; }
+  catch { return []; }
+}
+function saveViews(v) { localStorage.setItem("lemory.views", JSON.stringify(v)); }
+function saveCurrentView() {
+  const K = S.knowledge;
+  const name = prompt("뷰 이름:", K.tag ? `#${K.tag}` : (K.folder || "모든 노트"));
+  if (!name || !name.trim()) return;
+  const views = loadViews();
+  views.push({ name: name.trim(), folder: K.folder, tag: K.tag || null,
+               filter: K.filter, sort: K.sort });
+  saveViews(views);
+  drawTree();
+  toast(`뷰 '${name.trim()}' 저장`, "ok");
+}
+function applyView(v) {
+  const K = S.knowledge;
+  K.trash = false;
+  K.folder = v.folder || "";
+  K.tag = v.tag || null;
+  K.filter = v.filter || "";
+  K.sort = v.sort || "mtime";
+  const f = $("#noteFilter"), s = $("#noteSort");
+  if (f) f.value = K.filter;
+  if (s) s.value = K.sort;
+  drawTree(); drawNoteRows();
+}
+
+/* drag a note row onto a tree folder → move it there (rename under the
+   hood, so both paths reindex and wikilinks keep resolving by title) */
+async function moveNoteTo(src, folder) {
+  const base = src.split("/").pop().replace(/\.md$/, "");
+  const dst = (folder ? folder + "/" : "") + base;
+  if (dst + ".md" === src) return;                  // same place · no-op
+  try {
+    const r = await api("/api/note/rename", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ src, dst }) });
+    S.notes = null; S.titles = null;
+    if (S.knowledge.sel === src) S.knowledge.sel = r.renamed;
+    await renderKnowledge();
+    toast(`'${base}' → ${folder || "루트"}`, "ok");
+  } catch (e) { toast(e.message, "err"); }
+}
+
 function buildTree(notes) {
   const root = { name: "", children: new Map(), count: 0 };
   for (const n of notes) {
@@ -521,7 +574,20 @@ function drawTree() {
   const K = S.knowledge;
   const tree = buildTree(S.notes);
   const el = $("#tree");
-  let html = `<div class="tree-item ${K.folder === "" && !K.tag ? "active" : ""}" data-folder="">
+  let html = "";
+
+  const views = loadViews();
+  if (views.length) {
+    html += `<div class="tree-sec">뷰</div>`;
+    views.forEach((v, i) => {
+      html += `<div class="tree-item view-item" data-view="${i}">
+        ${icoView()}<span class="name">${esc(v.name)}</span>
+        <b class="view-x" data-vx="${i}" title="뷰 삭제">×</b></div>`;
+    });
+    html += `<div class="tree-sec">폴더</div>`;
+  }
+
+  html += `<div class="tree-item ${K.folder === "" && !K.tag && !K.trash ? "active" : ""}" data-folder="">
     ${icoHome()}<span class="name">모든 노트</span><span class="cnt">${tree.count}</span></div>`;
 
   const walk = (node, depth) => {
@@ -530,7 +596,7 @@ function drawTree() {
     for (const k of kids) {
       const open = K.open.has(k.full);
       const hasKids = k.children.size > 0;
-      s += `<div class="tree-item ${K.folder === k.full && !K.tag ? "active" : ""}" data-folder="${esc(k.full)}">
+      s += `<div class="tree-item ${K.folder === k.full && !K.tag && !K.trash ? "active" : ""}" data-folder="${esc(k.full)}">
         <span class="tw ${open ? "open" : ""}" data-toggle="${esc(k.full)}" style="${hasKids ? "" : "visibility:hidden"}">${icoChev()}</span>
         ${icoFolder()}<span class="name">${esc(k.name)}</span><span class="cnt">${k.count}</span></div>`;
       if (hasKids && open) s += `<div class="tree-children">${walk(k, depth + 1)}</div>`;
@@ -542,29 +608,55 @@ function drawTree() {
   if (S.tags?.length) {
     html += `<div class="tree-sec">태그</div>`;
     for (const t of S.tags.slice(0, 30)) {
-      html += `<div class="tree-item ${K.tag === t.tag ? "active" : ""}" data-tag="${esc(t.tag)}">
+      html += `<div class="tree-item ${K.tag === t.tag && !K.trash ? "active" : ""}" data-tag="${esc(t.tag)}">
         ${icoTag()}<span class="name">#${esc(t.tag)}</span><span class="cnt">${t.count}</span></div>`;
     }
   }
+
+  html += `<div class="tree-sec">시스템</div>
+    <div class="tree-item ${K.trash ? "active" : ""}" data-trash="1">
+      ${icoTrash()}<span class="name">휴지통</span>
+      <span class="cnt">${S.trash ? S.trash.length : ""}</span></div>`;
   el.innerHTML = html;
 
   $$(".tree-item", el).forEach(item => {
     item.onclick = e => {
+      const vx = e.target.closest("[data-vx]");
+      if (vx) {
+        const views = loadViews();
+        views.splice(+vx.dataset.vx, 1);
+        saveViews(views);
+        drawTree(); return;
+      }
       const tg = e.target.closest("[data-toggle]");
       if (tg) {
         const f = tg.dataset.toggle;
         K.open.has(f) ? K.open.delete(f) : K.open.add(f);
         drawTree(); return;
       }
-      if (item.dataset.tag !== undefined) { K.tag = item.dataset.tag; K.folder = ""; }
-      else { K.folder = item.dataset.folder; K.tag = null; }
+      if (item.dataset.view !== undefined) { applyView(loadViews()[+item.dataset.view]); return; }
+      if (item.dataset.trash !== undefined) { K.trash = true; }
+      else if (item.dataset.tag !== undefined) { K.trash = false; K.tag = item.dataset.tag; K.folder = ""; }
+      else { K.trash = false; K.folder = item.dataset.folder; K.tag = null; }
       drawTree(); drawNoteRows();
     };
+    // folders take note drops · moving a file is one drag
+    if (item.dataset.folder !== undefined) {
+      item.ondragover = e => { e.preventDefault(); item.classList.add("drop"); };
+      item.ondragleave = () => item.classList.remove("drop");
+      item.ondrop = e => {
+        e.preventDefault();
+        item.classList.remove("drop");
+        const src = e.dataTransfer.getData("text/lemory-path");
+        if (src) moveNoteTo(src, item.dataset.folder);
+      };
+    }
   });
 }
 
 function drawNoteRows() {
   const K = S.knowledge;
+  if (K.trash) { drawTrashRows(); return; }
   let rows = S.notes;
   if (K.tag) rows = rows.filter(n => n.tags.includes(K.tag));
   else if (K.folder) rows = rows.filter(n => n.path.startsWith(K.folder + "/"));
@@ -595,10 +687,59 @@ function drawNoteRows() {
     </div>`).join("")
     : `<div class="empty">해당하는 노트가 없습니다</div>`;
 
-  $$("#noteRows .note-row").forEach(r => r.onclick = () => {
-    K.sel = r.dataset.path;
-    $$("#noteRows .note-row").forEach(x => x.classList.toggle("active", x === r));
-    drawNoteDetail(K.sel);
+  $$("#noteRows .note-row").forEach(r => {
+    r.onclick = () => {
+      K.sel = r.dataset.path;
+      $$("#noteRows .note-row").forEach(x => x.classList.toggle("active", x === r));
+      drawNoteDetail(K.sel);
+    };
+    r.draggable = true;   // drop on a tree folder to move the file
+    r.ondragstart = e => {
+      e.dataTransfer.setData("text/lemory-path", r.dataset.path);
+      e.dataTransfer.effectAllowed = "move";
+      r.classList.add("dragging");
+    };
+    r.ondragend = () => r.classList.remove("dragging");
+  });
+}
+
+function drawTrashRows() {
+  const K = S.knowledge;
+  K.rows = [];                                   // keyboard nav idles here
+  const rows = S.trash || [];
+  $("#noteRows").innerHTML = rows.length ? rows.map(t => `
+    <div class="note-row trash-row">
+      <div class="t">${esc(t.name.replace(/\.md$/, ""))}</div>
+      <div class="snip">원래 위치: ${esc(t.original || "(기록 없음 · 루트로 복구)")}</div>
+      <div class="meta"><span>${rel(t.mtime)}</span><span>${fmtBytes(t.size)}</span>
+        <span class="spacer"></span>
+        <button class="btn sm" data-restore="${esc(t.name)}">복구</button>
+        <button class="btn sm danger" data-purge="${esc(t.name)}">영구 삭제</button>
+      </div>
+    </div>`).join("")
+    : `<div class="empty">휴지통이 비어 있어요<span class="empty-hint">삭제한 노트는 여기서 원래 폴더로 복구돼요</span></div>`;
+
+  $$("#noteRows [data-restore]").forEach(b => b.onclick = async () => {
+    try {
+      const r = await api("/api/trash/restore", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: b.dataset.restore }) });
+      S.notes = null; S.titles = null; S.trash = null;
+      S.knowledge.trash = false;                 // jump to the restored note
+      toast(`복구: ${r.restored}`, "ok");
+      await renderKnowledge(r.restored);
+    } catch (e) { toast(e.message, "err"); }
+  });
+  $$("#noteRows [data-purge]").forEach(b => b.onclick = async () => {
+    if (!confirm(`'${b.dataset.purge}' 를 영구 삭제할까요?\n되돌릴 수 없어요.`)) return;
+    try {
+      await api("/api/trash/purge", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: b.dataset.purge }) });
+      S.trash = await api("/api/trash");
+      drawTree(); drawTrashRows();
+      toast("영구 삭제됨", "ok");
+    } catch (e) { toast(e.message, "err"); }
   });
 }
 
@@ -2244,6 +2385,7 @@ function icoHome() { return svg('<path d="M2 8.5 8 2.5l6 6M3.5 7.5v6h9v-6"/>'); 
 function icoFolder() { return svg('<path d="M1.8 4.2a1 1 0 0 1 1-1h3l1.4 1.6h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1z"/>'); }
 function icoDoc() { return svg('<path d="M4 1.8h5.5L12.5 5v9.2h-8.5zM9.2 1.8V5h3.3M6 8h4M6 10.5h4"/>'); }
 function icoTag() { return svg('<path d="M2 2h5.5L14 8.5 8.5 14 2 7.5zM5.5 5.5h.01"/>'); }
+function icoView() { return svg('<path d="M4 2h8a1 1 0 0 1 1 1v11l-5-3-5 3V3a1 1 0 0 1 1-1z"/>'); }
 function icoSearch() { return svg('<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/>'); }
 function icoGear() { return svg('<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6 5 5M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4"/>'); }
 function icoExt() { return svg('<path d="M6.5 3.5H3v9.5h9.5V9M9 2.5h4.5V7M13 3 7.5 8.5"/>'); }
