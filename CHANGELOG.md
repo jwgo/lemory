@@ -2,6 +2,33 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · Hindsight absorbed: belief fragments · time-range operators
+
+Head-to-head with [Hindsight](https://github.com/vectorize-io/hindsight)
+(Vectorize's benchmark-armed agent memory · LongMemEval SOTA claims). Full
+analysis in docs/COMPETITIVE.md; what it taught us shipped immediately:
+
+- **`belief` fragment type** (their opinions network, vault-shaped): the
+  eighth type, carrying `confidence` (0-1, default 0.6) in frontmatter ·
+  evidence types (fact 등) deliberately carry none — that absence IS the
+  evidence-vs-inference separation. Re-remembering a belief with the same
+  title REVISES the note in place: new statement on top, confidence updated,
+  the superseded statement appended to a `## 변천` trail (accumulates, never
+  overwrites · readable history in Obsidian). Threaded through CLI
+  (`--confidence`), HTTP, and MCP; recall rows expose `confidence`.
+- **`after:` / `before:` operators** (`since:`/`until:` synonyms) · the one
+  of Hindsight's four recall strategies we lacked as an explicit control.
+  YYYY / YYYY-MM / YYYY-MM-DD with period-inclusive bounds
+  (`after:2026-07 before:2026-07` = exactly July), filtering on doc_date
+  (frontmatter date > filename date > mtime). Works identically in CLI, web
+  search, and MCP recall; a bare range is a scoped listing.
+- NOT taken (documented with reasons): LLM-extraction retain (0-LLM indexing
+  is our reason to exist), canonical-entity service, Postgres stack. Their
+  other three recall strategies (semantic/BM25+RRF/graph + cross-encoder
+  rerank) we already had.
+- Honest limits: their LongMemEval numbers are not yet reproduced on our
+  harness (roadmap) · no superiority claim on that axis until same-harness.
+
 ## Unreleased · gap audit vs Tolaria: trash bin · drag-move · saved views
 
 An honest re-audit of "did we really absorb them?" found three console gaps

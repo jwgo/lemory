@@ -33,7 +33,11 @@ from datetime import datetime
 from .memory import _safe_target, save_memory
 
 # AnchorMind's seven, verbatim — interop beats invention for a taxonomy whose
-# only job is to be the same one everywhere.
+# only job is to be the same one everywhere. `belief` is the eighth, absorbed
+# from Hindsight's opinions network: evidence (fact) and inference (belief)
+# are different things, and only the latter carries a confidence and gets
+# REVISED · re-remembering the same belief title updates the note in place
+# and appends to its 변천 trail instead of minting a duplicate.
 FRAGMENT_TYPES = (
     "fact",        # a stable truth: "배포 포트는 15000"
     "decision",    # a choice and its reason
@@ -42,6 +46,7 @@ FRAGMENT_TYPES = (
     "procedure",   # a repeatable sequence of steps
     "relation",    # how two things connect
     "episode",     # what happened in a session
+    "belief",      # an inference with confidence, revisable as evidence lands
 )
 
 STATUSES = ("open", "resolved", "blocked")
@@ -72,17 +77,36 @@ def remember(
     tags: list[str] | None = None,
     folder: str = "memories",
     client: str = "",
+    confidence: float | None = None,
 ):
     """Write one typed fragment into the vault. Returns the vault-relative
     path (carrying `.related` from the consolidation pass).
 
     An `error` with no explicit status is born `open` — an unresolved failure
     is the single most useful thing to hand the next session, and it only
-    stays useful if forgetting to mark it defaults to "still broken"."""
+    stays useful if forgetting to mark it defaults to "still broken".
+
+    A `belief` with a stable title is REVISED, not duplicated: if the note
+    already exists, its statement and confidence are updated in place and the
+    superseded statement is appended to a `## 변천` trail — Hindsight's
+    belief-updating, as a plain markdown edit you can read in Obsidian."""
     ftype = (type or "fact").strip().lower()
     st = (status or "").strip().lower()
     if not st and ftype == "error":
         st = "open"
+    conf = None
+    if ftype == "belief":
+        conf = 0.6 if confidence is None else max(0.0, min(1.0, float(confidence)))
+    elif confidence is not None:
+        conf = max(0.0, min(1.0, float(confidence)))
+
+    if ftype == "belief" and title.strip():
+        vault = engine.cfg.resolved_vault()
+        rel = f"{folder}/{title.strip()}.md"
+        target = _safe_target(vault, rel)
+        if target.is_file():
+            return _revise_belief(engine, target, content, conf, client=client)
+
     meta = {
         "type": ftype,
         "topic": topic.strip(),
@@ -90,12 +114,64 @@ def remember(
         "phase": phase.strip(),
         "status": st,
         "anchor": True if anchor else None,  # absent when not pinned
+        "confidence": conf,
         "remembered_at": datetime.now().isoformat(timespec="seconds"),
     }
     return save_memory(
         engine, content, title=title, folder=folder, tags=tags or [],
         client=client, meta=meta,
     )
+
+
+_CONF_RE = re.compile(r"(?m)^(confidence:\s*)([\d.]+)\s*$")
+_REMEMBERED_RE = re.compile(r"(?m)^(remembered_at:\s*)(\S+)\s*$")
+
+
+def _revise_belief(engine, target, content: str, confidence: float | None,
+                   client: str = "") -> str:
+    """Update a belief note in place: new statement on top, new confidence in
+    frontmatter, and the superseded statement appended to the `## 변천` trail
+    (chronological, never overwritten — the same rule scenes follow)."""
+    vault = engine.cfg.resolved_vault()
+    raw = target.read_text(encoding="utf-8", errors="replace")
+    m = re.match(r"^---\n(.*?)\n---\n?(.*)$", raw, re.S)
+    fm_block, body = (m.group(1), m.group(2)) if m else ("", raw)
+
+    old_conf = None
+    cm = _CONF_RE.search(fm_block)
+    if cm:
+        try:
+            old_conf = float(cm.group(2))
+        except ValueError:
+            pass
+    new_conf = confidence if confidence is not None else (old_conf or 0.6)
+
+    # the statement is the body above the trail; the trail carries history
+    parts = body.split("\n## 변천", 1)
+    old_statement = " ".join(parts[0].split())
+    trail = ("## 변천" + parts[1]).rstrip() if len(parts) == 2 else "## 변천"
+    stamp = datetime.now().strftime("%Y-%m-%d")
+    conf_note = (f"{old_conf:.2f}→{new_conf:.2f}" if old_conf is not None
+                 else f"→{new_conf:.2f}")
+    trail += f"\n- {stamp} · 확신도 {conf_note} · 이전: {old_statement[:160]}"
+
+    now = datetime.now().isoformat(timespec="seconds")
+    if cm:
+        fm_block = _CONF_RE.sub(lambda x: f"{x.group(1)}{new_conf:.2f}", fm_block)
+    else:
+        fm_block += f"\nconfidence: {new_conf:.2f}"
+    if _REMEMBERED_RE.search(fm_block):
+        fm_block = _REMEMBERED_RE.sub(lambda x: f"{x.group(1)}{now}", fm_block)
+
+    target.write_text(f"---\n{fm_block}\n---\n\n{content.strip()}\n\n{trail}\n",
+                      encoding="utf-8")
+    rel = str(target.relative_to(vault))
+    engine.index(paths={rel})
+    if engine.cfg.event_log:
+        engine.store.log_event("memory", client=client, path=rel,
+                               detail={"belief_revised": True,
+                                       "confidence": new_conf})
+    return rel
 
 
 def set_anchor(engine, path: str, on: bool = True, client: str = "") -> str:

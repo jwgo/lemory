@@ -60,8 +60,14 @@ class SearchResult:
 # operators, so the same scoping works in the CLI, the web search box and MCP
 # recall() without a second retrieval path.
 FIELD_OPS = ("type", "case", "status", "topic")
+# explicit time-range scoping (Hindsight's temporal retrieval strategy as an
+# operator): after:/before: (since:/until: synonyms) accept YYYY, YYYY-MM or
+# YYYY-MM-DD and filter on doc_date — frontmatter date, filename date, or
+# mtime, same priority the recency machinery already uses
+DATE_OPS = ("after", "before", "since", "until")
 _OPERATOR_RE = re.compile(
-    r'(?:^|\s)(tag|folder|path|type|case|status|topic)\s*:\s*(?:"([^"]+)"|(\S+))',
+    r'(?:^|\s)(tag|folder|path|type|case|status|topic|after|before|since|until)'
+    r'\s*:\s*(?:"([^"]+)"|(\S+))',
     re.IGNORECASE,
 )
 # escape hatch from cfg.default_scope for a single query: `scope:all 질문`
@@ -87,7 +93,7 @@ def parse_operators(query: str) -> tuple[str, list[str], list[str], dict[str, li
         if op == "tag":
             val = val.lstrip("#")
         if val:
-            if op in FIELD_OPS:
+            if op in FIELD_OPS or op in DATE_OPS:
                 fields.setdefault(op, []).append(val)
             elif op == "tag":
                 tags.append(val)
@@ -97,6 +103,54 @@ def parse_operators(query: str) -> tuple[str, list[str], list[str], dict[str, li
 
     clean = _OPERATOR_RE.sub(_grab, query).strip()
     return clean, tags, folders, fields
+
+
+_DATE_FMT_RE = re.compile(r"^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?$")
+
+
+def _parse_op_date(val: str, roll_end: bool = False) -> float | None:
+    """YYYY / YYYY-MM / YYYY-MM-DD → epoch. With roll_end, the timestamp of
+    the NEXT unit start · bounds are period-inclusive, so `before:2026-07`
+    keeps July and drops August onward, and `after:2026-07 before:2026-07`
+    selects exactly July."""
+    m = _DATE_FMT_RE.match(val.strip().replace(".", "-").replace("/", "-"))
+    if not m:
+        return None
+    from datetime import datetime as _dt
+    y, mo, d = int(m.group(1)), m.group(2), m.group(3)
+    try:
+        if d is not None:
+            t = _dt(y, int(mo), int(d))
+            if roll_end:
+                from datetime import timedelta
+                t += timedelta(days=1)
+        elif mo is not None:
+            mi = int(mo)
+            t = (_dt(y + 1, 1, 1) if roll_end and mi == 12
+                 else _dt(y, mi + 1, 1) if roll_end else _dt(y, mi, 1))
+        else:
+            t = _dt(y + 1, 1, 1) if roll_end else _dt(y, 1, 1)
+    except ValueError:
+        return None
+    return t.timestamp()
+
+
+def _pop_date_range(fields: dict[str, list[str]]) -> tuple[float | None, float | None] | None:
+    """Extract after/before (since/until) from parsed fields. Returns
+    (start_ts, end_ts) — either side may be None — or None when absent.
+    Multiple bounds tighten (latest start, earliest end)."""
+    start = end = None
+    for key in ("after", "since"):
+        for v in fields.pop(key, []):
+            ts = _parse_op_date(v)
+            if ts is not None:
+                start = ts if start is None else max(start, ts)
+    for key in ("before", "until"):
+        for v in fields.pop(key, []):
+            ts = _parse_op_date(v, roll_end=True)
+            if ts is not None:
+                end = ts if end is None else min(end, ts)
+    return (start, end) if (start is not None or end is not None) else None
 
 
 def rrf_fuse(
@@ -268,7 +322,8 @@ def hybrid_search(
     clean, op_tags, op_folders, op_fields = parse_operators(query)
     for key, vals in (fields or {}).items():
         op_fields.setdefault(key, []).extend(vals)
-    if not (op_tags or op_folders or op_fields) and cfg.default_scope:
+    date_range = _pop_date_range(op_fields)
+    if not (op_tags or op_folders or op_fields or date_range) and cfg.default_scope:
         # Cerebras-projects-style default scope: cfg.default_scope (same
         # operator syntax) applies when the query itself is unscoped.
         # Explicit operators in the query always win; `scope:all` (or 전체:)
@@ -277,14 +332,26 @@ def hybrid_search(
             query = _SCOPE_ALL_RE.sub(" ", query).strip()
         else:
             _, op_tags, op_folders, op_fields = parse_operators(cfg.default_scope)
-    if op_tags or op_folders or op_fields:
-        allowed_docs = store.docs_matching(op_tags, op_folders, op_fields)
-        if not allowed_docs:
-            return SearchResult(hits=[])
+            date_range = _pop_date_range(op_fields)
+    if op_tags or op_folders or op_fields or date_range:
+        if op_tags or op_folders or op_fields:
+            allowed_docs = store.docs_matching(op_tags, op_folders, op_fields)
+            if not allowed_docs:
+                return SearchResult(hits=[])
+        if date_range is not None:
+            # time-range leg: filter on doc_date (frontmatter date > filename
+            # date > mtime — the recency machinery's own priority order)
+            lo, hi = date_range
+            dates_all = store.doc_dates()
+            in_range = {d for d, ts in dates_all.items()
+                        if (lo is None or ts >= lo) and (hi is None or ts < hi)}
+            allowed_docs = in_range if allowed_docs is None else (allowed_docs & in_range)
+            if not allowed_docs:
+                return SearchResult(hits=[])
         if clean != query:  # operators came from the query text · strip them
             query = clean
         if not query:
-            # bare filter ("tag:회의록") = scoped listing, newest first
+            # bare filter ("tag:회의록" · "after:2026-07") = scoped listing
             return _filtered_listing(store, allowed_docs, k)
 
     # local typo repair: the lexical legs (BM25, title boost) die on typos the

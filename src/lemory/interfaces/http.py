@@ -122,6 +122,7 @@ class FragmentBody(BaseModel):
     anchor: bool = False
     title: str = ""
     tags: list[str] = []
+    confidence: float | None = None
 
 
 class AnchorBody(BaseModel):
@@ -540,7 +541,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         try:
             path = engine.remember(body.content, type=body.type, topic=body.topic,
                                    case=body.case, phase=body.phase, status=body.status,
-                                   anchor=body.anchor, title=body.title, tags=body.tags,
+                                   anchor=body.anchor, title=body.title, tags=body.tags, confidence=body.confidence,
                                    client=_client(request))
         except ValueError as e:
             raise HTTPException(400, str(e))

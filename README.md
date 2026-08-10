@@ -148,7 +148,7 @@ LLM 없이 수 ms). 쓰기: `save_memory`(저장하면서 중복 검사와 관�
 ### 에이전트 작업 기억: remember → recall → reflect → resume
 
 에이전트가 매번 처음부터 다시 시작하지 않게 하는 6개예요. 기억 파편은 **타입이
-있고**(`fact`·`decision`·`error`·`preference`·`procedure`·`relation`·`episode`),
+있고**(`fact`·`decision`·`error`·`preference`·`procedure`·`relation`·`episode`·`belief`), `belief`는 확신도(0-1)를 달고 같은 제목으로 다시 기억하면 복제 대신 **제자리 개정**돼요(밀려난 진술은 `## 변천`에 누적 · 증거와 추론의 분리는 Hindsight에서 배웠어요).
 세션보다 오래 사는 작업 스레드인 `case`에 묶여요.
 
 | 툴 | 하는 일 |
@@ -345,7 +345,7 @@ AI가 쓴 건 전부 대시보드 **AI 메모리 피드**에 "누가 썼는지"�
 |---|---|
 | **즉답 검색** `--fast` · 임베딩 0회, 3.8ms<br><img src="docs/assets/demo5_fast.gif" width="420"> | **모순 탐지** `lemory conflicts` · 기억 vs 기억<br><img src="docs/assets/demo6_conflicts.gif" width="420"> |
 | **AI 쓰기 승인** pending → approve<br><img src="docs/assets/demo7_approval.gif" width="420"> | **드리프트 감지** `lemory drift` · 기억 vs 현실<br><img src="docs/assets/demo8_drift.gif" width="420"> |
-| **범위 연산자** `tag:` `folder:` `path:`<br><img src="docs/assets/demo9_operators.gif" width="420"> | **시간 인지** "요새 작업하던…" → 최신 결정 1위<br><img src="docs/assets/demo10_temporal.gif" width="420"> |
+| **범위 연산자** `tag:` `folder:` `path:` `after:` `before:`<br><img src="docs/assets/demo9_operators.gif" width="420"> | **시간 인지** "요새 작업하던…" → 최신 결정 1위<br><img src="docs/assets/demo10_temporal.gif" width="420"> |
 | **오타 교정** FoundatoinDB → FoundationDB<br><img src="docs/assets/demo12_typo.gif" width="420"> | **대규모 검증** KorQuAD 9,663문단 × 60,407질문<br><img src="docs/assets/demo11_scale.gif" width="420"> |
 
 ## 콘솔

@@ -335,7 +335,7 @@ def remember(
     content: str = typer.Argument(..., help="What to remember"),
     type: str = typer.Option("fact", "--type", "-t",
                              help="fact|decision|error|preference|procedure|"
-                                  "relation|episode"),
+                                  "relation|episode|belief"),
     topic: str = typer.Option("", help="Subject line for the fragment"),
     case: str = typer.Option("", "--case", "-c", help="Work thread id"),
     phase: str = typer.Option("", help="Where in the case this happened"),
@@ -344,6 +344,9 @@ def remember(
     title: str = typer.Option("", help="Note title (default: first line)"),
     folder: str = typer.Option("memories", help="Vault folder for the note"),
     tags: str = typer.Option("", help="Comma-separated tags"),
+    confidence: Optional[float] = typer.Option(
+        None, "--confidence", min=0.0, max=1.0,
+        help="belief 확신도 0-1 (같은 제목으로 다시 remember하면 개정)"),
     vault: Optional[Path] = typer.Option(None),
 ):
     """Save a typed memory fragment as a new Markdown note (indexed instantly)."""
@@ -351,7 +354,7 @@ def remember(
     tag_list = [t for t in (s.strip() for s in tags.split(",")) if t]
     path = eng.remember(content, type=type, topic=topic, case=case, phase=phase,
                      status=status, anchor=anchor, title=title, folder=folder,
-                     tags=tag_list, client="cli")
+                     tags=tag_list, client="cli", confidence=confidence)
     console.print(f"[green]saved[/green] {path} [dim]({type})[/dim]")
     for r in getattr(path, "related", []):
         flag = (" [yellow]" + _t("(중복일 수 있음)", "(possible duplicate)")

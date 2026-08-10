@@ -368,7 +368,7 @@ script, nothing is mocked).
 |---|---|
 | **Instant search** `--fast` · 0 embeddings, 3.8ms<br><img src="docs/assets/demo5_en.gif" width="420"> | **Conflict scan** `lemory conflicts` · memory vs memory<br><img src="docs/assets/demo6_en.gif" width="420"> |
 | **AI-write approval gate** pending → approve<br><img src="docs/assets/demo7_en.gif" width="420"> | **Drift detection** `lemory drift` · memory vs reality<br><img src="docs/assets/demo8_en.gif" width="420"> |
-| **Scope operators** `tag:` `folder:` `path:`<br><img src="docs/assets/demo9_en.gif" width="420"> | **Time-aware** "…lately" → latest decision ranks first<br><img src="docs/assets/demo10_en.gif" width="420"> |
+| **Scope operators** `tag:` `folder:` `path:` `after:` `before:`<br><img src="docs/assets/demo9_en.gif" width="420"> | **Time-aware** "…lately" → latest decision ranks first<br><img src="docs/assets/demo10_en.gif" width="420"> |
 | **Typo repair** FoundatoinDB → FoundationDB<br><img src="docs/assets/demo12_en.gif" width="420"> | **Full-scale validation** KorQuAD 9,663 paras × 60,407 Q<br><img src="docs/assets/demo11_en.gif" width="420"> |
 
 ## The console

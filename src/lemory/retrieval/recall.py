@@ -84,6 +84,11 @@ def recall(
             "status": str(fm.get("status", "") or ""),
             "topic": str(fm.get("topic", "") or ""),
             "anchor": bool(fm.get("anchor", False)),
+            # beliefs carry a confidence · evidence types don't (that absence
+            # IS the evidence-vs-inference separation)
+            "confidence": (float(fm["confidence"])
+                           if str(fm.get("confidence", "")).replace(".", "", 1).isdigit()
+                           else None),
             "text": bodies.get(h.doc_id, h.text) if h.heading == engine.store.ENRICH_HEADING
                     else h.text,
             "score": round(h.score, 4),

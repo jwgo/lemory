@@ -195,13 +195,16 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
     @mcp.tool(annotations=WRITE)
     def remember(content: str, type: str = "fact", topic: str = "",
                  case: str = "", phase: str = "", status: str = "",
-                 anchor: bool = False, title: str = "", tags: str = "") -> str:
+                 anchor: bool = False, title: str = "", tags: str = "",
+                 confidence: float | None = None) -> str:
         """Persist a TYPED memory fragment for future sessions.
 
         `type` is one of: fact (a stable truth), decision (a choice + reason),
         error (a failure; defaults to status=open until you mark it resolved),
         preference (how the user wants things done), procedure (repeatable
-        steps), relation (how two things connect), episode (what happened).
+        steps), relation (how two things connect), episode (what happened),
+        belief (an INFERENCE with `confidence` 0-1 · give it a stable title
+        and re-remembering REVISES it in place, keeping a 변천 trail).
 
         `case` groups fragments into one work thread — pass the same case id
         all session, then `resume_case` rebuilds it next time. `anchor=true`
@@ -212,7 +215,8 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         try:
             path = engine.remember(content, type=type, topic=topic, case=case,
                              phase=phase, status=status, anchor=anchor,
-                             title=title, tags=tag_list, client=client)
+                             title=title, tags=tag_list, client=client,
+                             confidence=confidence)
         except ValueError as e:
             return json.dumps({"error": str(e)})
         out: dict = {"saved": str(path), "type": (type or "fact").lower()}

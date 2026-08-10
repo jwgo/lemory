@@ -289,8 +289,80 @@ def test_normalize_case_is_stable_and_safe():
     assert normalize_case("") == ""
 
 
-def test_fragment_taxonomy_matches_the_documented_seven():
+def test_fragment_taxonomy_matches_the_documented_eight():
+    # AnchorMind's seven for interop + belief (Hindsight's opinions network)
     assert set(FRAGMENT_TYPES) == {
         "fact", "decision", "error", "preference", "procedure", "relation",
-        "episode",
+        "episode", "belief",
     }
+
+
+# ---------------------------------------------------- belief (Hindsight 흡수)
+def test_belief_carries_confidence(engine):
+    engine.index()
+    rel = engine.remember("SQLite가 이 규모에는 최선이다", type="belief",
+                          title="저장소 선택", confidence=0.8)
+    text = engine.read_note(str(rel))
+    assert 'type: "belief"' in text and "confidence: 0.8" in text
+
+
+def test_belief_revision_updates_in_place(engine):
+    """Same title → the note is REVISED: new statement on top, confidence
+    updated, superseded statement preserved in the 변천 trail."""
+    engine.index()
+    rel = engine.remember("벡터 DB가 필요할 것이다", type="belief",
+                          title="벡터DB 필요성", confidence=0.7)
+    rel2 = engine.remember("numpy 행렬로 충분하다 · 벡터 DB는 과함",
+                           type="belief", title="벡터DB 필요성", confidence=0.9)
+    assert str(rel2) == str(rel)                      # one note, not two
+    text = engine.read_note(str(rel))
+    assert "confidence: 0.90" in text
+    assert text.count("## 변천") == 1
+    assert "0.70→0.90" in text and "벡터 DB가 필요할 것이다" in text
+    assert text.index("numpy 행렬로 충분하다") < text.index("## 변천")
+    # a second revision accumulates, never overwrites
+    engine.remember("확정: numpy 유지", type="belief",
+                    title="벡터DB 필요성", confidence=0.95)
+    text = engine.read_note(str(rel))
+    assert "0.90→0.95" in text and "0.70→0.90" in text
+
+
+def test_belief_default_confidence_and_recall_row(engine):
+    engine.index()
+    engine.remember("담당자는 리뷰를 아침에 본다", type="belief", title="리뷰 습관")
+    rows = engine.recall(type="belief")
+    assert rows and rows[0]["type"] == "belief"
+    assert rows[0]["confidence"] == 0.6               # belief default
+    # evidence types carry no confidence — that absence is the separation
+    engine.remember("포트는 15000", type="fact")
+    fact_rows = engine.recall(type="fact")
+    assert fact_rows and fact_rows[0]["confidence"] is None
+
+
+# ----------------------------------------- after:/before: (시간 범위 연산자)
+def test_parse_operators_date_range():
+    from lemory.retrieval.search import parse_operators, _pop_date_range
+    clean, _, _, fields = parse_operators("after:2026-01 before:2026-03 예산")
+    assert clean == "예산"
+    rng = _pop_date_range(fields)
+    assert rng is not None and fields == {}
+    lo, hi = rng
+    import datetime as dt
+    assert dt.datetime.fromtimestamp(lo).month == 1
+    assert dt.datetime.fromtimestamp(hi).month == 4   # period-inclusive end
+
+
+def test_search_scoped_by_date_range(engine, vault):
+    (vault / "d1.md").write_text("---\ndate: 2026-01-10\n---\n# 일월 회의\n예산 확정\n",
+                                 encoding="utf-8")
+    (vault / "d2.md").write_text("---\ndate: 2026-06-20\n---\n# 유월 회의\n예산 재검토\n",
+                                 encoding="utf-8")
+    engine.index()
+    hits = engine.search("after:2026-05 예산", k=5)
+    assert hits and all(h.path != "d1.md" for h in hits)
+    assert any(h.path == "d2.md" for h in hits)
+    hits = engine.search("before:2026-02 예산", k=5)
+    assert any(h.path == "d1.md" for h in hits)
+    assert all(h.path != "d2.md" for h in hits)
+    # bare range = scoped listing
+    assert engine.search("after:2026-06", k=5)
