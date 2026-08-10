@@ -1,0 +1,63 @@
+{
+  "n": 120,
+  "corpus": 113,
+  "harness": "benchmarks/run_hindsight_korean.py",
+  "hindsight_mode": "LLM_PROVIDER=none (그쪽 공식 무-LLM chunks 모드) · pg0 임베디드 Postgres",
+  "rows": [
+    {
+      "system": "Lemory keyless (e5-ko, hybrid)",
+      "recall@1": 0.9833,
+      "p50_ms": 40.4
+    },
+    {
+      "system": "Lemory fast (lexical, no embed)",
+      "recall@1": 0.9667,
+      "p50_ms": 6.9
+    },
+    {
+      "system": "Hindsight 0.9.0 default (bge-small-en + ms-marco CE)",
+      "config": "default",
+      "recall@1": 0.1417,
+      "p50_ms": 6999.8,
+      "ingest_s": 48.3,
+      "invalid": 0,
+      "answered": 120
+    },
+    {
+      "system": "Hindsight ml-e5 ST (프리픽스 미적용) + CE",
+      "config": "ml_e5",
+      "recall@1": 0.1417,
+      "p50_ms": 6917.8,
+      "ingest_s": 17.9,
+      "invalid": 0,
+      "answered": 120
+    },
+    {
+      "system": "Hindsight ml-e5 ST + 리랭커 off",
+      "config": "ml_e5_norerank",
+      "recall@1": 0.225,
+      "p50_ms": 97.3,
+      "ingest_s": 17.7,
+      "invalid": 0,
+      "answered": 120
+    },
+    {
+      "system": "Hindsight ONNX ml-e5 (프리픽스 적용) + 리랭커 off · 최선",
+      "config": "onnx_e5_norerank",
+      "recall@1": 0.2333,
+      "p50_ms": 59.4,
+      "ingest_s": 13.9,
+      "invalid": 0,
+      "answered": 120
+    },
+    {
+      "system": "Hindsight ONNX ml-e5 + CE",
+      "config": "onnx_e5_rerank",
+      "recall@1": 0.1417,
+      "p50_ms": 6755.3,
+      "ingest_s": 13.6,
+      "invalid": 0,
+      "answered": 120
+    }
+  ]
+}

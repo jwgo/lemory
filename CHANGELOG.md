@@ -2,6 +2,33 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · measured head-to-head: Lemory vs Hindsight, same harness
+
+Proof over prose. Hindsight 0.9.0 (pip) on the shared Korean harness —
+KorQuAD 113 real paragraphs · 120 human questions · recall@1 · end-to-end
+p50 · both sides fully local and LLM-free (Hindsight in its OWN officially
+supported no-LLM mode: LLM_PROVIDER=none → chunks retain, embedded pg0
+Postgres). Five configs swept, steelman included:
+
+| system | recall@1 | p50 |
+|---|---|---|
+| Lemory keyless hybrid (e5-ko) | 0.983 | 40.4 ms |
+| Lemory fast (no embedding) | 0.967 | 6.9 ms |
+| Hindsight default (bge-en + ms-marco CE) | 0.142 | 7,000 ms |
+| Hindsight best (ONNX multilingual-e5 + CE off) | 0.233 | 59.4 ms |
+
+Findings recorded in docs/COMPETITIVE.md: the English cross-encoder pins
+recall at 0.142 regardless of embedder (three configs converge identically)
+while costing ~7 s/query on CPU; even their best supported multilingual
+config loses 4.2x to our hybrid and 4.1x to our embedding-free fast path;
+their ST "local" provider skips e5 query/passage prefixes (0.225 vs 0.233
+on the prefix-correct ONNX path); their BM25 arm is whitespace +
+to_tsquery('english') → zero signal for Korean. Reproduce:
+benchmarks/run_hindsight_korean.py · results in
+benchmarks/work/results_hindsight_korean.json. Scope honestly labeled:
+this measures the retrieval axis; their LLM-extraction/LongMemEval axis
+still awaits the same-harness adapter (roadmap).
+
 ## Unreleased · Hindsight source-level pass: temporal leg · trail cap · merge rules
 
 Cloned the monorepo and read the engine (75k lines) across four parallel

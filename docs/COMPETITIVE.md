@@ -529,6 +529,51 @@ Lemory를 같은 하네스에 올릴 수 있다 · 동일 하네스 비교의 �
 확보됐다 (로드맵 · judge 모델·프롬프트는 그쪽 것을 그대로 고정해야 수치가
 비교 가능하다).
 
+## 실측: 같은 하네스 정면 승부 (한국어 검색 · 전부 로컬 · 양쪽 다 LLM 0회)
+
+말이 아니라 숫자로 간다. KorQuAD 실문단 113개 · 인간 질문 120개 · 문단
+recall@1 · end-to-end p50 (재현: `benchmarks/run_hindsight_korean.py` ·
+결과: `benchmarks/work/results_hindsight_korean.json`). Hindsight는 **그쪽이
+공식 지원하는 무-LLM 구성**(`LLM_PROVIDER=none` → chunks 모드 retain ·
+none_llm.py 독스트링 그대로)과 임베디드 Postgres(pg0)로 돌렸다 · Lemory가
+항상 도는 것과 같은 LLM-0 조건이다. 스틸맨으로 5개 구성을 쟀다:
+
+| 시스템 (구성) | recall@1 | p50 | 색인 |
+|---|---|---|---|
+| **Lemory 키리스** (e5-ko 하이브리드) | **0.983** | 40.4 ms | 수 초 |
+| **Lemory fast** (어휘만 · 임베딩 0회) | **0.967** | **6.9 ms** | 〃 |
+| Hindsight 기본 (bge-small-en + ms-marco CE) | 0.142 | 6,999.8 ms | 48.3 s |
+| Hindsight ml-e5(ST) + CE | 0.142 | 6,917.8 ms | 17.9 s |
+| Hindsight ml-e5(ST) + 리랭커 off | 0.225 | 97.3 ms | 17.7 s |
+| **Hindsight 최선**: ONNX ml-e5(프리픽스 적용) + 리랭커 off | **0.233** | 59.4 ms | 13.9 s |
+| Hindsight ONNX ml-e5 + CE | 0.142 | 6,755.3 ms | 13.6 s |
+
+읽는 법 (냉정하게, 원인까지):
+
+- **영어 CE 리랭커가 켜져 있으면 임베더가 뭐든 0.142로 고정된다.** CE가
+  융합 상위 300개를 영어 전용 모델로 재정렬해 검색 다리의 품질을 지워
+  버린다 · 세 가지 다른 임베더 구성이 전부 같은 0.142로 수렴하는 것이
+  그 증거다. 게다가 쿼리당 **약 7초**를 낸다 (CPU에서 300후보 CE 왕복).
+  기본 설치(`pip install hindsight-api`)가 이 상태다.
+- **스틸맨을 다 줘도 0.233이다.** 그쪽 ONNX 프로바이더(기본 모델이
+  multilingual-e5-small이고 e5 query/passage 프리픽스를 올바르게 적용)에
+  영어 CE를 꺼 준 최선 구성 · 우리 하이브리드(0.983)의 1/4.2, 심지어
+  임베딩을 아예 안 쓰는 우리 fast(0.967)에도 4배 차이로 진다. 남은
+  격차의 구조적 원인: BM25 다리가 공백 토크나이즈 + `to_tsquery('english')`
+  라 한국어에서 0을 내고, 무가중 RRF가 죽은 다리들(BM25·그래프·temporal ·
+  chunks 모드라 엔티티도 없음)과 유일하게 살아 있는 시맨틱 다리를 같은
+  표로 섞는다.
+- **부록 발견**: sentence-transformers 경로("local" 프로바이더)로
+  multilingual-e5를 지정하면 e5 프리픽스가 적용되지 않는다 (모델이
+  프롬프트를 내장하지 않는 한 그대로 인코딩 · 0.225 vs ONNX 경로 0.233).
+- 색인: Lemory 수 초(LLM 0회 · 콘텐츠 해시 캐시) vs Hindsight 13.9-48.3초
+  (같은 무-LLM 모드인데도 · pg 왕복과 링크 구축 비용).
+- 한계 명시: 이 실측은 **한국어 검색 한 축**이다. 그쪽 본령(LLM 추출
+  retain + LongMemEval)은 다른 축이고, 그 축의 동일 하네스 비교는 위
+  하네스 어댑터 경로로 로드맵에 있다. 다만 "메모리 엔진의 검색층"이라는
+  공통 축에서, 그쪽이 지원하는 최선 구성까지 전부 열어 준 결과가 이
+  표다.
+
 ## 정직한 비교의 한계
 
 - 그쪽 LongMemEval 수치는 **아직 같은 하네스에서 재현하지 못했다**
