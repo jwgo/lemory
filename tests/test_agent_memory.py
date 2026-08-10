@@ -366,3 +366,39 @@ def test_search_scoped_by_date_range(engine, vault):
     assert all(h.path != "d2.md" for h in hits)
     # bare range = scoped listing
     assert engine.search("after:2026-06", k=5)
+
+
+# ------------------------------------ Hindsight 소스 정독 2차 흡수분
+def test_temporal_leg_surfaces_window_notes(engine, vault):
+    """명시적 시간 창 질의는 어휘·의미가 안 겹치는 창 안 노트도 후보로 낸다
+    (recency 부스트만으로는 불가능한 케이스)."""
+    import datetime as dt
+    now = dt.datetime.now()
+    last_week = (now - dt.timedelta(days=4)).strftime("%Y-%m-%d")
+    (vault / "창안노트.md").write_text(
+        f"---\ndate: {last_week}\n---\n# 창안노트\n김치 냉장고 온도를 손봤다.\n",
+        encoding="utf-8")
+    engine.index()
+    hits = engine.search("지난주에 작업한 내용", k=8)
+    assert any(h.path == "창안노트.md" for h in hits)
+
+
+def test_belief_trail_is_capped(engine):
+    engine.index()
+    engine.remember("v0", type="belief", title="캡테스트", confidence=0.5)
+    for i in range(55):
+        engine.remember(f"개정 {i}", type="belief", title="캡테스트")
+    text = engine.read_note("memories/캡테스트.md")
+    trail_lines = [ln for ln in text.splitlines() if ln.startswith("- ")]
+    # 50 entries + one elision marker, never unbounded
+    assert len(trail_lines) == 51
+    assert any("생략" in ln for ln in trail_lines)
+
+
+def test_degenerate_fragments_are_rejected(engine):
+    engine.index()
+    for junk in ("...", "---", "  ", "•", "?!"):
+        with pytest.raises(ValueError, match="degenerate"):
+            engine.remember(junk, type="fact")
+    # real content still lands
+    assert engine.remember("포트는 15000", type="fact")

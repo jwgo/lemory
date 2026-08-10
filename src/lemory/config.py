@@ -164,6 +164,12 @@ class LemoryConfig(BaseSettings):
     rrf_k: int = 60
     w_vector: float = 1.0
     w_bm25: float = 0.8
+    # 4th retrieval leg (Hindsight-style): when the query names an explicit
+    # time window ("지난주", "5월에"), docs inside the window enter fusion as
+    # their own candidate list · recency-as-boost alone can never surface a
+    # window note the lexical/semantic legs missed. Modest weight: it fills
+    # gaps, it must not outvote actual relevance.
+    w_temporal: float = 0.35
     # lexical lean for keyword/verbatim queries. Swept on KorQuAD with
     # multihop + robustness guards (benchmarks/sweep_verbatim.py): 0.60/2.4
     # gains +1.2pt recall@1 on quote-the-document questions with zero guard

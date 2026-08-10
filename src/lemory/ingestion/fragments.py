@@ -51,6 +51,18 @@ FRAGMENT_TYPES = (
 
 STATUSES = ("open", "resolved", "blocked")
 
+# degenerate-content guard (Hindsight's _is_degenerate_text, vault-sized):
+# an agent in a retry loop happily remembers "..." forever · reject anything
+# that carries no letter, digit or Hangul at all
+_HAS_CONTENT = re.compile(r"[0-9A-Za-z가-힣]")
+
+
+def _reject_degenerate(content: str) -> None:
+    if not (content or "").strip() or not _HAS_CONTENT.search(content):
+        raise ValueError(
+            "degenerate fragment: content carries no information "
+            f"({content.strip()[:20]!r})")
+
 # an unrecognized type is stored as-is rather than rejected: the taxonomy is a
 # convention for ranking and filtering, not a schema to fight the agent over
 _SLUG_SAFE = re.compile(r"[^0-9A-Za-z가-힣 _-]+")
@@ -90,6 +102,7 @@ def remember(
     already exists, its statement and confidence are updated in place and the
     superseded statement is appended to a `## 변천` trail — Hindsight's
     belief-updating, as a plain markdown edit you can read in Obsidian."""
+    _reject_degenerate(content)
     ftype = (type or "fact").strip().lower()
     st = (status or "").strip().lower()
     if not st and ftype == "error":
@@ -125,6 +138,9 @@ def remember(
 
 _CONF_RE = re.compile(r"(?m)^(confidence:\s*)([\d.]+)\s*$")
 _REMEMBERED_RE = re.compile(r"(?m)^(remembered_at:\s*)(\S+)\s*$")
+# an unbounded revision trail is how history features die (Hindsight capped
+# observation history at 50 after an unbounded-JSONB blowup wedged banks)
+_TRAIL_MAX = 50
 
 
 def _revise_belief(engine, target, content: str, confidence: float | None,
@@ -149,11 +165,25 @@ def _revise_belief(engine, target, content: str, confidence: float | None,
     # the statement is the body above the trail; the trail carries history
     parts = body.split("\n## 변천", 1)
     old_statement = " ".join(parts[0].split())
-    trail = ("## 변천" + parts[1]).rstrip() if len(parts) == 2 else "## 변천"
     stamp = datetime.now().strftime("%Y-%m-%d")
     conf_note = (f"{old_conf:.2f}→{new_conf:.2f}" if old_conf is not None
                  else f"→{new_conf:.2f}")
-    trail += f"\n- {stamp} · 확신도 {conf_note} · 이전: {old_statement[:160]}"
+    raw_entries = ([ln for ln in parts[1].splitlines() if ln.startswith("- ")]
+                   if len(parts) == 2 else [])
+    prev_dropped = 0
+    entries = []
+    for ln in raw_entries:
+        m2 = re.match(r"- \(오래된 개정 (\d+)건 생략\)", ln)
+        if m2:
+            prev_dropped += int(m2.group(1))
+        else:
+            entries.append(ln)
+    entries.append(f"- {stamp} · 확신도 {conf_note} · 이전: {old_statement[:160]}")
+    dropped = prev_dropped + max(0, len(entries) - _TRAIL_MAX)
+    entries = entries[-_TRAIL_MAX:]
+    if dropped > 0:
+        entries = [f"- (오래된 개정 {dropped}건 생략)"] + entries
+    trail = "## 변천\n" + "\n".join(entries)
 
     now = datetime.now().isoformat(timespec="seconds")
     if cm:

@@ -2,6 +2,34 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · Hindsight source-level pass: temporal leg · trail cap · merge rules
+
+Cloned the monorepo and read the engine (75k lines) across four parallel
+sweeps — corrections and a second absorption round, all LLM-free:
+
+- **Correction recorded**: current Hindsight source has DELETED the opinion
+  fact type and confidence_score column (migration; CHECK now allows
+  world/experience/observation; proof_count fills the role at ±5% rerank
+  weight). Our `belief` remains the only live implementation of the design
+  their blog/paper describe.
+- **Temporal as a candidate-generating 4th leg**: explicit-window queries
+  ("지난주에 뭐 했지", "5월 회의") now feed in-window docs into RRF as their
+  own list (`w_temporal` 0.35, works in fast mode too — no embedding cost).
+  Boost-only recency could never surface a window note the lexical/semantic
+  legs missed; now it surfaces. Vague "요즘" stays boost-only by design.
+- **Belief trail cap 50** with an elision marker (their unbounded-JSONB
+  256MB incident, avoided by construction; marker never double-counts).
+- **Consolidation merge rules** in scene/persona prompts: NO COMPUTATION
+  ("2 dogs" + "a dog named Rex" ≠ 3 dogs), PRESERVE event history in 전개,
+  latest-statement-supersedes.
+- **Degenerate fragment guard**: remember() rejects content with no
+  letter/digit/Hangul (the "..." retry-loop accumulation).
+- Their defects found at source (documented, not replicated): temporal-arm
+  sort is a no-op (nonexistent field), token budget counts text only, no
+  query typo repair, zero Korean (vs 1,819 lines of Chinese temporal rules).
+- Harness fact: their LongMemEval runner needs only a 4-method duck-typed
+  adapter to test Lemory — same-harness comparison path secured (roadmap).
+
 ## Unreleased · Hindsight absorbed: belief fragments · time-range operators
 
 Head-to-head with [Hindsight](https://github.com/vectorize-io/hindsight)

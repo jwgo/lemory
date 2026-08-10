@@ -448,15 +448,29 @@ def hybrid_search(
                 anchor = min(now_ts, max(dates_all.values()))
                 rec_ctx = (dates_all, anchor, cfg.recency_half_life_days,
                            cfg.recency_boost)
+        # 4th retrieval leg (Hindsight's temporal arm, vault-sized): an
+        # EXPLICIT window ("지난주에 뭐 했지", "5월 회의") generates its own
+        # candidates · without this, a window note that neither the lexical
+        # nor the semantic leg surfaced can never be recalled, no matter how
+        # hard recency boosts what WAS found. Vague recency ("요즘") stays a
+        # boost-only signal — every note would be a "candidate" for it.
+        if (cfg.w_temporal > 0 and intent.active
+                and intent.range_start is not None):
+            t_leg = _temporal_leg(store, intent.range_start,
+                                  intent.range_end or now_ts, k)
+            if t_leg:
+                tagged_lists.append(("temporal", t_leg, cfg.w_temporal))
 
     if mode == "vector":
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(vec_hits)}
     elif mode == "bm25":
         fused = {cid: 1.0 / (cfg.rrf_k + r + 1) for r, (cid, _) in enumerate(bm25_hits)}
     elif mode == "fast":
-        # lexical legs only (original + typo-corrected variant), pre-weighted
+        # lexical legs only (original + typo-corrected variant), pre-weighted;
+        # the temporal leg costs no embedding, so fast mode keeps it too
         fused = rrf_fuse(
-            [(hits, w) for kind, hits, w in tagged_lists if kind == "bm25"], cfg.rrf_k
+            [(hits, w) for kind, hits, w in tagged_lists
+             if kind in ("bm25", "temporal")], cfg.rrf_k
         )
     else:
         # adaptive fusion: short keyword-ish queries (a name, a code, a couple
@@ -697,6 +711,21 @@ def related_notes(engine: "Engine", path: str, k: int = 8) -> list[dict]:
         if d:
             out.append({"path": d.path, "title": d.title, "score": round(float(score), 4)})
     return out
+
+
+def _temporal_leg(store: Store, lo: float, hi: float, k: int) -> list[tuple[int, float]]:
+    """Candidates for the temporal fusion leg: docs whose doc_date falls in
+    the asked window, newest first, one representative chunk each. Scores are
+    rank-shaped placeholders — RRF only reads order."""
+    dates = store.doc_dates()
+    in_win = sorted(((d, ts) for d, ts in dates.items() if lo <= ts < hi),
+                    key=lambda x: -x[1])[: max(8, k * 2)]
+    leg: list[tuple[int, float]] = []
+    for did, _ts in in_win:
+        ids = store.doc_chunk_ids(did)
+        if ids:
+            leg.append((ids[0], 1.0 / (1 + len(leg))))
+    return leg
 
 
 def _filtered_listing(store: Store, allowed: set[int], k: int) -> SearchResult:
