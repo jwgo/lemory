@@ -17,7 +17,7 @@ from rich.table import Table
 from ..engine import create_engine
 
 app = typer.Typer(
-    help="Lemory · 당신의 마크다운을 위한 로컬 메모리 미들웨어 (local memory middleware for your Markdown).",
+    help="Lemory · AI 에이전트의 컨텍스트 데이터베이스, 진짜 파일로 (the context database for AI agents, on real files).",
     invoke_without_command=True)
 console = Console()
 
@@ -38,7 +38,7 @@ def _welcome(ctx: typer.Context):
     full command dump, so a first run is never a guessing game."""
     if ctx.invoked_subcommand is not None:
         return
-    console.print("[bold]🍋 Lemory[/bold] · 로컬 메모리 미들웨어\n")
+    console.print("[bold]🍋 Lemory[/bold] · AI 에이전트의 컨텍스트 데이터베이스\n")
     if (Path.cwd() / "lemory.toml").exists():
         console.print(
             "설정이 있습니다. 바로 쓰세요:\n"

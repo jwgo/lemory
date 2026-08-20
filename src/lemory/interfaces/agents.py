@@ -28,20 +28,29 @@ from pathlib import Path
 _MARKER = "<!-- lemory:managed:v1 -->"
 
 _AGENTS_MD = _MARKER + """
-# AGENTS.md — this vault has memory
+# AGENTS.md — this vault is your context database
 
-This folder is a Markdown vault indexed by **Lemory** (local memory
-middleware). Treat it as the user's long-term memory.
+This folder is a Markdown vault indexed by **Lemory** (the local context
+database for AI agents · real files, no virtual layer). Treat it as the
+user's long-term memory, knowledge, and skills.
 
 ## Read before answering
 
-- Search first when a question could depend on the user's notes, decisions,
+- Boot cheap, drill deliberately (tiered loading):
+  - `vault_context` first — persona, scene map, pinned anchors, open cases
+    in one call, ~1/50 of a raw dump's tokens.
+  - `context_tree` to see WHAT exists (folder tree + one L0 line per note)
+    before spending tokens on content.
+  - `read_note(path, level="abstract")` to judge relevance,
+    `level="overview"` to plan, `level="full"` only when you need the text.
+- Search when a question could depend on the user's notes, decisions,
   people, or past work:
   - MCP (preferred, server name `lemory`): `search_notes`, `ask_notes`,
-    `recent_notes`, `related_notes`, `vault_context`
+    `recent_notes`, `related_notes`
   - CLI fallback: `lemory search "question as-is" --vault "{vault}"`
 - Natural questions, keywords, Korean, and typos all work. Scope with
-  `tag:x folder:y`. Results are ranked · the top 3 usually suffice.
+  `tag:x folder:y`, time windows with `after:2026-07 before:2026-08`.
+  Results are ranked · the top 3 usually suffice.
 - Cite note titles as [[wikilinks]] when you use them.
 
 ## Write what's worth remembering
