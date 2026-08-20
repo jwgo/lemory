@@ -2,9 +2,9 @@
 
 # 🍋 Lemory
 
-### The local long-term memory engine for AI agents.
-**No hosted DB, no account, no quota. Markdown files, in your own vault.**
-<sub>AI 에이전트의 장기기억 엔진 · **[한국어 README (기본)](README.md)**</sub>
+### The context database for AI agents. On real files, not a virtual filesystem.
+**Memory, knowledge, and skills unified as Markdown in your own folder — no hosted DB, no account, no quota, every claim measured.**
+<sub>AI 에이전트의 컨텍스트 데이터베이스 · **[한국어 README (기본)](README.md)**</sub>
 
 [![CI](https://github.com/jwgo/lemory/actions/workflows/ci.yml/badge.svg)](https://github.com/jwgo/lemory/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -22,27 +22,44 @@ any API call. Reproducible from [`benchmarks/`](benchmarks/).</sub>
 
 ---
 
-**Lemory is a local long-term memory engine for AI agents.** Claude Code,
-Claude Desktop, Cursor, or your own agent stops starting every session as a
-stranger. Everything a session remembers is a Markdown file you own · and if
-you already keep Markdown notes (Obsidian or just a folder), those are
-memory too, instantly.
+**Lemory is a local context database for AI agents.** It unifies the
+context an agent needs — memory, knowledge, skills — as one system of
+Markdown files in a folder you own. Claude Code, Claude Desktop, Cursor, or
+your own agent stops starting every session as a stranger; and if you
+already keep Markdown notes (Obsidian or just a folder), those are context
+too, instantly.
 
-- **A memory pyramid**: conversations (L0) → fact atoms (L1) → scene
-  narratives (L2) → a persona note (L3). Sessions boot from the persona and
-  scene map; details are a deliberate drill-down. Fewer tokens, same recall.
-- **Agents read your memory**: hybrid retrieval (semantic + Korean-aware
-  keyword + your `[[wikilink]]` graph) that we benchmark against every
-  competitor we can run, and publish the losses too.
-- **Agents write your memory**: remember (typed fragments) → recall →
-  reflect (session close-out) → consolidate (pyramid promotion). Decisions
-  and facts land as plain `.md` notes with duplicate detection and automatic
-  `related:` links. Visible in Obsidian, versionable, greppable, one `rm`
-  from gone. No proprietary store, no fragment quota, nothing to migrate
-  off of.
-- **You watch the middleware**: a dashboard shows what flowed through:
-  every query, every note an AI wrote (with one-click undo), per-client
-  usage. All of it local, in one SQLite file.
+In 2026 the market converged on this direction: ByteDance's OpenViking
+coined the "context database" and picked a **filesystem paradigm** over
+vector stores; Tencent's Agent Memory picked the memory pyramid; Vectorize's
+Hindsight picked retain-recall-reflect. The direction is right. But their
+filesystems are **virtual** — `viking://` paths over their database. Lemory
+starts from the opposite end: **the real files you already own ARE the
+database.** `ls`, `grep`, `git`, and Obsidian remain your admin tools, and
+the cost of leaving is zero. And we prove — on the same harness, against
+every competitor we can run — that this choice doesn't cost performance.
+Measurably, it wins.
+
+- **One file system for all context**: typed memory fragments, scene
+  narratives, the persona, extracted skills, and your notes — all plain
+  `.md` in the vault. No virtual layer, so the agent's view and the human's
+  view are the same file, one `rm` from gone. No account, no fragment
+  quota, nothing to migrate off of.
+- **Tiered loading (L0/L1/L2) cuts token spend**: every note reads as an L0
+  one-liner, an L1 overview (heading skeleton + section openings), or the
+  L2 raw file. Other context DBs **generate** these tiers with an LLM at
+  write time; Lemory **derives them deterministically at read time** — zero
+  LLM calls, zero drift from the source. Session boot is the pyramid's job:
+  persona + scene map at 1/48.8 of the raw-dump tokens.
+- **Retrieval is measured, and fast**: semantic + Korean-aware keyword +
+  your `[[wikilink]]` graph + explicit time windows, fused four-leg hybrid.
+  Same-harness: keyless 0.983 @ 40 ms, embedding-free fast mode 0.967 @
+  6.9 ms — losses published too.
+- **Observable**: every query, every note an AI wrote (one-click undo),
+  per-client usage on a timeline. All local, one SQLite file.
+- **Self-evolving**: sessions distill into fact atoms, promote into scene
+  narratives and the persona (`auto_consolidate` makes it automatic). No
+  LLM? A deterministic fallback keeps the pyramid alive fully offline.
 
 > **Nothing has to go "through" Lemory.** The vault is just files. Write
 > notes the way you always did (Obsidian, any editor, a shell script) and
@@ -143,9 +160,12 @@ lemory skill install claude-code    # and teach the assistant to use it well
 The `--client` name is how each app shows up in the dashboard's per-client
 usage. You always know who is reading and writing your memory.
 
-Nineteen tools (with MCP behavior annotations, so clients know what's
+Twenty tools (with MCP behavior annotations, so clients know what's
 read-only). Read: `search_notes` · `ask_notes` · `recent_notes` ·
-`read_note` · `list_notes` · `related_notes` · `suggest_links` (unlinked
+`read_note` (**tiered loading**: `level=abstract|overview|full` — judge
+relevance from the L0 line, pay for the raw file only when needed) ·
+`context_tree` (browse the vault like a filesystem: folder tree + one L0
+line per note) · `list_notes` · `related_notes` · `suggest_links` (unlinked
 mentions as [[link]] proposals with the mention's sentence) · `vault_status`
 · `vault_context` (one-call session context: persona, scene map, pinned
 anchors, open cases, recent activity; ~ms, zero LLM at call time). Write:

@@ -279,6 +279,19 @@ class Engine:
             raise ValueError(f"no such note: {rel}")
         return target.read_text(encoding="utf-8", errors="replace")
 
+    def note_view(self, rel: str, level: str = "full") -> str:
+        """Tiered read: L0 abstract / L1 overview / L2 full — derived
+        deterministically at read time (no LLM, never drifts from the file)."""
+        from .retrieval.context_views import note_view
+
+        return note_view(self, rel, level=level)
+
+    def context_tree(self, folder: str = "", depth: int = 2, per: int = 6) -> str:
+        """The vault as a browsable tree with per-note L0 lines."""
+        from .retrieval.context_views import context_tree
+
+        return context_tree(self, folder=folder, depth=depth, per=per)
+
     def write_note(self, rel: str, content: str, client: str = "",
                    expect_mtime: float | None = None) -> str:
         """Full-content save of a note · the console editor's verb.
@@ -290,6 +303,13 @@ class Engine:
         under the editor), git checkpoint when enabled, immediate reindex,
         and an event-log entry so the timeline shows the edit."""
         rel = rel if rel.endswith(".md") else rel + ".md"
+        # macOS stores Korean filenames as NFD; a vault synced across OSes
+        # ends up with two byte-different spellings of the same 한글 name.
+        # New files are born NFC; an existing NFD note stays reachable.
+        import unicodedata
+        nrel = unicodedata.normalize("NFC", rel)
+        if nrel != rel and not self.safe_path(rel).is_file():
+            rel = nrel
         target = self.safe_path(rel)
         if expect_mtime is not None and target.is_file():
             if abs(target.stat().st_mtime - expect_mtime) > 0.001:
@@ -320,6 +340,8 @@ class Engine:
         scanner surfaces any broken path link afterward."""
         src = src if src.endswith(".md") else src + ".md"
         dst = dst if dst.endswith(".md") else dst + ".md"
+        import unicodedata
+        dst = unicodedata.normalize("NFC", dst)  # destinations are born NFC
         s_target = self.safe_path(src)
         d_target = self.safe_path(dst)
         if not s_target.is_file():

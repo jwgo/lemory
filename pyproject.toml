@@ -1,7 +1,7 @@
 [project]
 name = "lemory"
 version = "0.3.0"
-description = "Local memory middleware for your Markdown: your Obsidian vault becomes the memory of every AI (MCP read+write), with Korean-first hybrid retrieval, memory consolidation, and an interactive knowledge graph on a zero-service SQLite+numpy stack."
+description = "The local context database for AI agents, on real files: memory, knowledge, and skills unified as Markdown in your own vault (MCP read+write), with tiered L0/L1/L2 context loading, a memory pyramid, Korean-first hybrid retrieval, and reproducible benchmarks on a zero-service SQLite+numpy stack."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

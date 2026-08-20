@@ -202,3 +202,25 @@ def test_http_trash_endpoints(client, engine):
     name = client.get("/api/trash").json()[0]["name"]
     assert client.post("/api/trash/purge", json={"name": name}).json()["purged"] == name
     assert client.get("/api/trash").json() == []
+
+
+def test_korean_filenames_are_born_nfc(engine):
+    """macOS composes 한글 filenames as NFD · new writes normalize to NFC so a
+    cross-OS vault never grows byte-different twins of the same title."""
+    import unicodedata
+    engine.index()
+    nfd = unicodedata.normalize("NFD", "메모/한글제목")
+    rel = engine.write_note(nfd, "# 한글\n본문", client="test")
+    assert rel == unicodedata.normalize("NFC", rel)
+    # rename destinations too
+    nfd2 = unicodedata.normalize("NFD", "메모/바뀐제목")
+    moved = engine.rename_note(rel, nfd2, client="test")
+    assert moved == unicodedata.normalize("NFC", moved)
+    # editing an EXISTING NFD-named file stays reachable (no NFC twin)
+    p = engine.cfg.resolved_vault() / unicodedata.normalize("NFD", "메모/엔에프디.md")
+    p.parent.mkdir(exist_ok=True)
+    p.write_text("v1", encoding="utf-8")
+    engine.write_note(unicodedata.normalize("NFD", "메모/엔에프디"), "v2", client="test")
+    assert p.read_text(encoding="utf-8") == "v2"
+    assert not (engine.cfg.resolved_vault() / "메모" / unicodedata.normalize("NFC", "엔에프디.md")).exists() \
+        or unicodedata.normalize("NFC", "엔에프디.md") == unicodedata.normalize("NFD", "엔에프디.md")

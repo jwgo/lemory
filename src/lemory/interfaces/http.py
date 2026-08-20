@@ -738,15 +738,22 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
         return d
 
     @app.get("/api/raw")
-    def raw_note(path: str):
-        """Full markdown + mtime · what the console editor opens. The mtime
-        travels back on save as the optimistic-concurrency token."""
+    def raw_note(path: str, level: str = "full"):
+        """Note content + mtime · what the console editor opens. The mtime
+        travels back on save as the optimistic-concurrency token. `level`
+        selects a loading tier (abstract | overview | full) · tiers are
+        derived from the file at read time, LLM-free."""
         try:
-            content = engine.read_note(path)
+            content = engine.note_view(path, level=level)
         except ValueError as e:
-            raise HTTPException(404, str(e))
-        return {"path": path, "content": content,
+            raise HTTPException(404 if "no such" in str(e) else 400, str(e))
+        return {"path": path, "content": content, "level": level,
                 "mtime": engine.safe_path(path).stat().st_mtime}
+
+    @app.get("/api/tree")
+    def api_tree(folder: str = "", depth: int = 2, per: int = 6):
+        """The vault as a context tree (folders + per-note L0 lines)."""
+        return {"tree": engine.context_tree(folder=folder, depth=depth, per=per)}
 
     @app.put("/api/note")
     def save_note(request: Request, body: NoteWriteBody):

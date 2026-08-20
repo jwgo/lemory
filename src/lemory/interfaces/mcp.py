@@ -74,22 +74,41 @@ def run_mcp(engine: Engine, client: str = "mcp") -> None:
         )
 
     @mcp.tool(annotations=RO)
-    def read_note(path: str, offset: int = 0, limit: int = 200) -> str:
-        """Read a note's full markdown by its vault-relative path (as returned
-        by search_notes/recent_notes). Filesystem-style memory access: search
-        first, then drill into the exact note. offset/limit are line-based."""
+    def read_note(path: str, offset: int = 0, limit: int = 200,
+                  level: str = "full") -> str:
+        """Read a note by its vault-relative path, at a loading tier.
+
+        `level` controls token spend (tiered context loading): "abstract" =
+        one L0 line to judge relevance, "overview" = the L1 heading skeleton
+        with each section's opening (plan a drill-down), "full" = the raw
+        markdown (L2). Tiers are derived from the file at read time — cheap,
+        and they can never drift from the source. offset/limit are line-based
+        and apply to the full view."""
         try:
             target = engine.safe_path(path)  # rejects .., abs paths, siblings
         except ValueError:
             return json.dumps({"error": f"no such note: {path}"})
         if not target.is_file():
             return json.dumps({"error": f"no such note: {path}"})
+        if level in ("abstract", "overview"):
+            return json.dumps({"path": path, "level": level,
+                               "content": engine.note_view(path, level=level)},
+                              ensure_ascii=False)
         lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
         body = "\n".join(lines[offset : offset + limit])
         return json.dumps(
             {"path": path, "lines": len(lines), "offset": offset, "content": body},
             ensure_ascii=False,
         )
+
+    @mcp.tool(annotations=RO)
+    def context_tree(folder: str = "", depth: int = 2, per: int = 6) -> str:
+        """Browse the memory like a filesystem: the folder tree with note
+        counts and a one-line L0 abstract per note (newest first, `per` per
+        folder). Use this to orient before searching or drilling — it shows
+        WHAT exists without spending tokens on content."""
+        engine.index()
+        return engine.context_tree(folder=folder, depth=depth, per=per)
 
     @mcp.tool(annotations=RO)
     def list_notes(folder: str = "", limit: int = 100) -> str:

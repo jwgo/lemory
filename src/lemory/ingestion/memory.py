@@ -173,6 +173,9 @@ def save_memory(
     source: str = "assistant",
     client: str = "",
     meta: dict | None = None,
+    # NFC-normalized below: macOS composes Korean filenames as NFD, and a
+    # vault synced across OSes would otherwise grow byte-different twins of
+    # the same 한글 title
 ) -> SavedMemory:
     """Persist a memory as a new Markdown note. Returns the vault-relative
     path (a str subclass carrying the consolidation result as `.related`).
@@ -181,6 +184,9 @@ def save_memory(
     type/case/status/anchor). Keys that Lemory owns are not overridable."""
     if not content.strip():
         raise ValueError("empty memory content")
+    import unicodedata
+    title = unicodedata.normalize("NFC", title)
+    folder = unicodedata.normalize("NFC", folder)
     vault = engine.cfg.resolved_vault()
     today = datetime.now().date().isoformat()
     name = _slug(title or content.strip().splitlines()[0], f"memory {today}")

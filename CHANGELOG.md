@@ -2,6 +2,39 @@
 
 All notable changes to Lemory. Dates are the merge date of the release.
 
+## Unreleased · repositioned: the context database for AI agents, on real files
+
+The market converged on the category ByteDance's OpenViking named — "context
+database" (filesystem paradigm, tiered L0/L1/L2 loading, memory+skills
+unified). We cloned their monorepo, read the engine at source level, and
+repositioned Lemory into that category with the differentiator only we can
+claim: **the filesystem is real.** Full analysis in docs/COMPETITIVE.md.
+
+- **Repositioning**: README (ko/en) hero + pyproject rewritten around
+  "컨텍스트 데이터베이스 · 가상 파일시스템이 아니라 진짜 파일로" — memory,
+  knowledge and skills as one file system; tiered loading; measured
+  retrieval; observability; self-evolution. Positioning one-liner updated.
+- **Tiered context loading (L0/L1/L2), LLM-0**: `read_note` gains
+  `level=abstract|overview|full` (MCP/HTTP), plus a `context_tree` MCP tool
+  / `lemory tree` / `GET /api/tree` — the vault as a browsable tree with
+  one-line L0 abstracts per note. Where OpenViking GENERATES tiers with an
+  LLM at write time (and degrades to embedded "[not ready]" placeholders
+  without one — verified at source), Lemory DERIVES them deterministically
+  at read time: zero LLM calls, zero drift, nothing to go stale.
+- **Korean-filename NFC normalization** (their real-FS hazard list, absorbed
+  as a fix): new notes, rename destinations, and save_memory titles are born
+  NFC, so a macOS(NFD)-synced vault never grows byte-different twins of the
+  same 한글 title; existing NFD files stay reachable.
+- Source-level findings recorded (README-vs-source gaps): tiered system is
+  LLM-required, recursive retrieval only runs when a reranker is configured,
+  trace events are defined but never emitted, AGPL + unconditional
+  volcengine SDK dependency, Korean as fallback-only language
+  (`_PRIMARY_LANGUAGES = {"zh-CN", "en"}`), bundled local embedder is
+  Chinese-tuned. Their LoCoMo harness is pluggable at the CSV boundary
+  (same-harness roadmap alongside Hindsight's LongMemEval).
+- MCP tool count 19 → 20; tests for tiered views, context tree, HTTP
+  surfaces, and NFC roundtrips.
+
 ## Unreleased · measured head-to-head: Lemory vs Hindsight, same harness
 
 Proof over prose. Hindsight 0.9.0 (pip) on the shared Korean harness —

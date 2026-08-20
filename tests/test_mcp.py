@@ -30,7 +30,7 @@ def test_all_tools_registered(mcp_app):
     assert names == {
         "search_notes", "ask_notes", "recent_notes", "read_note", "list_notes",
         "related_notes", "vault_status", "vault_context", "suggest_links",
-        "save_memory", "append_note",
+        "save_memory", "append_note", "context_tree",
         # agent working memory
         "remember", "recall", "reflect", "resume_case", "list_cases",
         "anchor_note",

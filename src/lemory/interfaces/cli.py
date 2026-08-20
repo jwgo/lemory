@@ -319,6 +319,21 @@ def recent(
 
 
 @app.command()
+def tree(
+    folder: str = typer.Argument("", help="Vault subfolder to scope to"),
+    depth: int = typer.Option(2, help="Folder nesting depth"),
+    per: int = typer.Option(6, "--per", help="Notes shown per folder"),
+    vault: Optional[Path] = typer.Option(None),
+):
+    """The vault as a context tree: folders + one-line L0 abstracts per note.
+    What an agent sees through the context_tree MCP tool · LLM 0회."""
+    eng = _engine(vault)
+    eng.index()
+    from rich.markup import escape
+    console.print(escape(eng.context_tree(folder=folder, depth=depth, per=per)))
+
+
+@app.command()
 def context(
     vault: Optional[Path] = typer.Option(None),
     max_chars: int = typer.Option(2400, help="Budget for the context block"),
