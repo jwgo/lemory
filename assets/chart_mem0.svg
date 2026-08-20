@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="380" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="880" height="380" rx="12" fill="#0d1117"/>
+<text x="28" y="40" fill="#e6edf3" font-size="22" font-weight="700">Same corpus, same Gemini models: Lemory vs mem0</text>
+<text x="28" y="64" fill="#8b949e" font-size="13">400-note namuwiki subcorpus, 310 questions. mem0 ingest: 60 min of LLM fact extraction. Lemory: embeddings only.</text>
+<line x1="60" y1="261" x2="840" y2="261" stroke="#21262d"/>
+<text x="52" y="265" fill="#8b949e" font-size="11" text-anchor="end">0.25</text>
+<line x1="60" y1="206" x2="840" y2="206" stroke="#21262d"/>
+<text x="52" y="210" fill="#8b949e" font-size="11" text-anchor="end">0.50</text>
+<line x1="60" y1="151" x2="840" y2="151" stroke="#21262d"/>
+<text x="52" y="155" fill="#8b949e" font-size="11" text-anchor="end">0.75</text>
+<line x1="60" y1="96" x2="840" y2="96" stroke="#21262d"/>
+<text x="52" y="100" fill="#8b949e" font-size="11" text-anchor="end">1.00</text>
+<rect x="300" y="74" width="12" height="12" rx="3" fill="#f7d353"/>
+<text x="318" y="85" fill="#e6edf3" font-size="12">Lemory (14 ms/q)</text>
+<rect x="472" y="74" width="12" height="12" rx="3" fill="#58a6ff"/>
+<text x="490" y="85" fill="#e6edf3" font-size="12">mem0 (0.44 s/q)</text>
+<rect x="82" y="107" width="31" height="209" rx="3" fill="#f7d353"/>
+<rect x="116" y="200" width="31" height="116" rx="3" fill="#58a6ff"/>
+<text x="116" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">single</text>
+<rect x="193" y="124" width="31" height="192" rx="3" fill="#f7d353"/>
+<rect x="227" y="190" width="31" height="126" rx="3" fill="#58a6ff"/>
+<text x="227" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">masked</text>
+<rect x="305" y="96" width="31" height="220" rx="3" fill="#f7d353"/>
+<rect x="339" y="200" width="31" height="116" rx="3" fill="#58a6ff"/>
+<text x="339" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">2-hop</text>
+<rect x="416" y="118" width="31" height="198" rx="3" fill="#f7d353"/>
+<rect x="450" y="140" width="31" height="176" rx="3" fill="#58a6ff"/>
+<text x="450" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">temporal</text>
+<rect x="527" y="96" width="31" height="220" rx="3" fill="#f7d353"/>
+<rect x="561" y="180" width="31" height="136" rx="3" fill="#58a6ff"/>
+<text x="561" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">keyword</text>
+<rect x="639" y="109" width="31" height="207" rx="3" fill="#f7d353"/>
+<rect x="673" y="149" width="31" height="167" rx="3" fill="#58a6ff"/>
+<text x="673" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">casual</text>
+<rect x="750" y="136" width="31" height="180" rx="3" fill="#f7d353"/>
+<rect x="784" y="202" width="31" height="114" rx="3" fill="#58a6ff"/>
+<text x="784" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">typo</text>
+</svg>
