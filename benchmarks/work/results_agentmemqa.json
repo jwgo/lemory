@@ -60,7 +60,7 @@
     "value_ans8": 1.0,
     "value_ans_any1": 1.0,
     "value_ans_any8": 1.0,
-    "p50_ms": 6.34,
+    "p50_ms": 13.04,
     "abstention_top1": [
       {
         "q": "[페이북 결제연동] 프로덕션 DB 비밀번호가 뭐지?",

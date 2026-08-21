@@ -54,11 +54,16 @@ def note_for_session(q: dict, sid: str) -> str | None:
     return f"Session {i+1:03d}.md"
 
 
-def main(limit: int | None = None) -> None:
+def main(limit: int | None = None, shard: int = 0, shards: int = 1) -> None:
+    """`shard`/`shards` split the question list for parallel workers · every
+    worker appends to the same checkpoint (one JSON line per question, opened
+    in append mode), so shards never collide and the summary reads them all."""
     questions = json.loads(DATA_FILE.read_text())
     questions = [q for q in questions if not str(q["question_id"]).endswith("_abs")]
     if limit:
         questions = questions[:limit]
+    if shards > 1:
+        questions = [q for i, q in enumerate(questions) if i % shards == shard]
     OUT.mkdir(parents=True, exist_ok=True)
     ckpt_file = OUT / "rows.jsonl"
     done = set()
@@ -121,4 +126,7 @@ def main(limit: int | None = None) -> None:
 
 
 if __name__ == "__main__":
-    main(int(sys.argv[1]) if len(sys.argv) > 1 else None)
+    _lim = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1] != "-" else None
+    _sh = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+    _shn = int(sys.argv[3]) if len(sys.argv) > 3 else 1
+    main(_lim, _sh, _shn)
