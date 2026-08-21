@@ -1170,7 +1170,7 @@ class Store:
         return {cid: float(s) for (cid, _), s in zip(wanted, sims)}
 
     # ----------------------------------------------------------------- BM25
-    def _fts_query(self, match: str, k: int) -> Optional[list]:
+    def _fts_query(self, match: str, k: int) -> list:
         try:
             return self.conn().execute(
                 """SELECT rowid, bm25(chunks_fts, 1.0, 0.6, 0.4) AS s
@@ -1193,7 +1193,7 @@ class Store:
         terms = [t.replace('"', "") for t in query.split() if t.strip()][:16]
         if len(terms) >= 2:
             rows = self._fts_query(" ".join(f'"{t}"' for t in terms), k)
-            if rows is not None and len(rows) >= k:
+            if len(rows) >= k:
                 return [(int(r["rowid"]), -float(r["s"])) for r in rows]
         # Phase 2 — the recall-oriented OR of terms + Hangul bigrams
         rows = self._fts_query(_fts_escape(query), k)
