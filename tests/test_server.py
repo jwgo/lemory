@@ -1,6 +1,13 @@
+import hashlib
+import json
+
+import pytest
 from fastapi.testclient import TestClient
 
+from lemory.ingestion.indexer import SyncReport
+from lemory.interfaces import http as http_mod
 from lemory.interfaces.http import build_app
+from lemory.storage import sqlite_store as store_mod
 
 
 def test_server_endpoints(engine):
@@ -25,6 +32,85 @@ def test_server_endpoints(engine):
         r = client.post("/index", json={"full": False})
         assert r.status_code == 200
         assert r.json()["unchanged"] == 4
+
+
+def test_note_exposes_indexed_text_content_hash(engine, vault):
+    app = build_app(engine, watch=False)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        raw = (vault / "Mercury Initiative.md").read_text(
+            encoding="utf-8", errors="replace"
+        )
+        expected = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        body = client.get(
+            "/api/note", params={"path": "Mercury Initiative.md"}
+        ).json()
+        assert body["content_hash"] == expected
+
+
+@pytest.mark.parametrize(
+    ("direct_url", "expected"),
+    [
+        (
+            {
+                "url": "https://github.com/jwgo/lemory.git",
+                "vcs_info": {
+                    "vcs": "git",
+                    "commit_id": "254658d2207261257ecb91cea9133c2d7788d29a",
+                },
+            },
+            "254658d2207261257ecb91cea9133c2d7788d29a",
+        ),
+        ({"url": "https://files.pythonhosted.org/lemory.whl"}, None),
+        (None, None),
+    ],
+)
+def test_build_commit_reads_vcs_direct_url(monkeypatch, direct_url, expected):
+    class FakeDistribution:
+        def read_text(self, filename):
+            assert filename == "direct_url.json"
+            return None if direct_url is None else json.dumps(direct_url)
+
+    monkeypatch.setattr(
+        "importlib.metadata.distribution", lambda name: FakeDistribution()
+    )
+    assert http_mod._build_commit() == expected
+
+
+def test_health_exposes_build_commit(engine, monkeypatch):
+    commit = "254658d2207261257ecb91cea9133c2d7788d29a"
+    monkeypatch.setattr(http_mod, "_build_commit", lambda: commit)
+    app = build_app(engine, watch=False)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        assert client.get("/health").json()["build_commit"] == commit
+
+
+def test_index_exposes_bounded_errors(engine, monkeypatch):
+    app = build_app(engine, watch=False)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        errors = [f"note-{i}.md: {'x' * 800}" for i in range(25)]
+        monkeypatch.setattr(
+            engine,
+            "index",
+            lambda full=False: SyncReport(unchanged=4, errors=errors),
+        )
+        body = client.post("/index", json={"full": False}).json()
+        assert body["error_count"] == 25
+        assert len(body["errors"]) <= 20
+        assert all(len(error) <= 500 for error in body["errors"])
+
+
+def test_search_returns_typed_fts_failure(engine, monkeypatch):
+    app = build_app(engine, watch=False)
+    with TestClient(
+        app, base_url="http://127.0.0.1", raise_server_exceptions=False
+    ) as client:
+        def fail_search(*args, **kwargs):
+            raise store_mod.FtsQueryError("FTS query execution failed")
+
+        monkeypatch.setattr(engine, "search", fail_search)
+        response = client.get("/search", params={"q": "pricing", "mode": "bm25"})
+        assert response.status_code >= 400
+        assert response.json()["detail"]["code"] == "search_execution_failed"
 
 
 def test_server_search_modes(engine):

@@ -32,6 +32,7 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from ..engine import Engine
+from ..storage.sqlite_store import FtsQueryError
 
 log = logging.getLogger("lemory.server")
 
@@ -85,6 +86,29 @@ def _version() -> str:
         return version("lemory")
     except Exception:
         return "unknown"
+
+
+def _build_commit() -> str | None:
+    """Return the exact VCS commit recorded by a direct-url installation."""
+    try:
+        from importlib.metadata import distribution
+
+        raw = distribution("lemory").read_text("direct_url.json")
+        if not raw:
+            return None
+        data = json.loads(raw)
+        vcs = data.get("vcs_info") if isinstance(data, dict) else None
+        if not isinstance(vcs, dict) or vcs.get("vcs") != "git":
+            return None
+        commit = vcs.get("commit_id")
+        if not isinstance(commit, str):
+            return None
+        commit = commit.strip().lower()
+        if len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
+            return None
+        return commit
+    except Exception:
+        return None
 
 
 ACTIVITY_KEY = "console_activity"
@@ -325,6 +349,7 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             "ok": True,
             "pid": _os.getpid(),   # lets `daemon start` verify the port answers as OUR process
             "version": _version(),
+            "build_commit": _build_commit(),
             "services": {
                 "watcher": state["watcher_alive"],
                 "auto_consolidate": bool(getattr(engine.cfg, "auto_consolidate", False)),
@@ -344,6 +369,8 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
             "added": rep.added, "updated": rep.updated, "removed": rep.removed,
             "unchanged": rep.unchanged, "chunks": rep.chunks,
             "embedded": rep.embedded, "seconds": rep.seconds,
+            "error_count": len(rep.errors),
+            "errors": [str(error)[:500] for error in rep.errors[:20]],
         }
 
     @app.get("/search")
@@ -352,8 +379,17 @@ def build_app(engine: Engine, watch: bool = True) -> FastAPI:
                expand: bool | None = None, rerank: bool | None = None):
         if not q.strip():
             raise HTTPException(400, "empty query")
-        hits = engine.search(q, k=k, mode=mode, graph=graph, expand=expand,
-                             rerank=rerank, record=True, client=_client(request))
+        try:
+            hits = engine.search(q, k=k, mode=mode, graph=graph, expand=expand,
+                                 rerank=rerank, record=True, client=_client(request))
+        except FtsQueryError as exc:
+            raise HTTPException(
+                503,
+                detail={
+                    "code": "search_execution_failed",
+                    "message": "FTS query execution failed",
+                },
+            ) from exc
         return [_hit_json(h, text=True) for h in hits]
 
     @app.post("/ask")

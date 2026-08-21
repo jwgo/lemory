@@ -139,6 +139,10 @@ class DocRecord:
     tags: list[str] = field(default_factory=list)
 
 
+class FtsQueryError(RuntimeError):
+    """SQLite failed while executing an FTS query."""
+
+
 _HANGUL_RUN = re.compile(r"[가-힣]+")
 # 가나(ぁ-ヿ)·CJK 한자(一-鿿)까지: 한국어 위키는 표기 테이블에 일본어/중국어
 # 명칭을 함께 적고, unicode61은 스크립트가 섞인 연속 런("ナイトロード나이트로드")
@@ -625,10 +629,15 @@ class Store:
         return rows
 
     def doc_detail(self, path: str) -> Optional[dict]:
-        """Full note detail for the console: meta, chunks, in/out links."""
+        """Full note detail, including the indexed-text content hash.
+
+        ``content_hash`` hashes the UTF-8 encoding of text read with Python's
+        universal-newline semantics and ``errors="replace"``.  It is not a
+        hash of the source file's exact bytes.
+        """
         c = self.conn()
         r = c.execute(
-            "SELECT id, path, title, tags, frontmatter, mtime, indexed_at "
+            "SELECT id, path, title, content_hash, tags, frontmatter, mtime, indexed_at "
             "FROM documents WHERE path=?", (path,)
         ).fetchone()
         if not r:
@@ -657,6 +666,7 @@ class Store:
             "SELECT hits, last_hit FROM note_hits WHERE doc_id=?", (doc_id,)).fetchone()
         return {
             "path": r["path"], "title": r["title"], "tags": tags,
+            "content_hash": r["content_hash"],
             "frontmatter": frontmatter, "mtime": r["mtime"],
             "indexed_at": r["indexed_at"], "chunks": chunks,
             "links_out": _links("src_doc", "dst_doc"),
@@ -1168,8 +1178,8 @@ class Store:
                    ORDER BY s LIMIT ?""",
                 (match, k),
             ).fetchall()
-        except sqlite3.OperationalError:
-            return None
+        except sqlite3.OperationalError as exc:
+            raise FtsQueryError("FTS query execution failed") from exc
 
     def bm25_search(self, query: str, k: int) -> list[tuple[int, float]]:
         # Phase 1 — implicit AND of the raw words: on big corpora the OR query
@@ -1187,8 +1197,6 @@ class Store:
                 return [(int(r["rowid"]), -float(r["s"])) for r in rows]
         # Phase 2 — the recall-oriented OR of terms + Hangul bigrams
         rows = self._fts_query(_fts_escape(query), k)
-        if rows is None:
-            return []
         # bm25() returns lower-is-better; flip sign so higher is better
         return [(int(r["rowid"]), -float(r["s"])) for r in rows]
 

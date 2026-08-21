@@ -1,7 +1,10 @@
+import sqlite3
+
 import numpy as np
 import pytest
 
 from lemory.storage import Store
+from lemory.storage import sqlite_store as store_mod
 from lemory.storage.sqlite_store import _fts_escape
 
 
@@ -32,6 +35,16 @@ def test_bm25_handles_special_chars(store):
     _add_doc(store, "a.md", "A", [("", "the quick brown fox")])
     for q in ['fox "quick"', "fox)", "NEAR(fox", "fox*", "-fox", "한글 fox"]:
         store.bm25_search(q, 5)  # must not raise
+
+
+def test_bm25_operational_error_is_typed(store, monkeypatch):
+    class BrokenConnection:
+        def execute(self, *args, **kwargs):
+            raise sqlite3.OperationalError("forced fts failure")
+
+    monkeypatch.setattr(store, "conn", lambda: BrokenConnection())
+    with pytest.raises(store_mod.FtsQueryError, match="FTS query execution failed"):
+        store.bm25_search("pricing", 5)
 
 
 def test_hangul_bigrams():
