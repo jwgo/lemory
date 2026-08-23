@@ -28,9 +28,12 @@ from __future__ import annotations
 
 import json
 import shutil
+import sqlite3
 import sys
 import time
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -44,6 +47,47 @@ OUT = WORK / "longmemeval-full"
 KS = (5, 10)
 ARMS = {"lemory": dict(mode="hybrid", graph=True),
         "vector": dict(mode="vector", graph=False)}
+
+
+def _shared_cache_conn() -> sqlite3.Connection:
+    """One WAL SQLite shared by every shard worker: key -> embed vector."""
+    c = sqlite3.connect(OUT / "embed_shared.sqlite", timeout=60)
+    c.execute("PRAGMA journal_mode=WAL")
+    c.execute("PRAGMA busy_timeout=60000")
+    c.execute("CREATE TABLE IF NOT EXISTS ec(key TEXT PRIMARY KEY, vec BLOB)")
+    c.commit()
+    return c
+
+
+def _wire_shared_embed_cache(eng: Engine, conn: sqlite3.Connection) -> None:
+    """LongMemEval haystacks reuse the same sessions across questions, but each
+    question's index (and with it the embed cache) is deleted afterwards to
+    save disk — so every worker re-embedded the same text hundreds of times.
+    Route cache misses through the shared DB: each unique chunk is embedded
+    exactly once across the whole run AND across parallel shards."""
+    store = eng.store
+    orig_get, orig_put = store.cache_get_many, store.cache_put_many
+
+    def get_many(keys: list[str]) -> dict[str, np.ndarray]:
+        out = orig_get(keys)
+        missing = [k for k in keys if k not in out]
+        for i in range(0, len(missing), 500):
+            batch = missing[i:i + 500]
+            marks = ",".join("?" * len(batch))
+            for key, vec in conn.execute(
+                    f"SELECT key, vec FROM ec WHERE key IN ({marks})", batch):
+                out[key] = np.frombuffer(vec, dtype=np.float32)
+        return out
+
+    def put_many(items: dict[str, np.ndarray]) -> None:
+        orig_put(items)
+        conn.executemany(
+            "INSERT OR REPLACE INTO ec(key, vec) VALUES(?,?)",
+            [(k, v.astype(np.float32).tobytes()) for k, v in items.items()])
+        conn.commit()
+
+    store.cache_get_many = get_many
+    store.cache_put_many = put_many
 
 
 def note_for_session(q: dict, sid: str) -> str | None:
@@ -66,6 +110,21 @@ def main(limit: int | None = None, shard: int = 0, shards: int = 1) -> None:
     if shards > 1:
         questions = [q for i, q in enumerate(questions) if i % shards == shard]
     OUT.mkdir(parents=True, exist_ok=True)
+    if shards > 1:
+        # parallel workers share the CPUs — cap each ONNX session at one
+        # intra-op thread so N workers use N cores instead of thrashing N²
+        try:
+            from fastembed import TextEmbedding
+            _orig_init = TextEmbedding.__init__
+
+            def _capped_init(self, *a, **kw):  # noqa: ANN001
+                kw.setdefault("threads", 1)
+                _orig_init(self, *a, **kw)
+
+            TextEmbedding.__init__ = _capped_init  # type: ignore[method-assign]
+        except Exception:
+            pass
+    shared_cache = _shared_cache_conn()
     ckpt_file = OUT / "rows.jsonl"
     done = set()
     if ckpt_file.exists():
@@ -82,6 +141,7 @@ def main(limit: int | None = None, shard: int = 0, shards: int = 1) -> None:
         data_dir = OUT / "idx" / qid
         cfg = LemoryConfig(vault=vault, data_dir=data_dir, provider="local")
         eng = Engine(cfg)
+        _wire_shared_embed_cache(eng, shared_cache)
         try:
             eng.index()
             gold = {note_for_session(q, s) for s in q["answer_session_ids"]}
@@ -109,11 +169,11 @@ def main(limit: int | None = None, shard: int = 0, shards: int = 1) -> None:
 
     rows = [json.loads(x) for x in ckpt_file.read_text().splitlines() if x.strip()]
     rows = list({r["qid"]: r for r in rows}.values())  # parallel-shard restarts can dup a row
-    if len(rows) < expected_total:
-        # another shard is still running — a partial summary here would
-        # overwrite the canonical results file with wrong numbers
-        print(f"shard {shard}/{shards} done · checkpoint {len(rows)}/{expected_total} "
-              "rows — summary deferred until all shards finish")
+    if limit or len(rows) < expected_total:
+        # limited smoke run, or another shard still running — a partial
+        # summary would overwrite the canonical results file with wrong numbers
+        print(f"shard {shard}/{shards} done · checkpoint {len(rows)}/{expected_total} rows"
+              f"{' (limit run)' if limit else ''} — canonical summary skipped")
         return
     rows = [r for r in rows if r["n_gold"] > 0]
     summary: dict = {"questions": len(rows)}
