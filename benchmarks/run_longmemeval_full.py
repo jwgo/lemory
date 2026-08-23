@@ -62,6 +62,7 @@ def main(limit: int | None = None, shard: int = 0, shards: int = 1) -> None:
     questions = [q for q in questions if not str(q["question_id"]).endswith("_abs")]
     if limit:
         questions = questions[:limit]
+    expected_total = len(questions)  # across ALL shards · gates the summary below
     if shards > 1:
         questions = [q for i, q in enumerate(questions) if i % shards == shard]
     OUT.mkdir(parents=True, exist_ok=True)
@@ -107,6 +108,13 @@ def main(limit: int | None = None, shard: int = 0, shards: int = 1) -> None:
             print(f"{qi+1}/{len(questions)}  ({el/60:.0f} min elapsed)")
 
     rows = [json.loads(x) for x in ckpt_file.read_text().splitlines() if x.strip()]
+    rows = list({r["qid"]: r for r in rows}.values())  # parallel-shard restarts can dup a row
+    if len(rows) < expected_total:
+        # another shard is still running — a partial summary here would
+        # overwrite the canonical results file with wrong numbers
+        print(f"shard {shard}/{shards} done · checkpoint {len(rows)}/{expected_total} "
+              "rows — summary deferred until all shards finish")
+        return
     rows = [r for r in rows if r["n_gold"] > 0]
     summary: dict = {"questions": len(rows)}
     for arm in ARMS:
