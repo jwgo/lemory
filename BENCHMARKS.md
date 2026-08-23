@@ -898,6 +898,36 @@ run writes `summary.json`: a filename mismatch, not a retrieval change. The
 runner now writes the canonical filename too, and the per-question
 `rows.jsonl` is committed so any future claim can be checked at row level.
 
+### Re-verification on HEAD (2026-08-23): after the context-database rework
+
+A second full 470-question re-run, on the HEAD that carries this cycle's
+absorption work — the `belief` fragment type with in-place revision, the
+**temporal 4th retrieval leg** + `after:`/`before:` date operators, NFC path
+normalization, tiered context loading (L0/L1/L2 + `context_tree`), and the
+typed-FTS-failure HTTP contract (#17). Result, row-compared against the
+previous record: **all@5 0.9043 (identical), any@5 0.9851 (+0.2pp), all@10
+0.9255 (+0.2pp)**; exactly **2 per-question flips** out of 470 (one
+single-session-assistant gained, one multi-session lost — rank-boundary
+noise, not a mechanism change). Per-type: temporal-reasoning 0.8346 and
+knowledge-update 0.9861 are per-question identical.
+
+Two things this proves, one thing it deliberately shows:
+
+- **No regression** from any of the cycle's retrieval changes, verified at
+  row level on the hardest full-set benchmark we run, not asserted from
+  guard samples.
+- **The temporal leg is zero-effect here by design**: it activates on
+  explicit time-window intent (`after:2026-07`, "지난주에…"), which
+  LongMemEval's English question phrasing does not trigger — same result as
+  the earlier recency ablation, now confirmed for the new leg on all 127
+  temporal questions.
+- The run also hardened the harness itself: shard-parallel workers
+  (`[limit] [shard] [shards]` argv), a **cross-question shared embed cache**
+  (LongMemEval haystacks reuse sessions heavily; unique chunks now embed
+  once across the whole run — 124k cached vectors), per-worker ONNX
+  thread caps, and a gate so partial/limit runs can never overwrite the
+  canonical results file.
+
 ## 7e. RoleMemQA: 롤플레잉 장/단기 기억 저장소 벤치마크 (신규, 자체 공개)
 
 지금까지의 벤치는 지식베이스 QA였다. 하지만 Lemory의 또 다른 실사용은

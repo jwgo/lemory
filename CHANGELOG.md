@@ -35,6 +35,24 @@ claim: **the filesystem is real.** Full analysis in docs/COMPETITIVE.md.
 - MCP tool count 19 → 20; tests for tiered views, context tree, HTTP
   surfaces, and NFC roundtrips.
 
+## Unreleased · hard-benchmark proof: full LongMemEval re-run on HEAD
+
+The rework above re-proven on the hardest full-set benchmark we run:
+LongMemEval_S cleaned, **all 470 evidence-bearing questions**, zero API
+calls (BENCHMARKS §7d). Row-level compare vs the previous record: all@5
+**0.9043 identical**, any@5 0.9851 (+0.2pp), all@10 0.9255 (+0.2pp), with
+exactly 2 per-question flips out of 470 — no regression from the belief
+type, temporal 4th leg, date operators, NFC, tiered loading, or the #17
+HTTP contracts, verified per row rather than asserted. The temporal leg is
+confirmed zero-effect on this set by design (it fires on explicit
+time-window intent, which LME's English phrasing doesn't trigger). Guard
+benches (RoleMemQA clean/messy, AgentMemQA) re-measured stable on the same
+HEAD. Harness hardening from the run: shard-parallel workers, a
+cross-question shared embed cache (unique chunks embed once per run),
+per-worker ONNX thread caps, and a gate preventing partial runs from
+overwriting canonical results. Hindsight same-harness head-to-head now also
+lives in BENCHMARKS (§0 row + §4j).
+
 ## Unreleased · measured head-to-head: Lemory vs Hindsight, same harness
 
 Proof over prose. Hindsight 0.9.0 (pip) on the shared Korean harness —
