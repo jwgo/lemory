@@ -28,6 +28,7 @@ committed scripts. Ticks mark where the competitor genuinely leads.
 | memvid v1 (16k★) | Korean paragraph recall@1 | 0.050 (EN control: 0.933) | **0.958** | multimodal (clip/whisper), Rust/Node SDK |
 | EchoVault v0.5 | Korean recall@1, offline | 0.867 @ 0.5 ms | **0.975 @ 3.8 ms** (fast) | raw FTS latency |
 | Vestige v2.2.1 | Korean recall@1, embedder ON | 0.217 @ 571 ms | **0.967 @ 21 ms** | FSRS/contradiction cognitive features |
+| Hindsight (vectorize-io) | Korean recall@1, both LLM-free local (§4j) | best 0.233 @ 59 ms · default 0.142 @ 7.0 s | **0.983 @ 40 ms · fast 0.967 @ 6.9 ms** | LLM-extraction retain, LongMemEval harness rigor |
 | Omnisearch / Smart Connections | Obsidian-native search (§4g) | below | **leads** | in-app UX, zero install friction |
 
 Against **published** headline numbers (different setups, not same-harness,
@@ -381,6 +382,53 @@ argument-retrieval. That is the deliberate bargain of a Korean-first default:
 the same embedder scores dense 0.86 vs generic MiniLM's 0.14 on Korean semantic
 retrieval (§5). Users on English-only corpora can set any fastembed model in one
 line; the default optimizes for the language the tool is built for.
+
+## 4j. External system: Hindsight (vectorize-io) — same-harness, both LLM-free
+
+[Hindsight](https://github.com/vectorize-io/hindsight) is Vectorize's MIT
+agent-memory engine (arXiv "Hindsight is 20/20", 4-network memory, its own
+LongMemEval harness) — the most honestly-armed direct rival in this space.
+Same harness as every section above: KorQuAD 113 real paragraphs · 120 human
+questions · paragraph recall@1 · end-to-end p50
+(`benchmarks/run_hindsight_korean.py`, results in
+`benchmarks/work/results_hindsight_korean.json`). Hindsight ran in its
+officially supported no-LLM configuration (`LLM_PROVIDER=none` → chunks-mode
+retain, per its own `none_llm.py` docstring) on embedded Postgres (pg0) — the
+same LLM-0 condition Lemory always runs in. Five configurations, steelmanned:
+
+| System (configuration) | recall@1 | p50 | index |
+|---|---|---|---|
+| **Lemory keyless** (e5-ko hybrid) | **0.983** | 40.4 ms | seconds |
+| **Lemory fast** (lexical only, zero embeddings) | **0.967** | **6.9 ms** | 〃 |
+| Hindsight default (bge-small-en + ms-marco CE) | 0.142 | 6,999.8 ms | 48.3 s |
+| Hindsight ml-e5 (sentence-transformers) + CE | 0.142 | 6,917.8 ms | 17.9 s |
+| Hindsight ml-e5 (ST) + reranker off | 0.225 | 97.3 ms | 17.7 s |
+| **Hindsight best**: ONNX ml-e5 (e5 prefixes applied) + reranker off | **0.233** | 59.4 ms | 13.9 s |
+| Hindsight ONNX ml-e5 + CE | 0.142 | 6,755.3 ms | 13.6 s |
+
+Root causes, not just scores:
+
+- **The English cross-encoder reranker pins recall at 0.142 regardless of
+  embedder** — it re-sorts the top-300 fused candidates with an English-only
+  ms-marco model, erasing whatever the retrieval legs found (three different
+  embedder configs all converging on the same 0.142 is the fingerprint), and
+  costs ~7 s/query on CPU. The default install ships in this state.
+- **Even fully steelmanned it reaches 0.233** — Hindsight's own ONNX provider
+  (whose default model IS multilingual-e5-small, with query/passage prefixes
+  correctly applied) plus reranker off. That is 1/4.2 of Lemory's hybrid and
+  still 4× behind Lemory's *embedding-free* fast mode. Structural remainder:
+  its BM25 leg tokenizes on whitespace through `to_tsquery('english')` (zero
+  recall on Korean), and unweighted RRF fuses the dead legs (BM25, graph,
+  temporal — and no entities in chunks mode) with the one live semantic leg.
+- **Side finding**: the sentence-transformers ("local") provider path skips
+  e5 prefixes entirely (0.225 vs 0.233 for the same model via ONNX).
+- Indexing: seconds (Lemory, LLM-0, content-hash cache) vs 13.9–48.3 s
+  (Hindsight, same no-LLM mode — Postgres round-trips + link building).
+- Scope, stated honestly: this measures the **retrieval layer on Korean**.
+  Hindsight's home axis (LLM-extraction retain + judged LongMemEval) is a
+  different one; a same-harness pass there is on the roadmap via its adapter
+  interface. What we absorbed from Hindsight — the belief/evidence split with
+  in-place belief revision — is documented in `docs/COMPETITIVE.md`.
 
 ## 5. Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
 
