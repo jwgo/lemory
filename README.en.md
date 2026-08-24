@@ -72,6 +72,44 @@ database. We think the file you already own is the better database, and we
 spent the benchmarks proving it doesn't cost you accuracy. The opposite,
 measurably.
 
+## Why it wins in this market (as of August 2026)
+
+Agent memory is now a first-class architectural component with its own
+benchmark suites and survey literature, and the industry's required-capability
+list has converged: multi-signal retrieval, metadata filtering, temporal
+reasoning, update semantics (preserving contradictions and drift),
+observability, and token efficiency. **Lemory covers the whole list, with a
+reproducible number attached to each item.**
+
+| What the market demands | Lemory's answer | Measured |
+|---|---|---|
+| Multi-signal retrieval | vector + CJK-bigram BM25 + link graph + time window, 4-leg fusion | multi-hop 1.000 · keyless 0.983@40ms ([§0](BENCHMARKS.md)) |
+| Temporal reasoning | time-aware ranking + `after:`/`before:` operators + a temporal retrieval leg | LongMemEval temporal 0.835, any@5 0.983 ([§7d](BENCHMARKS.md)) |
+| Update semantics | `belief` in-place revision with history, delete-nothing recency preference, measured reversal traps | AgentMemQA trap-fooled rate 0 ([§7f](BENCHMARKS.md)) |
+| Token efficiency | L0/L1/L2 tiered loading + pyramid boot | boot context = 1/48.8 of a raw dump ([§14](BENCHMARKS.md)) |
+| Observability | full query/write timeline, client attribution, one-click undo | standard in the dashboard |
+| Indexing cost | **zero-LLM** deterministic indexing | 1,469 notes in seconds vs 14–45 min elsewhere ([§4](BENCHMARKS.md)) |
+
+On top of that, four axes are structurally hard for competitors to follow:
+
+1. **Real files.** OpenViking's tiers are LLM-generated at write time (and
+   degrade to placeholders without one); its storage is their DB behind
+   virtual paths. Lemory's tiers are derived deterministically at read time
+   and the storage is your `.md` — zero exit cost is a consequence of the
+   architecture, not a marketing claim.
+2. **Keyless local performance.** Out of the box, no API key, millisecond
+   search. In the same no-LLM condition, 4.2× the recall of Hindsight's best
+   configuration ([§4j](BENCHMARKS.md)). Managed-API headline numbers (mem0
+   et al.) sit on thousands of LLM tokens per query.
+3. **Korean (and CJK) as a first-class citizen.** Every top player in this
+   space is English-first. Closing that gap requires multilingual benchmarks
+   like the ones we publish — and we are the only ones publishing them
+   (KorMapleQA, 2,075 questions).
+4. **A measurement culture.** Lemory is the only project in this market
+   publishing same-harness cross-tool numbers — including losses, failed
+   experiments, and regressions. In a market where benchmark claims face
+   immediate community scrutiny, that is itself a moat.
+
 ## The receipts, up front
 
 Every number regenerates from committed code and public data. Methodology,
