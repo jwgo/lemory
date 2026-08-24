@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://jwgo.github.io/lemory/sitemap.xml

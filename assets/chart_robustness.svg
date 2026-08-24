@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="380" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="880" height="380" rx="12" fill="#0d1117"/>
+<text x="28" y="40" fill="#e6edf3" font-size="22" font-weight="700">Ask it like a human: query robustness</text>
+<text x="28" y="64" fill="#8b949e" font-size="13">Multi-hop questions re-asked as paraphrase / Korean / keyword / typo variants. Full-support in top-8.</text>
+<line x1="60" y1="261" x2="840" y2="261" stroke="#21262d"/>
+<text x="52" y="265" fill="#8b949e" font-size="11" text-anchor="end">0.25</text>
+<line x1="60" y1="206" x2="840" y2="206" stroke="#21262d"/>
+<text x="52" y="210" fill="#8b949e" font-size="11" text-anchor="end">0.50</text>
+<line x1="60" y1="151" x2="840" y2="151" stroke="#21262d"/>
+<text x="52" y="155" fill="#8b949e" font-size="11" text-anchor="end">0.75</text>
+<line x1="60" y1="96" x2="840" y2="96" stroke="#21262d"/>
+<text x="52" y="100" fill="#8b949e" font-size="11" text-anchor="end">1.00</text>
+<rect x="300" y="74" width="12" height="12" rx="3" fill="#f7d353"/>
+<text x="318" y="85" fill="#e6edf3" font-size="12">Lemory</text>
+<rect x="392" y="74" width="12" height="12" rx="3" fill="#f85149"/>
+<text x="410" y="85" fill="#e6edf3" font-size="12">MemPalace</text>
+<rect x="508" y="74" width="12" height="12" rx="3" fill="#6e7681"/>
+<text x="526" y="85" fill="#e6edf3" font-size="12">Vector-only RAG</text>
+<rect x="672" y="74" width="12" height="12" rx="3" fill="#6e7681"/>
+<text x="690" y="85" fill="#e6edf3" font-size="12">BM25</text>
+<rect x="71" y="96" width="30" height="220" rx="3" fill="#f7d353"/>
+<rect x="104" y="185" width="30" height="131" rx="3" fill="#f85149"/>
+<rect x="138" y="196" width="30" height="120" rx="3" fill="#6e7681"/>
+<rect x="172" y="189" width="30" height="127" rx="3" fill="#6e7681"/>
+<text x="138" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">original</text>
+<rect x="227" y="100" width="30" height="216" rx="3" fill="#f7d353"/>
+<rect x="260" y="175" width="30" height="141" rx="3" fill="#f85149"/>
+<rect x="294" y="214" width="30" height="102" rx="3" fill="#6e7681"/>
+<rect x="328" y="222" width="30" height="94" rx="3" fill="#6e7681"/>
+<text x="294" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">paraphrase</text>
+<rect x="383" y="107" width="30" height="209" rx="3" fill="#f7d353"/>
+<rect x="416" y="239" width="30" height="77" rx="3" fill="#f85149"/>
+<rect x="450" y="212" width="30" height="104" rx="3" fill="#6e7681"/>
+<rect x="484" y="261" width="30" height="55" rx="3" fill="#6e7681"/>
+<text x="450" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">korean</text>
+<rect x="539" y="96" width="30" height="220" rx="3" fill="#f7d353"/>
+<rect x="572" y="194" width="30" height="122" rx="3" fill="#f85149"/>
+<rect x="606" y="210" width="30" height="106" rx="3" fill="#6e7681"/>
+<rect x="640" y="210" width="30" height="106" rx="3" fill="#6e7681"/>
+<text x="606" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">keyword</text>
+<rect x="695" y="96" width="30" height="220" rx="3" fill="#f7d353"/>
+<rect x="728" y="169" width="30" height="147" rx="3" fill="#f85149"/>
+<rect x="762" y="208" width="30" height="108" rx="3" fill="#6e7681"/>
+<rect x="796" y="227" width="30" height="89" rx="3" fill="#6e7681"/>
+<text x="762" y="342" fill="#e6edf3" font-size="12" text-anchor="middle">typo</text>
+</svg>
