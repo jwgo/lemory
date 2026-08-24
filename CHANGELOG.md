@@ -4,22 +4,22 @@ All notable changes to Lemory. Dates are the merge date of the release.
 
 ## Unreleased · repositioned: the context database for AI agents, on real files
 
-The market converged on the category ByteDance's OpenViking named — "context
+The market converged on the category ByteDance's OpenViking named: "context
 database" (filesystem paradigm, tiered L0/L1/L2 loading, memory+skills
 unified). We cloned their monorepo, read the engine at source level, and
 repositioned Lemory into that category with the differentiator only we can
 claim: **the filesystem is real.** Full analysis in docs/COMPETITIVE.md.
 
 - **Repositioning**: README (ko/en) hero + pyproject rewritten around
-  "컨텍스트 데이터베이스 · 가상 파일시스템이 아니라 진짜 파일로" — memory,
+  "컨텍스트 데이터베이스 · 가상 파일시스템이 아니라 진짜 파일로": memory,
   knowledge and skills as one file system; tiered loading; measured
   retrieval; observability; self-evolution. Positioning one-liner updated.
 - **Tiered context loading (L0/L1/L2), LLM-0**: `read_note` gains
   `level=abstract|overview|full` (MCP/HTTP), plus a `context_tree` MCP tool
-  / `lemory tree` / `GET /api/tree` — the vault as a browsable tree with
+  / `lemory tree` / `GET /api/tree`: the vault as a browsable tree with
   one-line L0 abstracts per note. Where OpenViking GENERATES tiers with an
   LLM at write time (and degrades to embedded "[not ready]" placeholders
-  without one — verified at source), Lemory DERIVES them deterministically
+  without one, verified at source), Lemory DERIVES them deterministically
   at read time: zero LLM calls, zero drift, nothing to go stale.
 - **Korean-filename NFC normalization** (their real-FS hazard list, absorbed
   as a fix): new notes, rename destinations, and save_memory titles are born
@@ -41,7 +41,7 @@ The rework above re-proven on the hardest full-set benchmark we run:
 LongMemEval_S cleaned, **all 470 evidence-bearing questions**, zero API
 calls (BENCHMARKS §7d). Row-level compare vs the previous record: all@5
 **0.9043 identical**, any@5 0.9851 (+0.2pp), all@10 0.9255 (+0.2pp), with
-exactly 2 per-question flips out of 470 — no regression from the belief
+exactly 2 per-question flips out of 470. No regression from the belief
 type, temporal 4th leg, date operators, NFC, tiered loading, or the #17
 HTTP contracts, verified per row rather than asserted. The temporal leg is
 confirmed zero-effect on this set by design (it fires on explicit
@@ -55,7 +55,7 @@ lives in BENCHMARKS (§0 row + §4j).
 
 ## Unreleased · measured head-to-head: Lemory vs Hindsight, same harness
 
-Proof over prose. Hindsight 0.9.0 (pip) on the shared Korean harness —
+Proof over prose. Hindsight 0.9.0 (pip) on the shared Korean harness:
 KorQuAD 113 real paragraphs · 120 human questions · recall@1 · end-to-end
 p50 · both sides fully local and LLM-free (Hindsight in its OWN officially
 supported no-LLM mode: LLM_PROVIDER=none → chunks retain, embedded pg0
@@ -83,7 +83,7 @@ still awaits the same-harness adapter (roadmap).
 ## Unreleased · Hindsight source-level pass: temporal leg · trail cap · merge rules
 
 Cloned the monorepo and read the engine (75k lines) across four parallel
-sweeps — corrections and a second absorption round, all LLM-free:
+sweeps: corrections and a second absorption round, all LLM-free:
 
 - **Correction recorded**: current Hindsight source has DELETED the opinion
   fact type and confidence_score column (migration; CHECK now allows
@@ -92,7 +92,7 @@ sweeps — corrections and a second absorption round, all LLM-free:
   their blog/paper describe.
 - **Temporal as a candidate-generating 4th leg**: explicit-window queries
   ("지난주에 뭐 했지", "5월 회의") now feed in-window docs into RRF as their
-  own list (`w_temporal` 0.35, works in fast mode too — no embedding cost).
+  own list (`w_temporal` 0.35, works in fast mode too, no embedding cost).
   Boost-only recency could never surface a window note the lexical/semantic
   legs missed; now it surfaces. Vague "요즘" stays boost-only by design.
 - **Belief trail cap 50** with an elision marker (their unbounded-JSONB
@@ -106,7 +106,7 @@ sweeps — corrections and a second absorption round, all LLM-free:
   sort is a no-op (nonexistent field), token budget counts text only, no
   query typo repair, zero Korean (vs 1,819 lines of Chinese temporal rules).
 - Harness fact: their LongMemEval runner needs only a 4-method duck-typed
-  adapter to test Lemory — same-harness comparison path secured (roadmap).
+  adapter to test Lemory; same-harness comparison path secured (roadmap).
 
 ## Unreleased · Hindsight absorbed: belief fragments · time-range operators
 
@@ -116,7 +116,7 @@ analysis in docs/COMPETITIVE.md; what it taught us shipped immediately:
 
 - **`belief` fragment type** (their opinions network, vault-shaped): the
   eighth type, carrying `confidence` (0-1, default 0.6) in frontmatter ·
-  evidence types (fact 등) deliberately carry none — that absence IS the
+  evidence types (fact 등) deliberately carry none; that absence IS the
   evidence-vs-inference separation. Re-remembering a belief with the same
   title REVISES the note in place: new statement on top, confidence updated,
   the superseded statement appended to a `## 변천` trail (accumulates, never
@@ -175,7 +175,7 @@ that couldn't be excused as editor-only territory. All three closed:
   (first real chunk, headings/frontmatter stripped, server-side in
   `doc_overview_rows`) · scanning the list stops requiring opening notes.
 - **⌘K/Ctrl+K fix** (found live): the palette chord was bound in TWO keydown
-  handlers, so one keypress opened and instantly closed it — on every OS.
+  handlers, so one keypress opened and instantly closed it, on every OS.
   The SHORTCUTS table is now the only owner (and toggles).
 - Verified in-browser end to end: add/edit/remove property → disk YAML
   checked → cleanup; snippet rows on all 11 notes; Ctrl+K opens. JS errors

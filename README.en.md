@@ -3,7 +3,7 @@
 # 🍋 Lemory
 
 ### The context database for AI agents. On real files, not a virtual filesystem.
-**Memory, knowledge, and skills unified as Markdown in your own folder — no hosted DB, no account, no quota, every claim measured.**
+**Memory, knowledge, and skills unified as Markdown in your own folder. No hosted DB, no account, no quota, every claim measured.**
 <sub>AI 에이전트의 컨텍스트 데이터베이스 · **[한국어 README (기본)](README.md)**</sub>
 
 [![CI](https://github.com/jwgo/lemory/actions/workflows/ci.yml/badge.svg)](https://github.com/jwgo/lemory/actions)
@@ -23,7 +23,7 @@ any API call. Reproducible from [`benchmarks/`](benchmarks/).</sub>
 ---
 
 **Lemory is a local context database for AI agents.** It unifies the
-context an agent needs — memory, knowledge, skills — as one system of
+context an agent needs (memory, knowledge, skills) as one system of
 Markdown files in a folder you own. Claude Code, Claude Desktop, Cursor, or
 your own agent stops starting every session as a stranger; and if you
 already keep Markdown notes (Obsidian or just a folder), those are context
@@ -33,28 +33,28 @@ In 2026 the market converged on this direction: ByteDance's OpenViking
 coined the "context database" and picked a **filesystem paradigm** over
 vector stores; Tencent's Agent Memory picked the memory pyramid; Vectorize's
 Hindsight picked retain-recall-reflect. The direction is right. But their
-filesystems are **virtual** — `viking://` paths over their database. Lemory
+filesystems are **virtual**: `viking://` paths over their database. Lemory
 starts from the opposite end: **the real files you already own ARE the
 database.** `ls`, `grep`, `git`, and Obsidian remain your admin tools, and
-the cost of leaving is zero. And we prove — on the same harness, against
-every competitor we can run — that this choice doesn't cost performance.
+the cost of leaving is zero. And we prove, on the same harness, against
+every competitor we can run, that this choice doesn't cost performance.
 Measurably, it wins.
 
 - **One file system for all context**: typed memory fragments, scene
-  narratives, the persona, extracted skills, and your notes — all plain
+  narratives, the persona, extracted skills, and your notes, all plain
   `.md` in the vault. No virtual layer, so the agent's view and the human's
   view are the same file, one `rm` from gone. No account, no fragment
   quota, nothing to migrate off of.
 - **Tiered loading (L0/L1/L2) cuts token spend**: every note reads as an L0
   one-liner, an L1 overview (heading skeleton + section openings), or the
   L2 raw file. Other context DBs **generate** these tiers with an LLM at
-  write time; Lemory **derives them deterministically at read time** — zero
+  write time; Lemory **derives them deterministically at read time**: zero
   LLM calls, zero drift from the source. Session boot is the pyramid's job:
   persona + scene map at 1/48.8 of the raw-dump tokens.
 - **Retrieval is measured, and fast**: semantic + Korean-aware keyword +
   your `[[wikilink]]` graph + explicit time windows, fused four-leg hybrid.
   Same-harness: keyless 0.983 @ 40 ms, embedding-free fast mode 0.967 @
-  6.9 ms — losses published too.
+  6.9 ms. Losses published too.
 - **Observable**: every query, every note an AI wrote (one-click undo),
   per-client usage on a timeline. All local, one SQLite file.
 - **Self-evolving**: sessions distill into fact atoms, promote into scene
@@ -95,7 +95,7 @@ On top of that, four axes are structurally hard for competitors to follow:
 1. **Real files.** OpenViking's tiers are LLM-generated at write time (and
    degrade to placeholders without one); its storage is their DB behind
    virtual paths. Lemory's tiers are derived deterministically at read time
-   and the storage is your `.md` — zero exit cost is a consequence of the
+   and the storage is your `.md`. Zero exit cost is a consequence of the
    architecture, not a marketing claim.
 2. **Keyless local performance.** Out of the box, no API key, millisecond
    search. In the same no-LLM condition, 4.2× the recall of Hindsight's best
@@ -103,10 +103,10 @@ On top of that, four axes are structurally hard for competitors to follow:
    et al.) sit on thousands of LLM tokens per query.
 3. **Korean (and CJK) as a first-class citizen.** Every top player in this
    space is English-first. Closing that gap requires multilingual benchmarks
-   like the ones we publish — and we are the only ones publishing them
+   like the ones we publish, and we are the only ones publishing them
    (KorMapleQA, 2,075 questions).
 4. **A measurement culture.** Lemory is the only project in this market
-   publishing same-harness cross-tool numbers — including losses, failed
+   publishing same-harness cross-tool numbers, including losses, failed
    experiments, and regressions. In a market where benchmark claims face
    immediate community scrutiny, that is itself a moat.
 
@@ -200,7 +200,7 @@ usage. You always know who is reading and writing your memory.
 
 Twenty tools (with MCP behavior annotations, so clients know what's
 read-only). Read: `search_notes` · `ask_notes` · `recent_notes` ·
-`read_note` (**tiered loading**: `level=abstract|overview|full` — judge
+`read_note` (**tiered loading**: `level=abstract|overview|full` · judge
 relevance from the L0 line, pay for the raw file only when needed) ·
 `context_tree` (browse the vault like a filesystem: folder tree + one L0
 line per note) · `list_notes` · `related_notes` · `suggest_links` (unlinked
@@ -431,7 +431,7 @@ script, nothing is mocked).
 
 ## The console
 
-`lemory serve` → `127.0.0.1:8377`. Not a second Obsidian — a workspace over
+`lemory serve` → `127.0.0.1:8377`. Not a second Obsidian, but a workspace over
 the *middleware*, with desktop-app manners at web-console cost: a token-based
 design system (light/dark), ⌘K palette, ⌘1–8 view jumps, a `?` shortcut
 overlay, and a bottom status bar (vault · counts · watcher · index age).
@@ -450,7 +450,7 @@ overlay, and a bottom status bar (vault · counts · watcher · index age).
   plus typed recall
 - **그래프 Graph**: the whole-vault interactive graph
 - **건강 Health**: pending approvals, contradiction pairs, drift, link
-  suggestions — triaged on one screen
+  suggestions, triaged on one screen
 - **검색 Search**: hybrid/vector/BM25 playground with score bars and latency
   readout; the idle state is a tutorial built from your own vault
 - **비서 Assistant**: streaming chat over the vault on an on-device model,

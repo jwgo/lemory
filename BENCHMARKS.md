@@ -383,17 +383,17 @@ the same embedder scores dense 0.86 vs generic MiniLM's 0.14 on Korean semantic
 retrieval (§5). Users on English-only corpora can set any fastembed model in one
 line; the default optimizes for the language the tool is built for.
 
-## 4j. External system: Hindsight (vectorize-io) — same-harness, both LLM-free
+## 4j. External system: Hindsight (vectorize-io), same-harness, both LLM-free
 
 [Hindsight](https://github.com/vectorize-io/hindsight) is Vectorize's MIT
 agent-memory engine (arXiv "Hindsight is 20/20", 4-network memory, its own
-LongMemEval harness) — the most honestly-armed direct rival in this space.
+LongMemEval harness), the most honestly-armed direct rival in this space.
 Same harness as every section above: KorQuAD 113 real paragraphs · 120 human
 questions · paragraph recall@1 · end-to-end p50
 (`benchmarks/run_hindsight_korean.py`, results in
 `benchmarks/work/results_hindsight_korean.json`). Hindsight ran in its
 officially supported no-LLM configuration (`LLM_PROVIDER=none` → chunks-mode
-retain, per its own `none_llm.py` docstring) on embedded Postgres (pg0) — the
+retain, per its own `none_llm.py` docstring) on embedded Postgres (pg0), the
 same LLM-0 condition Lemory always runs in. Five configurations, steelmanned:
 
 | System (configuration) | recall@1 | p50 | index |
@@ -409,26 +409,26 @@ same LLM-0 condition Lemory always runs in. Five configurations, steelmanned:
 Root causes, not just scores:
 
 - **The English cross-encoder reranker pins recall at 0.142 regardless of
-  embedder** — it re-sorts the top-300 fused candidates with an English-only
+  embedder**: it re-sorts the top-300 fused candidates with an English-only
   ms-marco model, erasing whatever the retrieval legs found (three different
   embedder configs all converging on the same 0.142 is the fingerprint), and
   costs ~7 s/query on CPU. The default install ships in this state.
-- **Even fully steelmanned it reaches 0.233** — Hindsight's own ONNX provider
+- **Even fully steelmanned it reaches 0.233**: Hindsight's own ONNX provider
   (whose default model IS multilingual-e5-small, with query/passage prefixes
   correctly applied) plus reranker off. That is 1/4.2 of Lemory's hybrid and
   still 4× behind Lemory's *embedding-free* fast mode. Structural remainder:
   its BM25 leg tokenizes on whitespace through `to_tsquery('english')` (zero
   recall on Korean), and unweighted RRF fuses the dead legs (BM25, graph,
-  temporal — and no entities in chunks mode) with the one live semantic leg.
+  temporal, and no entities in chunks mode) with the one live semantic leg.
 - **Side finding**: the sentence-transformers ("local") provider path skips
   e5 prefixes entirely (0.225 vs 0.233 for the same model via ONNX).
 - Indexing: seconds (Lemory, LLM-0, content-hash cache) vs 13.9–48.3 s
-  (Hindsight, same no-LLM mode — Postgres round-trips + link building).
+  (Hindsight, same no-LLM mode: Postgres round-trips + link building).
 - Scope, stated honestly: this measures the **retrieval layer on Korean**.
   Hindsight's home axis (LLM-extraction retain + judged LongMemEval) is a
   different one; a same-harness pass there is on the roadmap via its adapter
-  interface. What we absorbed from Hindsight — the belief/evidence split with
-  in-place belief revision — is documented in `docs/COMPETITIVE.md`.
+  interface. What we absorbed from Hindsight (the belief/evidence split with
+  in-place belief revision) is documented in `docs/COMPETITIVE.md`.
 
 ## 5. Korean corpus: 실제 나무위키 메이플스토리 (1,469 real documents)
 
@@ -901,13 +901,13 @@ runner now writes the canonical filename too, and the per-question
 ### Re-verification on HEAD (2026-08-23): after the context-database rework
 
 A second full 470-question re-run, on the HEAD that carries this cycle's
-absorption work — the `belief` fragment type with in-place revision, the
+absorption work: the `belief` fragment type with in-place revision, the
 **temporal 4th retrieval leg** + `after:`/`before:` date operators, NFC path
 normalization, tiered context loading (L0/L1/L2 + `context_tree`), and the
 typed-FTS-failure HTTP contract (#17). Result, row-compared against the
 previous record: **all@5 0.9043 (identical), any@5 0.9851 (+0.2pp), all@10
 0.9255 (+0.2pp)**; exactly **2 per-question flips** out of 470 (one
-single-session-assistant gained, one multi-session lost — rank-boundary
+single-session-assistant gained, one multi-session lost: rank-boundary
 noise, not a mechanism change). Per-type: temporal-reasoning 0.8346 and
 knowledge-update 0.9861 are per-question identical.
 
@@ -918,13 +918,13 @@ Two things this proves, one thing it deliberately shows:
   guard samples.
 - **The temporal leg is zero-effect here by design**: it activates on
   explicit time-window intent (`after:2026-07`, "지난주에…"), which
-  LongMemEval's English question phrasing does not trigger — same result as
+  LongMemEval's English question phrasing does not trigger. Same result as
   the earlier recency ablation, now confirmed for the new leg on all 127
   temporal questions.
 - The run also hardened the harness itself: shard-parallel workers
   (`[limit] [shard] [shards]` argv), a **cross-question shared embed cache**
   (LongMemEval haystacks reuse sessions heavily; unique chunks now embed
-  once across the whole run — 124k cached vectors), per-worker ONNX
+  once across the whole run, 124k cached vectors), per-worker ONNX
   thread caps, and a gate so partial/limit runs can never overwrite the
   canonical results file.
 
